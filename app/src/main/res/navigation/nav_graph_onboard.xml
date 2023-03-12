@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph_onboard"
+    app:startDestination="@id/destination_login">
+
+    <fragment
+        android:id="@+id/destination_login"
+        android:name="com.vljx.hawkspeed.view.onboard.LoginFragment" >
+        <action
+            android:id="@+id/action_destination_login_to_destination_register"
+            app:destination="@id/destination_register" />
+    </fragment>
+    <fragment
+        android:id="@+id/destination_register"
+        android:name="com.vljx.hawkspeed.view.onboard.RegisterFragment" />
+</navigation>

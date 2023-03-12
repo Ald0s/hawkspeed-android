@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph_main"
+    app:startDestination="@id/destination_loading">
+
+    <fragment
+        android:id="@+id/destination_world_coordinator"
+        android:name="com.vljx.hawkspeed.view.world.WorldCoordinatorFragment" >
+        <action
+            android:id="@+id/action_destination_world_coordinator_to_destination_record_track"
+            app:destination="@id/destination_record_track" />
+    </fragment>
+    <fragment
+        android:id="@+id/destination_record_track"
+        android:name="com.vljx.hawkspeed.view.track.RecordTrackFragment" />
+    <fragment
+        android:id="@+id/destination_loading"
+        android:name="com.vljx.hawkspeed.view.LoadingFragment" >
+        <action
+            android:id="@+id/action_destination_loading_to_destination_world_coordinator"
+            app:destination="@id/destination_world_coordinator" />
+    </fragment>
+</navigation>

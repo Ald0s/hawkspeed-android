@@ -1,0 +1,133 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+
+    id 'kotlin-kapt'
+    id 'dagger.hilt.android.plugin'
+    id 'kotlinx-serialization'
+    id 'kotlin-android-extensions'
+
+    id 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
+}
+android {
+    namespace 'com.vljx.hawkspeed'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.vljx.hawkspeed"
+        minSdk 29
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner = "com.vljx.hawkspeed.HawkSpeedJUnitRunner"
+    }
+    buildFeatures {
+        dataBinding true
+        viewBinding true
+    }
+
+    testOptions {
+        animationsDisabled = true
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            manifestPlaceholders = ["usesCleartextTraffic": "false"]
+        }
+
+        debug {
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            manifestPlaceholders = ["usesCleartextTraffic": "true"]
+        }
+    }
+    flavorDimensions "data_access"
+    productFlavors {
+        mocked {
+            dimension "data_access"
+            buildConfigField "boolean", "MOCKED_DATA_ACCESS", "true"
+            buildConfigField "String", "SERVICE_URL", "\"http://localhost:8080\""
+        }
+        realLocalServer {
+            dimension "data_access"
+            buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
+            buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.253:5000/api/\""
+        }
+        real {
+            dimension "data_access"
+            buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
+            buildConfigField "String", "SERVICE_URL", "\"http://TODO.com\""
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    implementation project(path: ":common")
+    implementation project(path: ":domain")
+    implementation project(path: ":data")
+
+    // Google Play Services.
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
+    implementation 'com.google.android.gms:play-services-maps:18.1.0'
+    // Retrofit.
+    implementation "com.squareup.retrofit2:retrofit:2.9.0"
+    implementation "com.squareup.retrofit2:converter-gson:2.9.0"
+    // OkHttp.
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
+    implementation("com.squareup.okhttp3:mockwebserver:4.10.0")
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.5.3'
+    implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
+    implementation 'androidx.fragment:fragment-ktx:1.5.5'
+    // Room.
+    annotationProcessor "androidx.room:room-compiler:2.5.0"
+    kapt("androidx.room:room-compiler:2.5.0")
+    implementation("androidx.room:room-runtime:2.5.0")
+    implementation("androidx.room:room-ktx:2.5.0")
+    implementation("androidx.room:room-paging:2.5.0")
+    // Hilt & Dagger.
+    implementation 'com.google.dagger:hilt-android:2.44.2'
+    kapt 'com.google.dagger:hilt-compiler:2.44.2'
+    androidTestImplementation  'com.google.dagger:hilt-android-testing:2.44.2'
+    kaptAndroidTest 'com.google.dagger:hilt-compiler:2.44.2'
+    testImplementation 'com.google.dagger:hilt-android-testing:2.44.2'
+    kaptTest 'com.google.dagger:hilt-compiler:2.44.2'
+    // Paging.
+    implementation("androidx.paging:paging-runtime-ktx:3.1.1")
+    // Timber.
+    implementation 'com.jakewharton.timber:timber:5.0.1'
+    // Espresso.
+    implementation "androidx.test.espresso:espresso-idling-resource:3.5.0"
+    // Picasso.
+    implementation 'com.squareup.picasso:picasso:2.8'
+    // Navigation.
+    implementation "androidx.navigation:navigation-fragment-ktx:2.5.3"
+    implementation "androidx.navigation:navigation-ui-ktx:2.5.3"
+    implementation("androidx.hilt:hilt-navigation-fragment:1.0.0")
+    androidTestImplementation("androidx.navigation:navigation-testing:2.5.3")
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+    androidTestImplementation "androidx.test.espresso:espresso-contrib:3.3.0"
+    androidTestImplementation "androidx.test.espresso:espresso-intents:3.3.0"
+
+    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation "androidx.fragment:fragment-ktx:1.5.5"
+    implementation "androidx.activity:activity-ktx:1.6.1"
+    implementation "androidx.lifecycle:lifecycle-viewmodel:2.5.1"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1"
+    androidTestImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4'
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+}
