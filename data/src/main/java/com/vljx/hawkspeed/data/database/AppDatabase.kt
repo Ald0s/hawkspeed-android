@@ -6,22 +6,20 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.vljx.hawkspeed.data.database.dao.AccountDao
-import com.vljx.hawkspeed.data.database.dao.TrackDao
-import com.vljx.hawkspeed.data.database.dao.TrackPointDao
-import com.vljx.hawkspeed.data.database.entity.AccountEntity
-import com.vljx.hawkspeed.data.database.entity.TrackEntity
-import com.vljx.hawkspeed.data.database.entity.TrackPointEntity
-import com.vljx.hawkspeed.data.database.entity.UserEntity
+import com.vljx.hawkspeed.data.database.dao.*
+import com.vljx.hawkspeed.data.database.entity.*
 
-@Database(entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPointEntity::class],
-    version = 4
+@Database(
+    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPointEntity::class, RaceEntity::class, RaceOutcomeEntity::class],
+    version = 7
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun trackDao(): TrackDao
     abstract fun trackPointDao(): TrackPointDao
+    abstract fun raceDao(): RaceDao
+    abstract fun raceOutComeDao(): RaceOutcomeDao
 
     companion object {
         const val DATABASE_NAME = "hawkdb"

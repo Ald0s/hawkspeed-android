@@ -17,6 +17,18 @@ data class Track(
     val canDelete: Boolean,
     //val points: List<TrackPoint>
 ): Parcelable {
+    override fun equals(other: Any?): Boolean {
+        return if(other is Track) {
+            other.trackUid == trackUid
+        } else {
+            super.equals(other)
+        }
+    }
+
+    override fun hashCode(): Int {
+        return trackUid.hashCode()
+    }
+
     companion object {
         const val ARG_TRACK = "com.vljx.hawkspeed.domain.models.track.Track.ARG_TRACK"
     }

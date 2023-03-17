@@ -6,7 +6,9 @@ import com.vljx.hawkspeed.domain.requests.track.GetTrackRequest
 import kotlinx.coroutines.flow.Flow
 
 interface TrackLocalData {
+    fun selectTracks(): Flow<List<TrackModel>>
     fun selectTrack(getTrackRequest: GetTrackRequest): Flow<TrackModel?>
 
     suspend fun upsertTrack(trackModel: TrackModel)
+    suspend fun upsertTracks(trackModels: List<TrackModel>)
 }

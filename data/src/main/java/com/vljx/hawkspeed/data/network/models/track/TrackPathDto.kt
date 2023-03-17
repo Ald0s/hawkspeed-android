@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 
 data class TrackPathDto(
     @Expose
-    @SerializedName("uid")
+    @SerializedName("track_uid")
     val trackUid: String,
 
     @Expose

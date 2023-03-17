@@ -21,6 +21,10 @@ data class ConnectAuthenticationRequestDto(
     val viewportMaxY: Double,
 
     @Expose
+    @SerializedName("zoom")
+    val zoom: Float,
+
+    @Expose
     @SerializedName("latitude")
     val latitude: Double,
 
@@ -38,5 +42,5 @@ data class ConnectAuthenticationRequestDto(
 
     @Expose
     @SerializedName("logged_at")
-    val loggedAt: Int
+    val loggedAt: Long
 )

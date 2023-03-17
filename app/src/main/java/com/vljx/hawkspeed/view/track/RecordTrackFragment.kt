@@ -69,10 +69,10 @@ class RecordTrackFragment : BaseFollowWorldMapFragment<FragmentRecordTrackBindin
                 "Example Track",
                 "Cool track",
                 listOf(
-                    RecordedPointDraft(0, -37.774328, 145.214102, 0.0f, 70.0f, Date(1678253040*1000L)),
-                    RecordedPointDraft(1, -37.774338, 145.214112, 0.0f, 70.0f, Date(1678253040*1000L)),
-                    RecordedPointDraft(2, -37.774349, 145.214122, 0.0f, 70.0f, Date(1678253040*1000L)),
-                    RecordedPointDraft(3, -37.774359, 145.214132, 0.0f, 70.0f, Date(1678253040*1000L))
+                    RecordedPointDraft(0, -37.774328, 145.214102, 0.0f, 70.0f, 1678253040*1000L),
+                    RecordedPointDraft(1, -37.774338, 145.214112, 0.0f, 70.0f, 1678253040*1000L),
+                    RecordedPointDraft(2, -37.774349, 145.214122, 0.0f, 70.0f, 1678253040*1000L),
+                    RecordedPointDraft(3, -37.774359, 145.214132, 0.0f, 70.0f, 1678253040*1000L)
                 )
             )
         )

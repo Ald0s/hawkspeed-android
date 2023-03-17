@@ -3,9 +3,7 @@ package com.vljx.hawkspeed.domain.di.module
 import com.vljx.hawkspeed.domain.di.Bridged
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponentManager
-import com.vljx.hawkspeed.domain.repository.AccountRepository
-import com.vljx.hawkspeed.domain.repository.TrackPathRepository
-import com.vljx.hawkspeed.domain.repository.TrackRepository
+import com.vljx.hawkspeed.domain.repository.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.EntryPoint
@@ -21,6 +19,8 @@ interface AuthenticationEntryPoint {
     fun accountRepository(): AccountRepository
     fun trackRepository(): TrackRepository
     fun trackPathRepository(): TrackPathRepository
+    fun raceRepository(): RaceRepository
+    fun raceOutcomeRepository(): RaceOutcomeRepository
 }
 
 @Module
@@ -52,4 +52,22 @@ class AuthenticationAccessModule {
         EntryPoints
             .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
             .trackPathRepository()
+
+    @Bridged
+    @Provides
+    fun provideRaceRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): RaceRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .raceRepository()
+
+    @Bridged
+    @Provides
+    fun provideRaceOutcomeRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): RaceOutcomeRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .raceOutcomeRepository()
 }

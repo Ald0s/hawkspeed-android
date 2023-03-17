@@ -10,6 +10,12 @@ abstract class TrackDao: BaseDao<TrackEntity>() {
     @Query("""
         SELECT *
         FROM track
+    """)
+    abstract fun selectAllTracks(): Flow<List<TrackEntity>>
+
+    @Query("""
+        SELECT *
+        FROM track
         WHERE track.trackUid = :trackUid
     """)
     abstract fun selectTrackByUid(trackUid: String): Flow<TrackEntity?>

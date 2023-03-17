@@ -22,6 +22,6 @@ data class ConnectAuthenticationResponseDto(
     val rotation: Float,
 
     @Expose
-    @SerializedName("tracks")
-    val tracks: List<TrackDto>
+    @SerializedName("viewport_update")
+    val viewportUpdate: ViewportUpdateResponseDto?
 )

@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder
 import com.squareup.picasso.Picasso
 import com.vljx.hawkspeed.data.BuildConfig
 import com.vljx.hawkspeed.data.network.api.AccountService
+import com.vljx.hawkspeed.data.network.api.RaceService
 import com.vljx.hawkspeed.data.network.api.TrackService
 import com.vljx.hawkspeed.data.network.serialisation.LocalDateDeserialiser
 import com.vljx.hawkspeed.data.network.serialisation.LocalDateSerialiser
@@ -21,6 +22,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.internal.cookieToString
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.create
 import timber.log.Timber
 import java.io.IOException
 import java.net.CookieManager
@@ -120,4 +122,9 @@ class NetworkModule {
     @Singleton
     fun provideTrackService(retrofit: Retrofit): TrackService =
         retrofit.create(TrackService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideRaceService(retrofit: Retrofit): RaceService =
+        retrofit.create(RaceService::class.java)
 }

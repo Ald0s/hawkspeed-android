@@ -1,17 +1,26 @@
 package com.vljx.hawkspeed.data.socket
 
+import android.location.Location
 import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.vljx.hawkspeed.data.BuildConfig
+import com.vljx.hawkspeed.data.mapper.race.RaceMapper
+import com.vljx.hawkspeed.data.mapper.track.TrackMapper
+import com.vljx.hawkspeed.data.network.mapper.race.RaceUpdateDtoMapper
+import com.vljx.hawkspeed.data.network.mapper.track.TrackDtoMapper
+import com.vljx.hawkspeed.data.network.models.race.RaceUpdateDto
 import com.vljx.hawkspeed.data.socket.Extension.emit
 import com.vljx.hawkspeed.data.socket.Extension.on
-import com.vljx.hawkspeed.data.socket.models.ConnectAuthenticationResponseDto
-import com.vljx.hawkspeed.data.socket.models.PlayerUpdateResponseDto
-import com.vljx.hawkspeed.data.socket.models.RaceStartedResponseDto
+import com.vljx.hawkspeed.data.socket.models.*
 import com.vljx.hawkspeed.data.socket.requests.ConnectAuthenticationRequestDto
 import com.vljx.hawkspeed.data.socket.requests.PlayerUpdateRequestDto
 import com.vljx.hawkspeed.data.socket.requests.StartRaceRequestDto
+import com.vljx.hawkspeed.data.socket.requests.ViewportUpdateRequestDto
+import com.vljx.hawkspeed.domain.di.Bridged
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
+import com.vljx.hawkspeed.domain.models.race.Race
+import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.domain.repository.RaceRepository
+import com.vljx.hawkspeed.domain.repository.TrackRepository
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
@@ -31,8 +40,18 @@ import javax.inject.Singleton
 
 @Singleton
 class WorldSocketSession @Inject constructor(
-    applicationScope: ApplicationScope,
-    private val cookieJar: CookieJar
+    private val applicationScope: ApplicationScope,
+    private val cookieJar: CookieJar,
+    @Bridged
+    private val trackRepository: TrackRepository,
+    @Bridged
+    private val raceRepository: RaceRepository,
+
+    private val raceUpdateDtoMapper: RaceUpdateDtoMapper,
+    private val raceMapper: RaceMapper,
+
+    private val trackDtoMapper: TrackDtoMapper,
+    private val trackMapper: TrackMapper
 ) {
     /**
      * A mutable state flow for the target server information that will be set by the service, when a request to join the world has been completed.
@@ -76,10 +95,21 @@ class WorldSocketSession @Inject constructor(
         }.stateIn(applicationScope, SharingStarted.Eagerly, WorldSocketPermissionState.CantJoinWorld)
 
     /**
+     * A state flow for the current location, or whichever was most recently sent.
+     */
+    private val mutableCurrentLocation: MutableStateFlow<Location?> = MutableStateFlow(null)
+
+    /**
      * A state flow for the current state of the connection to the game server.
      */
     val worldSocketState: SharedFlow<WorldSocketState> =
         mutableWorldSocketState
+
+    /**
+     * The current location.
+     */
+    val currentLocation: StateFlow<Location?> =
+        mutableCurrentLocation
 
     /**
      * A property that will return the current world socket permission state, which represents the most recent instruction given to the
@@ -132,6 +162,13 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
+     * Update the current location for the device.
+     */
+    fun setCurrentLocation(location: Location?) {
+        mutableCurrentLocation.tryEmit(location)
+    }
+
+    /**
      * Request a new race on the given race track, given a fresh location.
      */
     fun sendRaceRequest(startRaceRequest: StartRaceRequestDto) {
@@ -141,7 +178,11 @@ class WorldSocketSession @Inject constructor(
         }
         // Perform an emission toward the event name associated with the start race handler.
         socket!!.emit<StartRaceRequestDto, RaceStartedResponseDto>("start_race", startRaceRequest) { raceStartedResponse ->
-            // TODO: race has been started.
+            // TODO: properly handle the case in which race was NOT started properly. For now, simply throw an exc.
+            if(!raceStartedResponse.isStarted) {
+                throw NotImplementedError("Failed to handle raceStartedResponse - isStarted not handled yet.")
+            }
+            handleRaceStarted(raceStartedResponse)
         }
     }
 
@@ -155,8 +196,20 @@ class WorldSocketSession @Inject constructor(
         }
         // Perform an emission toward this event name.
         socket!!.emit<PlayerUpdateRequestDto, PlayerUpdateResponseDto>("player_update", playerUpdateRequest) { playerUpdateResponse ->
-            Timber.d("Received approved position: lat: ${playerUpdateResponse.latitude}, long: ${playerUpdateResponse.longitude}")
-            // TODO: do something with the received world results.
+            handlePlayerUpdateResponse(playerUpdateResponse)
+        }
+    }
+
+    /**
+     * Update the Player's viewport, receiving all objects in their sight.
+     */
+    fun sendViewportUpdate(viewportUpdateRequestDto: ViewportUpdateRequestDto) {
+        if(socket == null || socket?.connected() != true) {
+            return
+        }
+        // Perform an emission toward the event name 'viewport_update'.
+        socket!!.emit<ViewportUpdateRequestDto, ViewportUpdateResponseDto>("viewport_update", viewportUpdateRequestDto) { viewportUpdateResponse ->
+            handleViewportUpdateResponse(viewportUpdateResponse)
         }
     }
 
@@ -222,6 +275,9 @@ class WorldSocketSession @Inject constructor(
             on("disconnect") { response -> handleDisconnection(response) }
             // Register all custom handlers.
             on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it) }
+            on<RaceUpdateDto>("race-finished") { handleRaceFinished(it) }
+            on<RaceUpdateDto>("race-disqualified") { handleRaceDisqualified(it) }
+            on<RaceUpdateDto>("race-cancelled") { handleRaceCancelled(it) }
         }?.connect()
     }
 
@@ -256,6 +312,10 @@ class WorldSocketSession @Inject constructor(
      */
     private fun handleWelcomeToWorld(connectAuthenticationResponseDto: ConnectAuthenticationResponseDto) {
         Timber.d("We have received a welcome-to-world message. We are now connected & joined.")
+        // If we have been sent a viewport update response, handle a viewport update response.
+        if(connectAuthenticationResponseDto.viewportUpdate != null) {
+            handleViewportUpdateResponse(connectAuthenticationResponseDto.viewportUpdate)
+        }
         // Update world game server state to reflect connected. (and joined?)
         mutableWorldSocketState.tryEmit(
             WorldSocketState.Connected(
@@ -268,7 +328,79 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
-     *
+     * Handle an acknowledgement response to the submission of a player update.
+     */
+    private fun handlePlayerUpdateResponse(playerUpdateResponse: PlayerUpdateResponseDto) {
+        // If the viewport update within this response is not null, handle a viewport update response for it.
+        if(playerUpdateResponse.viewportUpdate != null) {
+            handleViewportUpdateResponse(playerUpdateResponse.viewportUpdate)
+        }
+        // TODO: handle other things from player update response.
+    }
+
+    /**
+     * Handle an acknowledgement response to the submission of a viewport update.
+     */
+    private fun handleViewportUpdateResponse(viewportUpdateResponse: ViewportUpdateResponseDto) {
+        applicationScope.launch {
+            // Get the tracks and map them to model, then to domain.
+            val tracks: List<Track> = viewportUpdateResponse.tracks
+                    .map { trackDtoMapper.mapFromDto(it) }
+                    .map { trackMapper.mapFromData(it) }
+            // Upsert these tracks.
+            trackRepository.cacheTracks(tracks)
+        }
+    }
+
+    /**
+     * Handle a race being successfully started.
+     */
+    private fun handleRaceStarted(raceStartedResponse: RaceStartedResponseDto) {
+        if(!raceStartedResponse.isStarted) {
+            throw NotImplementedError("handleRaceStarted is not supposed to ever handle a failed attempt to start a new race (isStarted == false)")
+        }
+        applicationScope.launch {
+            // We can be sure the race has actually started. We can read the RaceUpdate from this and upsert it.
+            upsertRaceUpdate(
+                raceStartedResponse.race!!
+            )
+        }
+    }
+
+    /**
+     * Handle the current race being finished successfully.
+     */
+    private fun handleRaceFinished(raceUpdate: RaceUpdateDto) {
+        applicationScope.launch {
+            // When we are notified of the race finishing, we must simply upsert the received race.
+            upsertRaceUpdate(raceUpdate)
+        }
+    }
+
+    /**
+     * Handle the server alerting the device that a race we're currently in has been disqualified. This is already committed on the serverside, and as such,
+     * this is just a reactive handle.
+     */
+    private fun handleRaceDisqualified(raceUpdate: RaceUpdateDto) {
+        applicationScope.launch {
+            // When we are notified of a disqualification, we must simply upsert the received race.
+            upsertRaceUpdate(raceUpdate)
+        }
+    }
+
+    /**
+     * Handle the server alerting the device that a race we're currently in has been cancelled. This is already committed on the serverside, and as such,
+     * this is just a reactive handle.
+     */
+    private fun handleRaceCancelled(raceUpdate: RaceUpdateDto) {
+        applicationScope.launch {
+            // When we are notified of a cancellation, we must simply upsert the received race.
+            upsertRaceUpdate(raceUpdate)
+        }
+    }
+
+    /**
+     * Handle any connection errors raised while attempting connection to the server.
      */
     private fun handleConnectionError(response: Array<out Any>) {
         Timber.d("Failed to connect to SocketIO server.")
@@ -282,7 +414,7 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
-     *
+     * Handle a disconnection from the server.
      */
     private fun handleDisconnection(response: Array<out Any>) {
         Timber.d("Disconnected from SocketIO server.")
@@ -293,5 +425,17 @@ class WorldSocketSession @Inject constructor(
         mutableWorldSocketState.tryEmit(
             WorldSocketState.Disconnected
         )
+    }
+
+    /**
+     * A function to reduce code duplication involved in updating a Race instance.
+     */
+    private suspend fun upsertRaceUpdate(raceUpdate: RaceUpdateDto) {
+        // Map from DTO and from Model.
+        val race: Race = raceMapper.mapFromData(
+            raceUpdateDtoMapper.mapFromDto(raceUpdate)
+        )
+        // Upsert this.
+        raceRepository.cacheRace(race)
     }
 }

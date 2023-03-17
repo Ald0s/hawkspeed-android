@@ -2,9 +2,7 @@ package com.vljx.hawkspeed.data.di.module
 
 import android.app.Application
 import com.vljx.hawkspeed.data.database.AppDatabase
-import com.vljx.hawkspeed.data.database.dao.AccountDao
-import com.vljx.hawkspeed.data.database.dao.TrackDao
-import com.vljx.hawkspeed.data.database.dao.TrackPointDao
+import com.vljx.hawkspeed.data.database.dao.*
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import dagger.Module
 import dagger.Provides
@@ -29,4 +27,12 @@ class DatabaseModule {
     @Provides
     fun provideTrackPointDao(appDatabase: AppDatabase): TrackPointDao =
         appDatabase.trackPointDao()
+
+    @Provides
+    fun provideRaceDao(appDatabase: AppDatabase): RaceDao =
+        appDatabase.raceDao()
+
+    @Provides
+    fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceOutcomeDao =
+        appDatabase.raceOutComeDao()
 }

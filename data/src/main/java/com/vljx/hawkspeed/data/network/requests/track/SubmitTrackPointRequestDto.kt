@@ -16,7 +16,7 @@ data class SubmitTrackPointRequestDto(
 
     @Expose
     @SerializedName("logged_at")
-    val loggedAt: Date,
+    val loggedAt: Long,
 
     @Expose
     @SerializedName("speed")

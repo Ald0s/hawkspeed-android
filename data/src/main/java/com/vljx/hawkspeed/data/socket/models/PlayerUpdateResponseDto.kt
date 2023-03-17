@@ -18,6 +18,6 @@ data class PlayerUpdateResponseDto(
     val rotation: Double,
 
     @Expose
-    @SerializedName("tracks")
-    val tracks: List<TrackDto>
+    @SerializedName("viewport_update")
+    val viewportUpdate: ViewportUpdateResponseDto?
 )

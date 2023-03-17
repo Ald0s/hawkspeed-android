@@ -9,7 +9,7 @@ data class RecordedPointDraft(
     val longitude: Double,
     val rotation: Float,
     val speed: Float,
-    val loggedAt: Date
+    val loggedAt: Long
 ) {
     constructor(pointIndex: Int, location: Location):
             this(
@@ -18,6 +18,6 @@ data class RecordedPointDraft(
                 location.longitude,
                 location.bearing,
                 location.speed,
-                Date(location.time)
+                location.time
             )
 }

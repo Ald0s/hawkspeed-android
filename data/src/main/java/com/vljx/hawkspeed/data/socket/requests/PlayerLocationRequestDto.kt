@@ -22,5 +22,5 @@ data class PlayerLocationRequestDto(
 
     @Expose
     @SerializedName("logged_at")
-    val loggedAt: Int
+    val loggedAt: Long
 )

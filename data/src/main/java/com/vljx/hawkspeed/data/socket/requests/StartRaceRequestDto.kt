@@ -26,7 +26,7 @@ data class StartRaceRequestDto(
 
     @Expose
     @SerializedName("logged_at")
-    val loggedAt: Int,
+    val loggedAt: Long,
 
     @Expose
     @SerializedName("countdown_position")

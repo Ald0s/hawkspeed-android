@@ -14,7 +14,7 @@
         <import type="android.view.View" />
     </data>
 
-    <FrameLayout
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         tools:context=".view.world.WorldMapFragment">
@@ -42,7 +42,8 @@
             android:layout_height="match_parent"
             android:background="#FFFFFF"
             android:elevation="10dp"
-            android:visibility="@{worldMapViewModel.isLoading ? View.VISIBLE : View.GONE}" >
+            android:visibility="@{worldMapViewModel.isLoading ? View.VISIBLE : View.GONE}"
+            tools:visibility="gone">
 
             <ProgressBar
                 style="?android:attr/progressBarStyle"
@@ -51,6 +52,5 @@
                 android:layout_gravity="center"
                 android:background="#3F51B5" />
         </FrameLayout>
-
-    </FrameLayout>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </layout>

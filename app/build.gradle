@@ -49,16 +49,19 @@ android {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "true"
             buildConfigField "String", "SERVICE_URL", "\"http://localhost:8080\""
+            buildConfigField "boolean", "USE_MOCK_LOCATION", "true"
         }
         realLocalServer {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
             buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.253:5000/api/\""
+            buildConfigField "boolean", "USE_MOCK_LOCATION", "true"
         }
         real {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
             buildConfigField "String", "SERVICE_URL", "\"http://TODO.com\""
+            buildConfigField "boolean", "USE_MOCK_LOCATION", "false"
         }
     }
     compileOptions {

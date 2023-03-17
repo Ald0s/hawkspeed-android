@@ -13,6 +13,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.databinding.FragmentLoginBinding
 import com.vljx.hawkspeed.domain.Resource
+import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.account.Account.Companion.ARG_ACCOUNT
 import com.vljx.hawkspeed.domain.requests.LoginRequest
@@ -80,10 +81,7 @@ class LoginFragment : BaseFragment<FragmentLoginBinding>(), LoginPresenter {
                         Resource.Status.LOADING -> {
 
                         }
-                        Resource.Status.ERROR -> {
-                            // TODO: implement error handling when login result emits ERROR.
-                            throw NotImplementedError()
-                        }
+                        Resource.Status.ERROR -> handleLoginError(loginResource.resourceError!!)
                     }
                 }
             }
@@ -92,6 +90,17 @@ class LoginFragment : BaseFragment<FragmentLoginBinding>(), LoginPresenter {
         viewLifecycleOwner.lifecycleScope.launch {
             loginViewModel.attemptCheckLogin()
         }
+    }
+
+    private fun handleLoginError(resourceError: ResourceError) {
+        when(resourceError.apiError?.errorInformation?.get("error-code")) {
+            "bad-auth-header" -> {
+                // This means there is no previous sessions or logins from this device.
+                return
+            }
+        }
+        // TODO: implement error handling when login result emits ERROR.
+        throw NotImplementedError()
     }
 
     companion object {

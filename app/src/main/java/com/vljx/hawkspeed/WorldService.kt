@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.location.Location
+import android.location.LocationManager
 import android.os.*
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -16,10 +17,7 @@ import com.vljx.hawkspeed.data.socket.ServerInfoState
 import com.vljx.hawkspeed.data.socket.WorldSocketPermissionState
 import com.vljx.hawkspeed.data.socket.WorldSocketSession
 import com.vljx.hawkspeed.data.socket.WorldSocketState
-import com.vljx.hawkspeed.data.socket.requests.ConnectAuthenticationRequestDto
-import com.vljx.hawkspeed.data.socket.requests.PlayerLocationRequestDto
-import com.vljx.hawkspeed.data.socket.requests.PlayerUpdateRequestDto
-import com.vljx.hawkspeed.data.socket.requests.StartRaceRequestDto
+import com.vljx.hawkspeed.data.socket.requests.*
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.models.world.Viewport
 import com.vljx.hawkspeed.models.world.WorldInitial
@@ -35,15 +33,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class WorldService: Service() {
-    enum class WorldStatus(val idx: Int) {
-        CONNECTING(-1),
-        JOINED(0),
-        UPDATE(1),
-        LOCATION(2),
-        ERROR(3),
-        LEFT(4)
-    }
-
     @Inject
     lateinit var worldSocketSession: WorldSocketSession
 
@@ -74,10 +63,26 @@ class WorldService: Service() {
     // A boolean that indicates whether location updates are generally available.
     private var currentLocationAvailability: Boolean = false
 
+    @SuppressLint("MissingPermission")
     override fun onCreate() {
         super.onCreate()
         // Setup location client.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        if(BuildConfig.USE_MOCK_LOCATION) {
+            // If we're mocking location, set mock mode to true.
+            fusedLocationClient.setMockMode(true)
+            // Now also set a mocked location.
+            mockLocation(
+                Location(LocationManager.GPS_PROVIDER).apply {
+                    latitude = -37.757557
+                    longitude = 144.958444
+                    speed = 0f
+                    bearing = 180f
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                }
+            )
+        }
         // Get the notification manager.
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // Build a notification channel for the app.
@@ -156,6 +161,23 @@ class WorldService: Service() {
     }
 
     /**
+     * Update the latest viewport and send a viewport update to the server.
+     */
+    fun sendViewportUpdate(viewport: Viewport) {
+        // Set the latest viewport to this one.
+        setLatestViewport(viewport)
+        // Now, perform that request. Create the viewport update request dto, and send to socket session.
+        val viewportUpdateRequestDto = ViewportUpdateRequestDto(
+            viewport.minX,
+            viewport.minY,
+            viewport.maxX,
+            viewport.maxY,
+            viewport.zoom
+        )
+        worldSocketSession.sendViewportUpdate(viewportUpdateRequestDto)
+    }
+
+    /**
      * Update the latest viewport.
      */
     fun setLatestViewport(viewport: Viewport) {
@@ -176,56 +198,19 @@ class WorldService: Service() {
         }
         // In our custom scope, launch a new coroutine that will actually connect to the server.
         scope.launch {
-            // First, broadcast a connecting status.
-            broadcastWorldState(WorldStatus.CONNECTING)
             try {
                 // Get the most recent location availability status.
-                try {
-                    // We'll check our location availability now.
-                    val locationAvailability: LocationAvailability = Tasks.await(
-                        fusedLocationClient.locationAvailability
-                    )
-                    // Set location availability in the service.
-                    currentLocationAvailability = locationAvailability.isLocationAvailable
-                    Timber.d("Connecting to game server started, location available: ${locationAvailability.isLocationAvailable}")
-                } catch (ee: ExecutionException) {
-                    // TODO: exception occurred whilst running task.
-                    // TODO: This is the same exception we'd get in the handler.
-                    Timber.e(ee)
-                    throw NotImplementedError("Getting location availability failed! ANd is also not implemented.")
-                } catch (ie: InterruptedException) {
-                    Timber.w("Getting location availability was interrupted!")
-                    // TODO: implement a proper handler here.
-                    throw NotImplementedError("Failed to get location availability because it was interrupted - this is not yet handled.")
-                }
+                currentLocationAvailability = getCurrentLocationAvailability()
+                Timber.d("Connecting to game server started, location available: $currentLocationAvailability")
                 // Next, continue by getting the current location for this device. This is required for connecting to the server.
-                val location: Location
-                try {
-                    // TODO: check currentLocationAvailability and decide on a coarse of action, depending on its value. Is it worth it to try and get a
-                    // TODO: location irrespective???
-                    // TODO: Customise the CUrrentLocationRequest further to include distance travelled.
-                    location = Tasks.await(
-                        fusedLocationClient.getCurrentLocation(
-                            CurrentLocationRequest.Builder()
-                                .setMaxUpdateAgeMillis(5000)
-                                .build(),
-                            null
-                        )
-                    )
-                    // With this location, send this from service.
-                    broadcastWorldState(WorldStatus.LOCATION, Bundle().apply {
-                        putParcelable(ARG_LOCATION, location)
-                    })
-                } catch (ee: ExecutionException) {
-                    // TODO: exception occurred whilst running task.
-                    // TODO: This is the same exception we'd get in the handler.
-                    Timber.e(ee)
-                    throw NotImplementedError("Getting current location failed! ANd is also not implemented.")
-                } catch (it: InterruptedException) {
-                    Timber.w("Getting current location was interrupted!")
-                    // TODO: implement a proper handler here.
-                    throw NotImplementedError("Failed to get current location because it was interrupted - this is not yet handled.")
-                }
+                // TODO: check currentLocationAvailability and decide on a coarse of action, depending on its value. Is it worth it to try and get a
+                // TODO: location irrespective???
+                // TODO: Customise the CUrrentLocationRequest further to include distance travelled.
+                val location: Location = getCurrentLocation(
+                    CurrentLocationRequest.Builder()
+                        .setMaxUpdateAgeMillis(5000)
+                        .build()
+                )
                 // Build a connect/authentication request dto for the connection protocol.
                 // TODO: this breaks clean arch, I think... Revise.
                 val connectAuthenticationRequestDto = ConnectAuthenticationRequestDto(
@@ -233,11 +218,12 @@ class WorldService: Service() {
                     viewport.minY,
                     viewport.maxX,
                     viewport.maxY,
+                    viewport.zoom,
                     location.latitude,
                     location.longitude,
                     location.bearing,
                     location.speed,
-                    (location.time / 1000L).toInt()
+                    location.time
                 )
                 // TODO: get entry token & target game server info, if provided and when implemented.
                 // Update the world socket session to be aware of this configuration. All other requirements satisfied, this should trigger the connection procedure.
@@ -255,15 +241,6 @@ class WorldService: Service() {
                             Timber.d("World service has reported that it has successfully connected to the World service!")
                             // Begin the location updates.
                             beginLocationUpdates()
-                            // Broadcast that we are now joined to the game server.
-                            broadcastWorldState(WorldStatus.JOINED, Bundle().apply {
-                                putParcelable(ARG_WORLD_INITIAL, WorldInitial(
-                                    worldSocketState.playerUid,
-                                    worldSocketState.latitude,
-                                    worldSocketState.longitude,
-                                    worldSocketState.rotation
-                                ))
-                            })
                         }
                         is WorldSocketState.Connecting -> {
                             Timber.d("World service has reported that the connection to World service is in progress...")
@@ -304,13 +281,13 @@ class WorldService: Service() {
             location.longitude,
             location.bearing,
             location.speed,
-            (location.time / 1000L).toInt(),
+            location.time,
             PlayerLocationRequestDto(
                 countdownStarted.latitude,
                 countdownStarted.longitude,
                 countdownStarted.bearing,
                 countdownStarted.speed,
-                (countdownStarted.time / 1000L).toInt()
+                countdownStarted.time,
             )
         )
         // Send this to the server.
@@ -328,7 +305,6 @@ class WorldService: Service() {
         worldSocketSession.clearServerInfo()
         // Send out a LEFT status broadcast.
         // TODO: add reason as to why we left the world.
-        broadcastWorldState(WorldStatus.LEFT, null)
     }
 
     /**
@@ -344,37 +320,13 @@ class WorldService: Service() {
         stopSelf()
     }
 
-    /**
-     * Run a blocking get current location call for a Location instance matching the settings given by the location request. This function will
-     * either return the desired location, or will throw an exception.
-     */
     @SuppressLint("MissingPermission")
-    private suspend fun getCurrentLocation(currentLocationRequest: CurrentLocationRequest): Location {
-        val location: Location
-        try {
-            // Await the query for the current location.
-            location = Tasks.await(
-                fusedLocationClient.getCurrentLocation(
-                    currentLocationRequest,
-                    null
-                )
-            )
-            // With this location, send this from service.
-            broadcastWorldState(WorldStatus.LOCATION, Bundle().apply {
-                putParcelable(ARG_LOCATION, location)
-            })
-            // Return the location.
-            return location
-        } catch (ee: ExecutionException) {
-            // TODO: exception occurred whilst running task.
-            // TODO: This is the same exception we'd get in the handler.
-            Timber.e(ee)
-            throw NotImplementedError("Getting current location failed! ANd is also not implemented.")
-        } catch (it: InterruptedException) {
-            Timber.w("Getting current location was interrupted!")
-            // TODO: implement a proper handler here.
-            throw NotImplementedError("Failed to get current location because it was interrupted - this is not yet handled.")
+    fun mockLocation(location: Location) {
+        if(!BuildConfig.USE_MOCK_LOCATION) {
+            throw NotImplementedError()
         }
+        location.accuracy = 3.0f
+        fusedLocationClient.setMockLocation(location)
     }
 
     /**
@@ -445,6 +397,8 @@ class WorldService: Service() {
             // Get the latest viewport, and the location; and we should raise a npe if either is null.
             latestLocation = locationResult.lastLocation
                 ?: throw NullPointerException()
+            // TODO: review this. It may be inadvisable to send both the location & the viewport on location update, especially if a new location means a new camera position means
+            // TODO: both the viewport update & player update events will be triggered
             latestViewport = mutableLatestViewport.value
                 ?: throw NullPointerException()
         } catch(npe: NullPointerException) {
@@ -460,70 +414,82 @@ class WorldService: Service() {
             latestViewport.maxY,
             latestViewport.maxX,
             latestViewport.maxY,
+            latestViewport.zoom,
             latestLocation.latitude,
             latestLocation.longitude,
             latestLocation.bearing,
             latestLocation.speed,
-            (latestLocation.time / 1000L).toInt()
+            latestLocation.time
         )
+        /**
+         * TODO: watch this closely, and only remove this todo and the warning below when the following has been clarified:
+         * Each time a location update is triggered, we grab the latest viewport from the service, which is set on every camera movement in the service.
+         * Also on every viewport idle, a separate viewport update request is triggered. Will these double up bandwidth use?
+         */
+        Timber.w("SENDING PLAYER UPDATE (AND VIEWPORT) UPDATE")
+        // Send this location to the world socket session.
+        worldSocketSession.setCurrentLocation(locationResult.lastLocation)
         // Take this player update request and send it to the server now.
         worldSocketSession.sendPlayerUpdate(playerUpdateRequest)
-        // Finally, we will broadcast this location to anyone who is listening.
-        broadcastWorldState(WorldStatus.LOCATION, Bundle().apply {
-            putParcelable(ARG_LOCATION, latestLocation)
-        })
-        /*if(locationResult.lastLocation != null && mutableLatestViewport.value != null) {
-            Timber.d("WorldService has received a new location. Location: $locationResult")
-            // Get the viewport.
-            val currentViewport: Viewport = mutableLatestViewport.value
-            // With this location result, instantiate a player update request.
-            val playerUpdateRequest = PlayerUpdateRequestDto()
-            // Now, use this service's scope to invoke a player update.
-            scope.launch {
-                playerUpdateUseCase(
-                    PlayerUpdateRequest(
-                        locationResult.lastLocation!!
-                    )
-                ).filter { it.status == Resource.Status.SUCCESS || it.status == Resource.Status.ERROR }.collect { worldUpdateResource ->
-                    if(worldUpdateResource.status == Resource.Status.ERROR) {
-                        handleErrorType(worldUpdateResource.resourceError)
-                    } else {
-                        // Build an intent indicating that we have received a world update.
-                        val worldUpdateIntent = Intent(ACTION_WORLD_STATUS).apply {
-                            putExtra(WorldStatus.UPDATE, ARG_WORLD_STATUS)
-                            putExtra(ARG_WORLD_UPDATE, worldUpdateResource.data!!)
-                        }
-                        // Broadcast this intent.
-                        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(worldUpdateIntent)
-                    }
-                }
-            }
-            broadcastWorldState(WorldStatus.LOCATION, Bundle().apply {
-                putParcelable(ARG_LOCATION, locationResult.lastLocation!!)
-            })
-        } else {
+    }
 
-        }*/
+    /**
+     * Get the location availability and return it. This will run the task blocking.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun getCurrentLocationAvailability(): Boolean {
+        // Get the most recent location availability status.
+        try {
+            // We'll check our location availability now.
+            val locationAvailability: LocationAvailability = Tasks.await(
+                fusedLocationClient.locationAvailability
+            )
+            return locationAvailability.isLocationAvailable
+        } catch (ee: ExecutionException) {
+            // TODO: exception occurred whilst running task.
+            // TODO: This is the same exception we'd get in the handler.
+            Timber.e(ee)
+            throw NotImplementedError("Getting location availability failed! ANd is also not implemented.")
+        } catch (ie: InterruptedException) {
+            Timber.w("Getting location availability was interrupted!")
+            // TODO: implement a proper handler here.
+            throw NotImplementedError("Failed to get location availability because it was interrupted - this is not yet handled.")
+        }
+    }
+
+    /**
+     * Run a blocking get current location call for a Location instance matching the settings given by the location request. This function will
+     * either return the desired location, or will throw an exception.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun getCurrentLocation(currentLocationRequest: CurrentLocationRequest): Location {
+        val location: Location
+        try {
+            // Await the query for the current location.
+            location = Tasks.await(
+                fusedLocationClient.getCurrentLocation(
+                    currentLocationRequest,
+                    null
+                )
+            )
+            // Return the location.
+            return location
+        } catch (ee: ExecutionException) {
+            // TODO: exception occurred whilst running task.
+            // TODO: This is the same exception we'd get in the handler.
+            Timber.e(ee)
+            throw NotImplementedError("Getting current location failed! ANd is also not implemented.")
+        } catch (it: InterruptedException) {
+            Timber.w("Getting current location was interrupted!")
+            // TODO: implement a proper handler here.
+            throw NotImplementedError("Failed to get current location because it was interrupted - this is not yet handled.")
+        }
     }
 
     private fun handleErrorType(resourceError: ResourceError?) {
         // TODO: broadcast a LEFT status with this resource error or some clue as to its reason.
         Timber.e("HANDLE ERROR TYPE")
         throw NotImplementedError()
-    }
-
-    private fun broadcastWorldState(status: WorldStatus, desiredExtras: Bundle? = null) {
-        val broadcastIntent = Intent(ACTION_WORLD_STATUS).apply {
-            if(desiredExtras != null) {
-                // Add all extras desired to the broadcast intent.
-                putExtras(desiredExtras)
-            }
-            // Add an extra for the desired status.
-            putExtra(status, ARG_WORLD_STATUS)
-        }
-        // Broadcast this intent.
-        LocalBroadcastManager.getInstance(applicationContext)
-            .sendBroadcast(broadcastIntent)
     }
 
     private fun getNotification(): Notification {
@@ -565,13 +531,6 @@ class WorldService: Service() {
         const val ONGOING_NOTIFICATION_ID = 8011997
 
         const val ACTION_WORLD_STATUS = "com.vljx.hawkspeed.WorldService.ACTION_WORLD_STATUS"
-        const val ARG_WORLD_STATUS = "com.vljx.hawkspeed.WorldService.ARG_WORLD_STATUS"
-
-        const val ARG_JOIN_WORLD = "com.vljx.hawkspeed.WorldService.ARG_JOIN_WORLD"
-        const val ARG_WORLD_UPDATE = "com.vljx.hawkspeed.WorldService.ARG_WORLD_UPDATE"
-        const val ARG_LOCATION = "com.vljx.hawkspeed.WorldService.ARG_LOCATION"
-        const val ARG_LOCATION_AVAILABILITY = "com.vljx.hawkspeed.WorldService.ARG_LOCATION_AVAILABILITY"
-        const val ARG_WORLD_ERROR = "com.vljx.hawkspeed.WorldService.ARG_WORLD_ERROR"
 
         const val ARG_STARTED_FROM_NOTIFICATION = "com.vljx.hawkspeed.WorldService.ARG_STARTED_FROM_NOTIFICATION"
     }

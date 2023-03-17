@@ -4,7 +4,9 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vljx.hawkspeed.domain.Resource
+import com.vljx.hawkspeed.domain.interactor.race.GetOngoingRaceUseCase
 import com.vljx.hawkspeed.domain.interactor.track.GetTrackPathUseCase
+import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.track.TrackPoint
@@ -12,6 +14,7 @@ import com.vljx.hawkspeed.domain.requests.track.GetTrackPathRequest
 import com.vljx.hawkspeed.models.track.RaceCountdownState
 import com.vljx.hawkspeed.models.track.RaceState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -19,7 +22,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RaceTrackViewModel @Inject constructor(
-    private val getTrackPathUseCase: GetTrackPathUseCase
+    private val getTrackPathUseCase: GetTrackPathUseCase,
+    private val getOngoingRaceUseCase: GetOngoingRaceUseCase
 ): ViewModel() {
     /**
      * A shared flow for the currently selected track.
@@ -50,10 +54,41 @@ class RaceTrackViewModel @Inject constructor(
         }
 
     /**
-     * The actual race state.
+     * A flow for the current ongoing race.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val ongoingRace: Flow<Race> =
+        combine(
+            getOngoingRaceUseCase(Unit),
+            mutableSelectedTrack
+        ) { race, selectedTrack ->
+            // If race is not null and the track within selected track matches the track on the current race, return that race otherwise null.
+            return@combine when {
+                race != null && race.trackUid == selectedTrack.trackUid -> race
+                else -> null
+            }
+        }.transformLatest { nullableRace ->
+            if(nullableRace != null) {
+                emit(nullableRace)
+            }
+        }
+
+    /**
+     * The actual race state. This is a combination flow of the mutable race state and the ongoing Race flow.
      */
     val raceState: StateFlow<RaceState> =
-        mutableRaceState
+        combine(
+            mutableRaceState,
+            ongoingRace
+        ) { raceState, race ->
+            // If race is disqualified, cancelled or finished we will emit something set.
+            return@combine when {
+                race.isFinished -> RaceState.Finished
+                race.isDisqualified -> RaceState.Disqualified(false) // TODO: add disqualification reason here.
+                race.isCancelled -> RaceState.Cancelled
+                else -> raceState
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, RaceState.Preparing)
 
     /**
      * The race countdown's state.
@@ -61,6 +96,7 @@ class RaceTrackViewModel @Inject constructor(
      * until GO is reached. At which point, the racing state is emitted to the overall race state. If race state is anything except CountdownStarted, the transform
      * will simply emit the Idle state.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val raceCountdownState: Flow<RaceCountdownState> =
         mutableRaceState.transformLatest { raceState ->
             if(raceState is RaceState.CountdownStarted) {

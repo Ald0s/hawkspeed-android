@@ -1,5 +1,6 @@
 package com.vljx.hawkspeed.view.world
 
+import android.annotation.SuppressLint
 import android.content.*
 import android.location.Location
 import android.os.Bundle
@@ -9,28 +10,31 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.Polyline
+import com.google.android.gms.maps.model.PolylineOptions
 import com.vljx.hawkspeed.R
-import com.vljx.hawkspeed.WorldService
-import com.vljx.hawkspeed.WorldService.Companion.ARG_WORLD_STATUS
-import com.vljx.hawkspeed.data.socket.WorldSocketSession
 import com.vljx.hawkspeed.databinding.FragmentWorldMapBinding
+import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.models.world.Viewport
 import com.vljx.hawkspeed.models.world.WorldInitial
-import com.vljx.hawkspeed.models.world.WorldInitial.Companion.ARG_WORLD_INITIAL
 import com.vljx.hawkspeed.presenter.world.WorldMapPresenter
-import com.vljx.hawkspeed.util.Extension.getEnumExtra
-import com.vljx.hawkspeed.view.base.BaseFragment
 import com.vljx.hawkspeed.view.base.BaseWorldMapFragment
 import com.vljx.hawkspeed.viewmodel.world.WorldMapViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import timber.log.Timber
-import javax.inject.Inject
 
 /**
  * A simple [Fragment] subclass.
@@ -45,15 +49,20 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
     override val bindingInflater: (LayoutInflater, ViewGroup?, Boolean) -> FragmentWorldMapBinding
         get() = FragmentWorldMapBinding::inflate
 
-    private lateinit var statusChangedReceiver: WorldStatusChangedReceiver
+    //private lateinit var statusChangedReceiver: WorldStatusChangedReceiver
 
     override fun getSupportMapFragment(): SupportMapFragment =
         childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
 
+    // Map a track hash, to a pair of the track and its marker.
+    private val trackMap: MutableMap<Track, Marker> = mutableMapOf()
+    // Map a track hash, to a pair of the track and its polyline.
+    private val trackPathMap: MutableMap<Track, Polyline> = mutableMapOf()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Instantiate the receivers.
-        statusChangedReceiver = WorldStatusChangedReceiver()
+        //statusChangedReceiver = WorldStatusChangedReceiver()
         arguments?.let {
             // TODO: read the connection response here. This will be a basic snapshot of the world at connection time.
         }
@@ -65,9 +74,9 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
 
     override fun onStart() {
         // Register all receivers for world updates.
-        LocalBroadcastManager.getInstance(requireContext()).apply {
-            registerReceiver(statusChangedReceiver, IntentFilter(WorldService.ACTION_WORLD_STATUS))
-        }
+        //LocalBroadcastManager.getInstance(requireContext()).apply {
+        //    registerReceiver(statusChangedReceiver, IntentFilter(WorldService.ACTION_WORLD_STATUS))
+        //}
         super.onStart()
     }
 
@@ -82,8 +91,77 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
         }
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Start collection of world objects from the database.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Collect indication that we can actually race a track.
+                launch {
+                    worldMapViewModel.canRaceOn.collectLatest { track ->
+                        if(track != null) {
+                            Timber.d("We are able to race the following track; $track")
+                            /**
+                             * TODO: this is where we can display a pop up UI of some description offering a race for this Player.
+                             * For example, display a modal bottom sheet dialog, which is collapsed at say, 15% of the screen, and will popup to review info about the trace and
+                             * offer the UI on which we can accept an offer to race.
+                             */
+                        } else {
+                            Timber.d("We are not able to race any track currently.")
+                            /**
+                             * TODO: clear any UI created by the track-not-none handler.
+                             */
+                        }
+                    }
+                }
+                // Collect all tracks.
+                launch {
+                    worldMapViewModel.tracksWithPaths.collectLatest { latestTracksWithPaths ->
+                        /**
+                         * TODO: improve this greatly.
+                         * We should relocate this entire logic pattern to a separate component, and for each entity.
+                         */
+                        googleMap?.apply {
+                            Timber.d("There are now ${latestTracksWithPaths.size} cached tracks to display on map.")
+                            // We will now update the tracks polylines.
+                            // TODO: should viewmodel actually map tracks to MarkerOptions, which we then use to create/update existing tracks?
+                            // For each track in latest tracks, we'll update markers.
+                            latestTracksWithPaths.forEach { trackWithPath ->
+                                val markerOptions: MarkerOptions = MarkerOptions()
+                                    .position(LatLng(trackWithPath.track.startPoint.latitude, trackWithPath.track.startPoint.longitude))
+                                // Get the current track -> marker pair from the map.
+                                val existingTrackMarker: Marker? = trackMap[trackWithPath.track]
+                                // If this is null, create one and add it. Otherwise, update it.
+                                if(existingTrackMarker == null) {
+                                    trackMap[trackWithPath.track] = googleMap!!.addMarker(markerOptions)
+                                        ?: throw NotImplementedError("Marker could not be added, and this is not handled.")
+                                } else {
+                                    existingTrackMarker.position = markerOptions.position
+                                }
+
+                                val existingTrackPolyline: Polyline? = trackPathMap[trackWithPath.track]
+                                if(trackWithPath.path != null) {
+                                    val polylineOptions: PolylineOptions = PolylineOptions()
+                                        .addAll(trackWithPath.path!!.points.map { LatLng(it.latitude, it.longitude) })
+                                    // If this is null, create one and add it. Otherwise, update it.
+                                    if(existingTrackPolyline == null) {
+                                        trackPathMap[trackWithPath.track] = googleMap!!.addPolyline(polylineOptions)
+                                    } else {
+                                        existingTrackPolyline.points = polylineOptions.points
+                                    }
+                                } else existingTrackPolyline?.remove()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
     override fun onMapReady(p0: GoogleMap) {
         super.onMapReady(p0)
+        p0.isMyLocationEnabled = true
         // Immediately use the bound service to join the world.
         arguments?.let {
             // TODO: we can read variables from the arguments here that can be used when joining the world.
@@ -102,26 +180,28 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
      * summary, as well as their current vehicle.
      */
     override fun onMarkerClick(p0: Marker): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
+        trackMap.asIterable().forEach {
+            if(it.value == p0) {
+                worldMapViewModel.getTrackPath(it.key)
+                return true
+            }
+        }
+        return false
     }
 
     private fun handleWorldJoined(initial: WorldInitial) {
         Timber.d("Successfully joined and connected to HawkSpeed world!")
-        worldMapViewModel.setLoading(false)
+        //worldMapViewModel.setLoading(false)
     }
 
-    private inner class WorldStatusChangedReceiver: BroadcastReceiver() {
+    /*private inner class WorldStatusChangedReceiver: BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             try {
                 when(val status: WorldService.WorldStatus? = intent?.getEnumExtra<WorldService.WorldStatus>(ARG_WORLD_STATUS)) {
                     WorldService.WorldStatus.CONNECTING -> {
                         // TODO: we can read a status string from here.
                         Timber.d("Connecting to game server...")
-                        worldMapViewModel.setLoading(true)
+                        //worldMapViewModel.setLoading(true)
                     }
                     WorldService.WorldStatus.JOINED -> {
                         val worldInitial: WorldInitial = intent.getParcelableExtra(ARG_WORLD_INITIAL)
@@ -147,19 +227,19 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
                         worldMapViewModel.setLoading(false)
                         // TODO: from here, we can call handleError if need be.
                     }
-                    else -> { throw NotImplementedError("No such world service status: $status") }
+                    else -> { Timber.w("$status is not supported by WorldBroadcastReceiver") }
                 }
             } catch(e: Exception) {
                 Timber.e(e)
             }
         }
-    }
+    }*/
 
     override fun onStop() {
         // Unregister all receivers for world updates.
-        LocalBroadcastManager.getInstance(requireContext()).apply {
-            unregisterReceiver(statusChangedReceiver)
-        }
+        //LocalBroadcastManager.getInstance(requireContext()).apply {
+        //    unregisterReceiver(statusChangedReceiver)
+        //}
         super.onStop()
     }
 
