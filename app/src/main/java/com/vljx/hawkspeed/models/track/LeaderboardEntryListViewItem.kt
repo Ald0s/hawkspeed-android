@@ -6,17 +6,17 @@ import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.models.ListItemViewModel
 
 class LeaderboardEntryListViewItem(
-    val finishingPlace: Int,
     val raceUid: String,
+    val finishingPlace: Int,
     val trackUid: String,
     val startedMilli: Long,
     val stopwatchMilli: Int,
     val player: User
 ): ListItemViewModel {
-    constructor(finishingPlace: Int, raceOutcome: RaceOutcome):
+    constructor(raceOutcome: RaceOutcome):
             this(
-                finishingPlace,
                 raceOutcome.raceUid,
+                raceOutcome.finishingPlace,
                 raceOutcome.trackUid,
                 raceOutcome.finished,
                 raceOutcome.stopwatch,

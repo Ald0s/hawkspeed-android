@@ -12,6 +12,7 @@ class RaceOutcomeDtoMapper @Inject constructor(
     override fun mapFromDto(dto: RaceOutcomeDto): RaceOutcomeModel {
         return RaceOutcomeModel(
             dto.raceUid,
+            dto.finishingPlace,
             dto.started,
             dto.finished,
             dto.stopwatch,

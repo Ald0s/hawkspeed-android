@@ -10,6 +10,7 @@ class RaceOutcomeEntityMapper @Inject constructor(
     override fun mapFromEntity(entity: RaceOutcomeEntity): RaceOutcomeModel {
         return RaceOutcomeModel(
             entity.raceUid,
+            entity.finishingPlace,
             entity.started,
             entity.finished,
             entity.stopwatch,
@@ -21,6 +22,7 @@ class RaceOutcomeEntityMapper @Inject constructor(
     override fun mapToEntity(model: RaceOutcomeModel): RaceOutcomeEntity {
         return RaceOutcomeEntity(
             model.raceUid,
+            model.finishingPlace,
             model.started,
             model.finished,
             model.stopwatch,

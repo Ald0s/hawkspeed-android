@@ -10,6 +10,10 @@ data class RaceOutcomeDto(
     val raceUid: String,
 
     @Expose
+    @SerializedName("finishing_place")
+    val finishingPlace: Int,
+
+    @Expose
     @SerializedName("started")
     val started: Long,
 

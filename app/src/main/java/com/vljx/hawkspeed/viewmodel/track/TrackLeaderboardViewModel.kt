@@ -9,6 +9,7 @@ import com.vljx.hawkspeed.domain.requests.track.PageLeaderboardRequest
 import com.vljx.hawkspeed.models.ListItemViewModel
 import com.vljx.hawkspeed.models.track.LeaderboardEntryListViewItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -28,16 +29,15 @@ class TrackLeaderboardViewModel @Inject constructor(
     /**
      * A flow for paging the leaderboard entries for this track, as list item view models.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val leaderboard: Flow<PagingData<ListItemViewModel>> =
         mutableSelectedTrack.flatMapLatest { track ->
             pageLeaderboardUseCase(
                 PageLeaderboardRequest(track.trackUid)
             )
         }.map { raceOutcomePagingData ->
-            // TODO: is there a better way to calculate the finishing place for this race outcome?
-            var index = 0
             raceOutcomePagingData.map {
-                LeaderboardEntryListViewItem(index++, it)
+                LeaderboardEntryListViewItem(it)
             }
         }
 

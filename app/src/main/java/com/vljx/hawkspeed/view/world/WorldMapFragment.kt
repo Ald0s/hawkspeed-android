@@ -49,8 +49,6 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
     override val bindingInflater: (LayoutInflater, ViewGroup?, Boolean) -> FragmentWorldMapBinding
         get() = FragmentWorldMapBinding::inflate
 
-    //private lateinit var statusChangedReceiver: WorldStatusChangedReceiver
-
     override fun getSupportMapFragment(): SupportMapFragment =
         childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
 
@@ -62,7 +60,6 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Instantiate the receivers.
-        //statusChangedReceiver = WorldStatusChangedReceiver()
         arguments?.let {
             // TODO: read the connection response here. This will be a basic snapshot of the world at connection time.
         }
@@ -70,14 +67,6 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
 
     override fun makeNewTrackClicked() {
         findNavController().navigate(R.id.action_destination_world_coordinator_to_destination_record_track)
-    }
-
-    override fun onStart() {
-        // Register all receivers for world updates.
-        //LocalBroadcastManager.getInstance(requireContext()).apply {
-        //    registerReceiver(statusChangedReceiver, IntentFilter(WorldService.ACTION_WORLD_STATUS))
-        //}
-        super.onStart()
     }
 
     override fun onCreateView(
@@ -187,64 +176,6 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
             }
         }
         return false
-    }
-
-    private fun handleWorldJoined(initial: WorldInitial) {
-        Timber.d("Successfully joined and connected to HawkSpeed world!")
-        //worldMapViewModel.setLoading(false)
-    }
-
-    /*private inner class WorldStatusChangedReceiver: BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            try {
-                when(val status: WorldService.WorldStatus? = intent?.getEnumExtra<WorldService.WorldStatus>(ARG_WORLD_STATUS)) {
-                    WorldService.WorldStatus.CONNECTING -> {
-                        // TODO: we can read a status string from here.
-                        Timber.d("Connecting to game server...")
-                        //worldMapViewModel.setLoading(true)
-                    }
-                    WorldService.WorldStatus.JOINED -> {
-                        val worldInitial: WorldInitial = intent.getParcelableExtra(ARG_WORLD_INITIAL)
-                            ?: throw NullPointerException("No InitialWorld instance sent from service.")
-                        handleWorldJoined(worldInitial)
-                    }
-                    WorldService.WorldStatus.UPDATE -> {
-                        //val worldUpdate: WorldUpdate = intent.getParcelableExtra(WorldService.ARG_WORLD_UPDATE)
-                        //    ?: throw NullPointerException("No WorldUpdate instance sent from service.")
-                        Timber.d("Received a world update event!")
-                    }
-                    WorldService.WorldStatus.LOCATION -> {
-                        //val location: Location = intent.getParcelableExtra(WorldService.ARG_LOCATION)
-                        //    ?: throw NullPointerException("No Location instance sent from service.")
-                        Timber.d("Received a location update event!")
-                    }
-                    WorldService.WorldStatus.ERROR -> {
-                        throw NotImplementedError("WorldState ERROR is not implemented!")
-                    }
-                    WorldService.WorldStatus.LEFT -> {
-                        // TODO: we will receive errors that relate to the inability to connect/authenticate with the remote server, but also shutdowns/interruptions to the world connection.
-                        Timber.d("Received a WorldService LEFT event!")
-                        worldMapViewModel.setLoading(false)
-                        // TODO: from here, we can call handleError if need be.
-                    }
-                    else -> { Timber.w("$status is not supported by WorldBroadcastReceiver") }
-                }
-            } catch(e: Exception) {
-                Timber.e(e)
-            }
-        }
-    }*/
-
-    override fun onStop() {
-        // Unregister all receivers for world updates.
-        //LocalBroadcastManager.getInstance(requireContext()).apply {
-        //    unregisterReceiver(statusChangedReceiver)
-        //}
-        super.onStop()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
     }
 
     companion object {

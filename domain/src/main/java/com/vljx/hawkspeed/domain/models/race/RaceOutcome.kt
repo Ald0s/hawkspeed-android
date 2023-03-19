@@ -7,6 +7,7 @@ import kotlinx.android.parcel.Parcelize
 @Parcelize
 data class RaceOutcome(
     val raceUid: String,
+    val finishingPlace: Int,
     val started: Long,
     val finished: Long,
     val stopwatch: Int,

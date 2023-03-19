@@ -12,6 +12,7 @@ class RaceOutcomeMapper @Inject constructor(
     override fun mapFromData(model: RaceOutcomeModel): RaceOutcome {
         return RaceOutcome(
             model.raceUid,
+            model.finishingPlace,
             model.started,
             model.finished,
             model.stopwatch,
@@ -23,6 +24,7 @@ class RaceOutcomeMapper @Inject constructor(
     override fun mapToData(domain: RaceOutcome): RaceOutcomeModel {
         return RaceOutcomeModel(
             domain.raceUid,
+            domain.finishingPlace,
             domain.started,
             domain.finished,
             domain.stopwatch,

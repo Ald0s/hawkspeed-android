@@ -9,13 +9,20 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.paging.PagingData
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.VERTICAL
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.adapter.DataBindingPagingRecyclerAdapter
 import com.vljx.hawkspeed.databinding.FragmentTrackLeaderboardBinding
 import com.vljx.hawkspeed.domain.models.track.Track.Companion.ARG_TRACK
+import com.vljx.hawkspeed.models.ListItemViewModel
 import com.vljx.hawkspeed.view.base.BaseFragment
+import com.vljx.hawkspeed.view.base.BaseViewListFragment
 import com.vljx.hawkspeed.viewmodel.track.TrackLeaderboardViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -25,13 +32,24 @@ import kotlinx.coroutines.launch
  * create an instance of this fragment.
  */
 @AndroidEntryPoint
-class TrackLeaderboardFragment : BaseFragment<FragmentTrackLeaderboardBinding>() {
+class TrackLeaderboardFragment : BaseViewListFragment<FragmentTrackLeaderboardBinding>() {
     private val trackLeaderboardViewModel: TrackLeaderboardViewModel by viewModels()
 
     override val bindingInflater: (LayoutInflater, ViewGroup?, Boolean) -> FragmentTrackLeaderboardBinding
         get() = FragmentTrackLeaderboardBinding::inflate
 
-    private val dataBindingPagingRecyclerAdapter = DataBindingPagingRecyclerAdapter()
+    override val dataBindingPagingRecyclerAdapter: DataBindingPagingRecyclerAdapter
+        get() = DataBindingPagingRecyclerAdapter()
+
+    override val pageViewModelFlow: Flow<PagingData<ListItemViewModel>>
+        get() = trackLeaderboardViewModel.leaderboard
+
+    override fun setupPagingRecyclerView(viewBindingCls: FragmentTrackLeaderboardBinding): RecyclerView {
+        return viewBindingCls.leaderboard.apply {
+            layoutManager = LinearLayoutManager(requireContext(), VERTICAL, false)
+            setHasFixedSize(true)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

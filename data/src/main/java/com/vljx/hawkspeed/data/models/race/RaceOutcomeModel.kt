@@ -4,6 +4,7 @@ import com.vljx.hawkspeed.data.models.user.UserModel
 
 data class RaceOutcomeModel(
     val raceUid: String,
+    val finishingPlace: Int,
     val started: Long,
     val finished: Long,
     val stopwatch: Int,

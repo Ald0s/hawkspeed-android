@@ -52,8 +52,6 @@ class WorldCoordinatorFragment : BaseFragment<FragmentWorldCoordinatorBinding>()
     private lateinit var locationRequest: LocationRequest
     private lateinit var settingsClient: SettingsClient
 
-    private lateinit var statusChangedReceiver: WorldCoordinatorFragment.WorldStatusChangedReceiver
-
     private val serviceConnection = object: ServiceConnection {
         override fun onServiceConnected(p0: ComponentName?, service: IBinder?) {
             val binder = service as WorldService.WorldServiceBinder
@@ -72,8 +70,6 @@ class WorldCoordinatorFragment : BaseFragment<FragmentWorldCoordinatorBinding>()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
         locationRequest = WorldService.newLocationRequest()
         settingsClient = LocationServices.getSettingsClient(requireActivity())
-        // Instantiate the receivers.
-        statusChangedReceiver = WorldStatusChangedReceiver()
 
         arguments?.let {
 
@@ -88,10 +84,6 @@ class WorldCoordinatorFragment : BaseFragment<FragmentWorldCoordinatorBinding>()
             serviceConnection,
             Context.BIND_AUTO_CREATE
         )
-        // Register all receivers for world updates.
-        LocalBroadcastManager.getInstance(requireContext()).apply {
-            registerReceiver(statusChangedReceiver, IntentFilter(WorldService.ACTION_WORLD_STATUS))
-        }
     }
 
     override fun onCreateView(
@@ -149,10 +141,6 @@ class WorldCoordinatorFragment : BaseFragment<FragmentWorldCoordinatorBinding>()
     }
 
     override fun onStop() {
-        // Unregister all receivers for world updates.
-        LocalBroadcastManager.getInstance(requireContext()).apply {
-            unregisterReceiver(statusChangedReceiver)
-        }
         // We'll unbind from the service on stop.
         requireActivity().unbindService(serviceConnection)
         super.onStop()
@@ -260,12 +248,6 @@ class WorldCoordinatorFragment : BaseFragment<FragmentWorldCoordinatorBinding>()
                     )
                 )
             }
-        }
-    }
-
-    private inner class WorldStatusChangedReceiver: BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-
         }
     }
 

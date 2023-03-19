@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 data class RaceOutcomeEntity(
     @PrimaryKey
     val raceUid: String,
+    val finishingPlace: Int,
     val started: Long,
     val finished: Long,
     val stopwatch: Int,
