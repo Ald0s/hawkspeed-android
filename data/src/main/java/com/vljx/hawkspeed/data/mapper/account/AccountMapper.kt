@@ -15,7 +15,8 @@ class AccountMapper @Inject constructor(
             model.userName,
             model.isVerified,
             model.isPasswordVerified,
-            model.isProfileSetup
+            model.isProfileSetup,
+            model.canCreateTracks
         )
     }
 
@@ -26,7 +27,8 @@ class AccountMapper @Inject constructor(
             domain.userName,
             domain.isVerified,
             domain.isPasswordVerified,
-            domain.isProfileSetup
+            domain.isProfileSetup,
+            domain.canCreateTracks
         )
     }
 }

@@ -313,9 +313,9 @@ class WorldSocketSession @Inject constructor(
     private fun handleWelcomeToWorld(connectAuthenticationResponseDto: ConnectAuthenticationResponseDto) {
         Timber.d("We have received a welcome-to-world message. We are now connected & joined.")
         // If we have been sent a viewport update response, handle a viewport update response.
-        if(connectAuthenticationResponseDto.viewportUpdate != null) {
-            handleViewportUpdateResponse(connectAuthenticationResponseDto.viewportUpdate)
-        }
+        //if(connectAuthenticationResponseDto.viewportUpdate != null) {
+        //    handleViewportUpdateResponse(connectAuthenticationResponseDto.viewportUpdate)
+        //}
         // Update world game server state to reflect connected. (and joined?)
         mutableWorldSocketState.tryEmit(
             WorldSocketState.Connected(

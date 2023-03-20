@@ -134,7 +134,5 @@ class MainActivity : BaseAuthenticatedActivity<ActivityMainBinding>() {
         // Build an intent for, and start the world service now within the activity.
         val worldServiceIntent = Intent(this, WorldService::class.java)
         startForegroundService(worldServiceIntent)
-        // Navigate to world coordinator fragment.
-        navController.navigate(R.id.action_destination_loading_to_destination_world_coordinator)
     }
 }

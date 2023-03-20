@@ -9,6 +9,8 @@
         <variable
             name="recordTrackPresenter"
             type="com.vljx.hawkspeed.presenter.track.RecordTrackPresenter" />
+
+        <import type="android.view.View" />
     </data>
 
     <LinearLayout
@@ -25,18 +27,20 @@
             android:layout_weight="1" />
 
         <LinearLayout
+            android:id="@+id/recording_interface"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="0.3"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:visibility="@{recordTrackViewModel.shouldShowRecordingInterface ? View.VISIBLE : View.GONE}">
 
             <Button
                 android:id="@+id/use_recorded_track"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Use Recorded Track"
-
-                android:onClick="@{(v) -> recordTrackPresenter.useRecordedTrackClicked(recordTrackViewModel.recordedPoints)}"/> <!--android:enabled="@{recordTrackViewModel.canUseRecordedTrack}"-->
+                android:enabled="@{recordTrackViewModel.canUseRecordedTrack}"
+                android:onClick="@{(v) -> recordTrackPresenter.useRecordedTrackClicked(recordTrackViewModel.recordedPoints)}"/>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -49,7 +53,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:enabled="@{recordTrackViewModel.canRecord}"
-                    android:onClick="@{(v) -> recordTrackPresenter.recordClicked()}"
+                    android:onClick="@{(v) -> recordTrackPresenter.recordTrackClicked()}"
                     android:text="Record" />
 
                 <Button
@@ -58,7 +62,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:enabled="@{recordTrackViewModel.canStop}"
-                    android:onClick="@{(v) -> recordTrackPresenter.stopClicked()}"
+                    android:onClick="@{(v) -> recordTrackPresenter.stopRecordingClicked()}"
                     android:text="Stop" />
             </LinearLayout>
 
@@ -68,8 +72,66 @@
                 android:layout_height="wrap_content"
                 android:text="Reset"
                 android:enabled="@{recordTrackViewModel.canResetTrack}"
-                android:onClick="@{(v) -> recordTrackPresenter.resetClicked()}"/>
+                android:onClick="@{(v) -> recordTrackPresenter.resetRecordingClicked()}"/>
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/details_interface"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.6"
+            android:orientation="vertical"
+            android:visibility="@{recordTrackViewModel.shouldShowRecordingInterface ? View.GONE : View.VISIBLE}"
+            tools:visibility="gone">
+
+            <EditText
+                android:id="@+id/track_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="Name"
+                android:inputType="textPersonName"
+                android:text="@={recordTrackViewModel.mutableTrackName}" />
+
+            <EditText
+                android:id="@+id/track_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:gravity="start|top"
+                android:hint="Description"
+                android:inputType="textMultiLine"
+                android:text="@={recordTrackViewModel.mutableTrackDescription}" />
+
+            <Button
+                android:id="@+id/upload_track"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="@{recordTrackViewModel.canSubmitTrack}"
+                android:onClick="@{(v) -> recordTrackPresenter.createNewTrack(recordTrackViewModel.trackDraft)}"
+                android:text="Upload Track" />
+
+            <Button
+                android:id="@+id/back_to_recording"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:onClick="@{(v) -> recordTrackPresenter.backToRecordingTrack()}"
+                android:text="Back" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/submitting_interface"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.3"
+            android:visibility="@{recordTrackViewModel.shouldShowLoadingInterface ? View.VISIBLE : View.GONE}"
+            tools:visibility="gone">
+
+            <ProgressBar
+                style="?android:attr/progressBarStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+        </FrameLayout>
     </LinearLayout>
 </layout>

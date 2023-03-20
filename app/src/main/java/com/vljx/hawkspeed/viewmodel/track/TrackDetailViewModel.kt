@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.viewmodel.track
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.socket.WorldSocketSession
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.interactor.track.GetTrackPathUseCase
 import com.vljx.hawkspeed.domain.interactor.track.GetTrackUseCase
@@ -19,6 +20,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TrackDetailViewModel @Inject constructor(
+    private val worldSocketSession: WorldSocketSession,
+
     private val getTrackUseCase: GetTrackUseCase,
     private val getTrackPathUseCase: GetTrackPathUseCase
 ): ViewModel() {
@@ -102,11 +105,24 @@ class TrackDetailViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
-     * Whether the track can be raced.
+     * Whether the track can be raced, this is a combination of the track's canRace, and also the current reported location
+     * for the device.
      */
     val canRace: StateFlow<Boolean?> =
-        selectedTrack.map { track ->
-            track.canRace
+        combine(
+            worldSocketSession.currentLocation,
+            selectedTrack
+        ) { location, track ->
+            // If location is null, always return null.
+            if(location == null) {
+                return@combine null
+            }
+            // Now, if track reports it can be raced, ensure whether the Player is now close enough to the start point,
+            // and that their bearing is correct.
+            if(track.canRace && track.canBeRacedBy(location.latitude, location.longitude, location.bearing)) {
+                return@combine true
+            }
+            return@combine false
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**

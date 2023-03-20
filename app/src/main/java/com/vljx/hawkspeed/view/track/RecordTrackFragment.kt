@@ -1,10 +1,5 @@
 package com.vljx.hawkspeed.view.track
 
-import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.location.Location
 import android.os.Bundle
 import androidx.fragment.app.Fragment
@@ -15,31 +10,24 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
+import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.vljx.hawkspeed.R
-import com.vljx.hawkspeed.WorldService
 import com.vljx.hawkspeed.databinding.FragmentRecordTrackBinding
+import com.vljx.hawkspeed.domain.Resource
+import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.draft.track.RecordedPointDraft
 import com.vljx.hawkspeed.draft.track.TrackDraft
-import com.vljx.hawkspeed.models.world.WorldInitial
 import com.vljx.hawkspeed.presenter.track.RecordTrackPresenter
-import com.vljx.hawkspeed.util.Extension.getEnumExtra
 import com.vljx.hawkspeed.view.base.BaseFollowWorldMapFragment
-import com.vljx.hawkspeed.view.base.BaseWorldMapFragment
 import com.vljx.hawkspeed.viewmodel.track.RecordTrackViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.android.synthetic.main.fragment_record_track.*
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import timber.log.Timber
-import java.util.*
 
 /**
  * A simple [Fragment] subclass.
@@ -60,34 +48,32 @@ class RecordTrackFragment : BaseFollowWorldMapFragment<FragmentRecordTrackBindin
         childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
 
     override fun useRecordedTrackClicked(recordedPoints: List<RecordedPointDraft>) {
-        // TODO: Now we must get the track's name and description from the User.
-        // TODO: Perhaps, when we focus on UI, turn the framelayout into a modal bottom sheet that, when recording, is at say 25% screen, and when we are finalising details,
-        // TODO: we set it to 75% screen, lock the map view to the entire track. When this is all done, we will then call submitRecordedTrack() in the RecordTrackViewModel.
-        // TODO: Change this.
-        recordTrackViewModel.submitTrack(
-            TrackDraft(
-                "Example Track",
-                "Cool track",
-                listOf(
-                    RecordedPointDraft(0, -37.774328, 145.214102, 0.0f, 70.0f, 1678253040*1000L),
-                    RecordedPointDraft(1, -37.774338, 145.214112, 0.0f, 70.0f, 1678253040*1000L),
-                    RecordedPointDraft(2, -37.774349, 145.214122, 0.0f, 70.0f, 1678253040*1000L),
-                    RecordedPointDraft(3, -37.774359, 145.214132, 0.0f, 70.0f, 1678253040*1000L)
-                )
-            )
-        )
+        // Set this as the recorded track in view model, this should then change the UI to require track details.
+        recordTrackViewModel.useRecordedTrack(recordedPoints)
     }
 
-    override fun recordClicked() {
-        recordTrackViewModel.record()
+    override fun recordTrackClicked() {
+        recordTrackViewModel.recordTrack()
     }
 
-    override fun stopClicked() {
-        recordTrackViewModel.stop()
+    override fun stopRecordingClicked() {
+        recordTrackViewModel.stopRecording()
     }
 
-    override fun resetClicked() {
-        recordTrackViewModel.reset()
+    override fun resetRecordingClicked() {
+        recordTrackViewModel.resetRecordedTrack()
+    }
+
+    override fun createNewTrack(trackDraft: TrackDraft?) {
+        if(trackDraft == null) {
+            return
+        }
+       // Now with the track draft, submit this to the server.
+        recordTrackViewModel.submitTrack(trackDraft)
+    }
+
+    override fun backToRecordingTrack() {
+        recordTrackViewModel.backToRecordingTrack()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,11 +96,50 @@ class RecordTrackFragment : BaseFollowWorldMapFragment<FragmentRecordTrackBindin
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Setup a collection for the recorded track points, which we will show on the world map.
+        // Setup collections.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                recordTrackViewModel.recordedPoints.collect { recordedPointDrafts ->
-                    updateRecordedTrack(recordedPointDrafts)
+                // Setup a collection on the new track result.
+                launch {
+                    recordTrackViewModel.newTrackResult.collectLatest { trackResource ->
+                        when(trackResource.status) {
+                            Resource.Status.SUCCESS -> {
+                                // On success, we now have a Track instance.
+                                // TODO: newTrackResult status SUCCESS without valid Track instance returned is NOT HANDLED.
+                                val track: Track = trackResource.data
+                                    ?: throw NotImplementedError("newTrackResult status SUCCESS without valid Track instance returned is NOT HANDLED.")
+                                // We can now navigate back to the world map fragment.
+                                findNavController().navigate(R.id.action_destination_record_track_to_destination_world_map)
+                            }
+                            Resource.Status.LOADING -> { }
+                            Resource.Status.ERROR -> {
+                                /**
+                                 * TODO: handle this track resource error.
+                                 */
+                                throw NotImplementedError("RecordTrackFragment resource ERROR outcome is not handled.")
+                            }
+                        }
+                    }
+                }
+                // Setup a collection on the recorded points, this will display the track that has been recorded.
+                launch {
+                    recordTrackViewModel.recordedPoints.collectLatest { recordedPointDrafts ->
+                        updateRecordedTrack(recordedPointDrafts)
+                    }
+                }
+                // Setup a collection on the recorded track draft. If this is NOT null, we want to center & lock the viewport on the recorded track.
+                launch {
+                    recordTrackViewModel.recordedTrackDraft.collectLatest { recordedTrackDraft ->
+                        if(recordedTrackDraft != null) {
+                            /**
+                             * TODO: lock the viewport on this track.
+                             */
+                        } else {
+                            /**
+                             * TODO: lock the viewport on the User instead.
+                             */
+                        }
+                    }
                 }
             }
         }

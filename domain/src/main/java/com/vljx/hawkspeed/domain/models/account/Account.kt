@@ -10,7 +10,8 @@ data class Account(
     val userName: String?,
     val isVerified: Boolean,
     val isPasswordVerified: Boolean,
-    val isProfileSetup: Boolean
+    val isProfileSetup: Boolean,
+    val canCreateTracks: Boolean
 ): Parcelable {
     val anySetupOrCompletionRequired: Boolean
         get() = !isVerified || !isPasswordVerified || !isProfileSetup

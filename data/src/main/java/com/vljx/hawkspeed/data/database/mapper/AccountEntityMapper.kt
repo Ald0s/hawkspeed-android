@@ -14,7 +14,8 @@ class AccountEntityMapper @Inject constructor(
             entity.userName,
             entity.isVerified,
             entity.isPasswordVerified,
-            entity.isProfileSetup
+            entity.isProfileSetup,
+            entity.canCreateTracks
         )
     }
 
@@ -25,7 +26,8 @@ class AccountEntityMapper @Inject constructor(
             model.userName,
             model.isVerified,
             model.isPasswordVerified,
-            model.isProfileSetup
+            model.isProfileSetup,
+            model.canCreateTracks
         )
     }
 }

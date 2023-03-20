@@ -15,7 +15,8 @@ class AccountDtoMapper @Inject constructor(
             dto.userName,
             dto.isVerified,
             dto.isPasswordVerified,
-            dto.isProfileSetup
+            dto.isProfileSetup,
+            dto.canCreateTracks
         )
     }
 }

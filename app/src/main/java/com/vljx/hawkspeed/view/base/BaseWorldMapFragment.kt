@@ -27,6 +27,7 @@ import com.vljx.hawkspeed.data.socket.WorldSocketState
 import com.vljx.hawkspeed.models.world.Viewport
 import com.vljx.hawkspeed.models.world.WorldInitial
 import com.vljx.hawkspeed.util.Extension.getEnumExtra
+import com.vljx.hawkspeed.view.world.WorldObjectManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -37,14 +38,15 @@ import javax.inject.Inject
  */
 abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<ViewBindingCls>(),
     OnMapReadyCallback, GoogleMap.OnMarkerClickListener, GoogleMap.OnMapClickListener {
+    @Inject
+    lateinit var worldSocketSession: WorldSocketSession
+
     protected lateinit var mWorldService: WorldService
     protected var isServiceBound: Boolean = false
     protected var googleMap: GoogleMap? = null
 
-    @Inject
-    lateinit var worldSocketSession: WorldSocketSession
-
-    //private lateinit var worldBroadcastReceiver: WorldBroadcastReceiver
+    // A world object manager to keep track of, and be responsible for the drawing of world objects to the map.
+    protected val worldObjectManager = WorldObjectManager(null)
 
     protected abstract fun getSupportMapFragment(): SupportMapFragment
 
@@ -66,7 +68,6 @@ abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<V
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //worldBroadcastReceiver = WorldBroadcastReceiver()
         arguments?.let {
 
         }
@@ -79,10 +80,6 @@ abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<V
             serviceConnection,
             Context.BIND_AUTO_CREATE
         )
-        // Register all receivers for world updates.
-        //LocalBroadcastManager.getInstance(requireContext()).apply {
-        //    registerReceiver(worldBroadcastReceiver, IntentFilter(WorldService.ACTION_WORLD_STATUS))
-        //}
         super.onStart()
     }
 
@@ -109,7 +106,11 @@ abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<V
 
     @CallSuper
     override fun onMapReady(p0: GoogleMap) {
+        // Set this google map instance.
         this.googleMap = p0
+        // As soon as we load a google map instance, update the world object manager.
+        worldObjectManager.setGoogleMap(p0)
+        // Establish event handlers.
         googleMap?.setOnMapClickListener(this)
         googleMap?.setOnMarkerClickListener(this)
         // As soon as the map is ready, we want to attach a camera move listener that will continually update the device's most recent viewport.
@@ -144,16 +145,58 @@ abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<V
                 Timber.w(e)
             }
         }
+        // Setup collections in this fragment.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Launch a new collection for the latest work state.
+                launch {
+                    worldSocketSession.worldSocketState.collectLatest { worldSocketState ->
+                        when(worldSocketState) {
+                            is WorldSocketState.Connected -> {
+                                // If world socket state is connected, this is the initial location for our player, upon joining the world. Set their camera to
+                                // the indicated position & rotation.
+                                moveCamera(
+                                    LatLng(worldSocketState.latitude, worldSocketState.longitude),
+                                    17.5f,
+                                    worldSocketState.rotation
+                                )
+                                // Now, once camera is moved, we will perform a viewport update, since we have now been centered over our Player.
+                                val viewport: Viewport = getCurrentViewport()
+                                    ?: throw NotImplementedError("worldSocketState.collectLatest failed! We could not get the current viewport!")
+                                // Send a viewport update.
+                                mWorldService.sendViewportUpdate(viewport)
+                            }
+                            else -> {
+
+                            }
+                        }
+                    }
+                }
+                // Launch a new collection for the latest location.
+                launch {
+                    worldSocketSession.currentLocation.collectLatest { location ->
+                        // if location is not null, call new location received.
+                        if(location != null) {
+                            newLocationReceived(location)
+                        } else {
+                            Timber.w("LOCATION IS NULL")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onStop() {
         // We'll unbind from the service on stop.
         requireActivity().unbindService(serviceConnection)
-        // Unregister all receivers for world updates.
-        //LocalBroadcastManager.getInstance(requireContext()).apply {
-        //    unregisterReceiver(worldBroadcastReceiver)
-        //}
         super.onStop()
+    }
+
+    override fun onDestroyView() {
+        // View is being destroyed, remove all objects from this google map.
+        worldObjectManager.onDestroyView()
+        super.onDestroyView()
     }
 
     protected fun getCurrentViewport(): Viewport? {
@@ -182,35 +225,7 @@ abstract class BaseWorldMapFragment<ViewBindingCls: ViewBinding>: BaseFragment<V
         }
     }
 
-    protected open fun worldInitialReceived(worldInitial: WorldInitial) {
-
-    }
-
     protected open fun newLocationReceived(location: Location) {
 
     }
-
-    /*private inner class WorldBroadcastReceiver: BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            try {
-                when(val status: WorldService.WorldStatus? = intent?.getEnumExtra<WorldService.WorldStatus>(
-                    WorldService.ARG_WORLD_STATUS
-                )) {
-                    WorldService.WorldStatus.JOINED -> {
-                        val worldInitial: WorldInitial = intent.getParcelableExtra(WorldInitial.ARG_WORLD_INITIAL)
-                            ?: throw NullPointerException("No InitialWorld instance sent from service.")
-                        worldInitialReceived(worldInitial)
-                    }
-                    WorldService.WorldStatus.LOCATION -> {
-                        val location: Location = intent.extras?.getParcelable(WorldService.ARG_LOCATION)
-                            ?: throw NullPointerException("No Location instance sent from service.")
-                        newLocationReceived(location)
-                    }
-                    else -> { Timber.w("$status is not supported by WorldBroadcastReceiver") }
-                }
-            } catch(e: Exception) {
-                Timber.e(e)
-            }
-        }
-    }*/
 }

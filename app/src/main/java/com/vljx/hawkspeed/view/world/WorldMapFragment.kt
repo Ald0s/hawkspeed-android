@@ -1,33 +1,38 @@
 package com.vljx.hawkspeed.view.world
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.content.*
+import android.app.Activity
+import android.app.AlertDialog
+import android.content.IntentSender
+import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
-import android.os.IBinder
-import androidx.fragment.app.Fragment
+import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.activityViewModels
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.fragment.findNavController
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.Polyline
-import com.google.android.gms.maps.model.PolylineOptions
+import com.vljx.hawkspeed.BuildConfig
 import com.vljx.hawkspeed.R
+import com.vljx.hawkspeed.WorldService
+import com.vljx.hawkspeed.data.socket.WorldSocketState
 import com.vljx.hawkspeed.databinding.FragmentWorldMapBinding
-import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.models.world.Viewport
-import com.vljx.hawkspeed.models.world.WorldInitial
 import com.vljx.hawkspeed.presenter.world.WorldMapPresenter
 import com.vljx.hawkspeed.view.base.BaseWorldMapFragment
 import com.vljx.hawkspeed.viewmodel.world.WorldMapViewModel
@@ -37,36 +42,34 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * A simple [Fragment] subclass.
- * Use the [WorldMapFragment.newInstance] factory method to
- * create an instance of this fragment.
+ * A [com.vljx.hawkspeed.view.base.BaseWorldMapFragment] subclass. This fragment represents the primary world view, and will coordinate
+ * the permission gathering for its display. Use the [WorldMapFragment.newInstance] factory method to create an instance of this fragment.
  */
 @AndroidEntryPoint
 class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldMapPresenter {
-    // TODO: we use activityViewModels instead of viewModels otherwise, when we navigate, this is reset.
-    private val worldMapViewModel: WorldMapViewModel by activityViewModels()
+    private val worldMapViewModel: WorldMapViewModel by viewModels()
 
     override val bindingInflater: (LayoutInflater, ViewGroup?, Boolean) -> FragmentWorldMapBinding
         get() = FragmentWorldMapBinding::inflate
 
+    // Access to the location client.
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    // Provides parameters for the location request.
+    private lateinit var locationRequest: LocationRequest
+    private lateinit var settingsClient: SettingsClient
+
     override fun getSupportMapFragment(): SupportMapFragment =
         childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
 
-    // Map a track hash, to a pair of the track and its marker.
-    private val trackMap: MutableMap<Track, Marker> = mutableMapOf()
-    // Map a track hash, to a pair of the track and its polyline.
-    private val trackPathMap: MutableMap<Track, Polyline> = mutableMapOf()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Instantiate the receivers.
+        // Setup location client.
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        locationRequest = WorldService.newLocationRequest()
+        settingsClient = LocationServices.getSettingsClient(requireActivity())
         arguments?.let {
-            // TODO: read the connection response here. This will be a basic snapshot of the world at connection time.
-        }
-    }
 
-    override fun makeNewTrackClicked() {
-        findNavController().navigate(R.id.action_destination_world_coordinator_to_destination_record_track)
+        }
     }
 
     override fun onCreateView(
@@ -82,12 +85,12 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Start collection of world objects from the database.
+        // Setup flow collections for our permissions/state observers.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Collect indication that we can actually race a track.
+                // Monitor any changes in offers to race a race.
                 launch {
-                    worldMapViewModel.canRaceOn.collectLatest { track ->
+                    worldMapViewModel.trackCanBeRaced.collectLatest { track ->
                         if(track != null) {
                             Timber.d("We are able to race the following track; $track")
                             /**
@@ -103,79 +106,229 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
                         }
                     }
                 }
-                // Collect all tracks.
+                // Collect all currently cached tracks, and their paths if available, and continually update their presence on the world map.
                 launch {
-                    worldMapViewModel.tracksWithPaths.collectLatest { latestTracksWithPaths ->
-                        /**
-                         * TODO: improve this greatly.
-                         * We should relocate this entire logic pattern to a separate component, and for each entity.
-                         */
-                        googleMap?.apply {
-                            Timber.d("There are now ${latestTracksWithPaths.size} cached tracks to display on map.")
-                            // We will now update the tracks polylines.
-                            // TODO: should viewmodel actually map tracks to MarkerOptions, which we then use to create/update existing tracks?
-                            // For each track in latest tracks, we'll update markers.
-                            latestTracksWithPaths.forEach { trackWithPath ->
-                                val markerOptions: MarkerOptions = MarkerOptions()
-                                    .position(LatLng(trackWithPath.track.startPoint.latitude, trackWithPath.track.startPoint.longitude))
-                                // Get the current track -> marker pair from the map.
-                                val existingTrackMarker: Marker? = trackMap[trackWithPath.track]
-                                // If this is null, create one and add it. Otherwise, update it.
-                                if(existingTrackMarker == null) {
-                                    trackMap[trackWithPath.track] = googleMap!!.addMarker(markerOptions)
-                                        ?: throw NotImplementedError("Marker could not be added, and this is not handled.")
-                                } else {
-                                    existingTrackMarker.position = markerOptions.position
-                                }
+                    worldMapViewModel.tracksWithPaths.collectLatest { tracksWithPaths ->
+                        // Update the world object manager with these tracks.
+                        worldObjectManager.updateTracks(tracksWithPaths)
+                    }
+                }
+                // Start collecting the latest location permissions state.
+                launch {
+                    worldMapViewModel.locationPermissionState.collectLatest {
+                        // If location permission is granted completely, we will proceed to check the location settings.
+                        when(it) {
+                            is LocationPermissionState.AllGranted -> {
+                                Timber.d("Location permission state changed to AllGranted, checking our settings state...")
+                                // Go ahead and ensure location settings are appropriate.
+                                ensureLocationSettingsCompatible()
+                            }
+                            else -> {
+                                /**
+                                 * TODO: otherwise, if location permission is not granted, or only partially granted, we want to browse from here to an error interface.
+                                 */
+                                throw NotImplementedError("LocationPermissionState not granted/partially granted is not yet handled!")
+                            }
+                        }
+                    }
+                }
+                // Start collecting the latest location settings state.
+                launch {
+                    worldMapViewModel.locationSettingsState.collectLatest {
+                        when(it) {
+                            is LocationSettingsState.Appropriate -> {
 
-                                val existingTrackPolyline: Polyline? = trackPathMap[trackWithPath.track]
-                                if(trackWithPath.path != null) {
-                                    val polylineOptions: PolylineOptions = PolylineOptions()
-                                        .addAll(trackWithPath.path!!.points.map { LatLng(it.latitude, it.longitude) })
-                                    // If this is null, create one and add it. Otherwise, update it.
-                                    if(existingTrackPolyline == null) {
-                                        trackPathMap[trackWithPath.track] = googleMap!!.addPolyline(polylineOptions)
-                                    } else {
-                                        existingTrackPolyline.points = polylineOptions.points
-                                    }
-                                } else existingTrackPolyline?.remove()
+                            }
+                            is LocationSettingsState.NotAppropriate -> {
+                                /**
+                                 * TODO: otherwise, if location settings are not appropriate, we want to browse from here to an error interface.
+                                 */
+                                throw NotImplementedError("LocationSettingsState not appropriate is not yet handled!")
                             }
                         }
                     }
                 }
             }
         }
+        // Whenever the view is created, start the permissions/settings flow.
+        resolveLocationPermission()
+    }
+
+    override fun makeNewTrackClicked() {
+        if(BuildConfig.USE_MOCK_LOCATION) {
+            // TODO: if we are using mock location, set the mock location once again.
+            mWorldService.mockLocation(
+                Location(LocationManager.GPS_PROVIDER).apply {
+                    latitude = -37.757557
+                    longitude = 144.958444
+                    speed = 0f
+                    bearing = 180f
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                }
+            )
+        }
+        // Navigate to the record destination.
+        findNavController().navigate(R.id.action_destination_world_map_to_destination_record_track)
+    }
+
+    override fun onMarkerClick(p0: Marker): Boolean {
+        // Attempt to locate a track for this marker.
+        worldObjectManager.findTrackWithMarker(p0)?.let { trackWithPath ->
+            // Invoke a download for the path of this track.
+            /**
+             * TODO: With the result of the call to getTrackPath, open up a track preview for it as well.
+             */
+            worldMapViewModel.getTrackPath(trackWithPath.track)
+        }
+        return false
     }
 
     @SuppressLint("MissingPermission")
     override fun onMapReady(p0: GoogleMap) {
         super.onMapReady(p0)
-        p0.isMyLocationEnabled = true
-        // Immediately use the bound service to join the world.
-        arguments?.let {
-            // TODO: we can read variables from the arguments here that can be used when joining the world.
+        try {
+            // Set my location enabled.
+            p0.isMyLocationEnabled = true
+            // TODO: we can move this call to joinWorld to somewhere else, that does not depend on the world map loading.
+            Timber.d("Map is now READY! We will now request that the world service initiate the connection procedure.")
+            // Join the world when the map is ready.
+            mWorldService.joinWorld()
+        } catch(se: SecurityException) {
+            // TODO: security exception raised, location permission is probably not granted, resolve location permissions again.
+            resolveLocationPermission()
         }
-        // Get the current viewport.
-        val viewport: Viewport = getCurrentViewport()
-            ?: throw NotImplementedError("onMapReady failed! We could not get the current viewport!")
-        Timber.d("Map is now READY! We will now request that the world service initiate the connection procedure.")
-        // Join the world when the view is created, with the bounding box and current zoom.
-        mWorldService.joinWorld(viewport)
     }
 
     /**
-     * A marker has been clicked on the map. Usually, this means the user has requested a preview version of whatever type has been clicked.
-     * For example, if the user has tapped a Player's marker, a player preview model fragment must be shown that shows the player's user in
-     * summary, as well as their current vehicle.
+     * Check the current granted permissions for access to location. This will check whether fine location is granted, and if not, will attempt to show a
+     * rationale explaining why permission is needed. Finally, this function will request permission be granted. The results will be relayed to the view
+     * model. This function can be called whenever permission is withdrawn from the app and a failure occurs as a result.
      */
-    override fun onMarkerClick(p0: Marker): Boolean {
-        trackMap.asIterable().forEach {
-            if(it.value == p0) {
-                worldMapViewModel.getTrackPath(it.key)
-                return true
+    private fun resolveLocationPermission() {
+        Timber.d("Checking location permission workflow called...")
+        // An inline function to actually perform a request for the permission.
+        fun requestLocationPermission() {
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            )
+        }
+        // Check COARSE and FINE permissions granted.
+        val checkAllPermissions: List<Int> = listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ).map { permission ->
+            ContextCompat.checkSelfPermission(requireContext(), permission)
+        }
+        when {
+            // If we have permission granted to both COARSE and FINE location, set both as true in view model.
+            checkAllPermissions[0] == PackageManager.PERMISSION_GRANTED && checkAllPermissions[1] == PackageManager.PERMISSION_GRANTED -> {
+                Timber.d("We have permission granted for BOTH coarse and fine location!")
+                worldMapViewModel.locationPermissionsUpdated(
+                    coarseAccessGranted = true,
+                    fineAccessGranted = true
+                )
+            }
+            // If we have only coarse access granted, inform view model.
+            checkAllPermissions[0] == PackageManager.PERMISSION_GRANTED -> {
+                Timber.d("We have permission granted ONLY for coarse location.")
+                worldMapViewModel.locationPermissionsUpdated(
+                    coarseAccessGranted = true,
+                    fineAccessGranted = false
+                )
+            }
+            // Otherwise, determine if we require rationale shown for access to fine or coarse location, show a dialog.
+            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION) || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
+                Timber.d("We must show request permission rationale for either COARSE or FINE location, so we will do that now.")
+                // TODO: make some other dialog or thing outta this.
+                val dialog = AlertDialog.Builder(requireContext())
+                    .setMessage("We need location so you can join the world") //R.string.permission_rationale_location
+                    .setPositiveButton(android.R.string.ok) { dialog, which -> // After click on Ok, request the permission.
+                        requestLocationPermission()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .create()
+                dialog.show()
+            }
+            else -> {
+                Timber.d("No need to show rationale, requesting location permission for both COARSE and FINE.")
+                // Otherwise, request both COARSE and FINE location permission.
+                requestLocationPermission()
             }
         }
-        return false
+    }
+
+    /**
+     * After location permission is granted and confirmed to be OK, this function will ensure location settings are currently configured to be compatible with what HawkSpeed
+     * requires from the User. If they are not appropriate, the function will attempt to resolve these issues with the User's permission. The ultimate result will be relayed
+     * to the view model.
+     */
+    private fun ensureLocationSettingsCompatible() {
+        try {
+            // Build a location settings request.
+            val locationSettingsRequest = LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest)
+                .build()
+            // Check location settings, and upon success update location settings status, on failure, attempt to solve the issue.
+            settingsClient.checkLocationSettings(locationSettingsRequest)
+                .addOnSuccessListener { locationSettingsResponse ->
+                    Timber.d("Location settings have been determined to be compatible with HawkSpeed.")
+                    worldMapViewModel.locationSettingsAppropriate(true)
+                }
+                .addOnFailureListener { exc ->
+                    if (exc is ResolvableApiException) {
+                        try {
+                            // This is a resolvable API exception, use our resolutionForResult contract handler for this.
+                            val intentSenderRequest = IntentSenderRequest.Builder(exc.resolution)
+                                .build()
+                            resolutionForResult.launch(intentSenderRequest)
+                        } catch (sendExc: IntentSender.SendIntentException) {
+                            throw sendExc
+                        }
+                    } else {
+                        throw exc
+                    }
+                }
+        } catch(e: Exception) {
+            Timber.e("Failed to ensure location settings are appropriate!")
+            worldMapViewModel.locationSettingsAppropriate(false)
+            Timber.e(e)
+        }
+    }
+
+    /**
+     * A launcher for the contract from which permission to access the required location data is requested.
+     */
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Get the outcome of granting permissions to FINE and COARSE location.
+        val preciseGiven = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
+        val coarseGiven = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+        // Set in view model.
+        worldMapViewModel.locationPermissionsUpdated(
+            coarseAccessGranted = preciseGiven,
+            fineAccessGranted = coarseGiven
+        )
+    }
+
+    /**
+     * A launcher for the contract from which location settings are resolved.
+     */
+    private val resolutionForResult = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        if(activityResult.resultCode == Activity.RESULT_OK) {
+            Timber.d("Successfully resolved location settings issues, ensuring settings are now appropriate.")
+            // Now call ensure location settings compatible once more to double check.
+            ensureLocationSettingsCompatible()
+        } else {
+            Timber.e("Failed to resolve invalid location settings, setting NOT APPROPRIATE.")
+            worldMapViewModel.locationSettingsAppropriate(false)
+        }
     }
 
     companion object {
@@ -189,7 +342,7 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
         fun newInstance() =
             WorldMapFragment().apply {
                 arguments = Bundle().apply {
-                    // TODO: this should receive the join response.
+
                 }
             }
     }

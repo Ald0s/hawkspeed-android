@@ -9,7 +9,8 @@ sealed class AuthenticationState {
         val userName: String?,
         val isVerified: Boolean,
         val isPasswordVerified: Boolean,
-        val isProfileSetup: Boolean
+        val isProfileSetup: Boolean,
+        val canCreateTracks: Boolean
     ): AuthenticationState() {
         constructor(account: Account):
                 this(
@@ -18,7 +19,8 @@ sealed class AuthenticationState {
                     account.userName,
                     account.isVerified,
                     account.isPasswordVerified,
-                    account.isProfileSetup
+                    account.isProfileSetup,
+                    account.canCreateTracks
                 )
     }
 

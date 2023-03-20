@@ -30,5 +30,9 @@ data class AccountDto(
 
     @Expose
     @SerializedName("profile_setup")
-    val isProfileSetup: Boolean
+    val isProfileSetup: Boolean,
+
+    @Expose
+    @SerializedName("can_create_tracks")
+    val canCreateTracks: Boolean
 )

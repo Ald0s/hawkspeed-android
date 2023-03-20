@@ -28,13 +28,12 @@ class MainViewModel @Inject constructor(
                     value.userName,
                     value.isVerified,
                     value.isPasswordVerified,
-                    value.isProfileSetup
+                    value.isProfileSetup,
+                    value.canCreateTracks
                 )
             } else {
                 // TODO: properly handle this? it's unlikely this could ever be triggered under normal circumstances, but there's a chance if the user ever decides to log out.
                 throw NotImplementedError("MainViewModel::currentAccount flow, NotAuthenticated state is unhandled!")
             }
         }
-
-
 }

@@ -21,6 +21,10 @@ import timber.log.Timber
  */
 abstract class BaseFollowWorldMapFragment<ViewBindingCls: ViewDataBinding>: BaseWorldMapFragment<ViewBindingCls>() {
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+    }
+
     @SuppressLint("MissingPermission") // TODO: suppressing MissingPermission warning, probably not a good idea.
     override fun onMapReady(p0: GoogleMap) {
         super.onMapReady(p0)
@@ -30,16 +34,23 @@ abstract class BaseFollowWorldMapFragment<ViewBindingCls: ViewDataBinding>: Base
         p0.setMinZoomPreference(17.5f)
     }
 
-    override fun worldInitialReceived(worldInitial: WorldInitial) {
+    override fun newLocationReceived(location: Location) {
+        // When we receive a location update event, we will move the camera to follow the location.
+        googleMap?.apply {
+            Timber.d("Location: $location")
+            // TODO: animateCamera instead of moveCamera.
+            moveCamera(
+                LatLng(location.latitude, location.longitude),
+                17.5f,
+                location.bearing
+            )
+        }
+    }
+
+    /*override fun worldInitialReceived(worldInitial: WorldInitial) {
         // Move the camera to the initial point, locked at 17.5f zoom.
         moveCamera(LatLng(worldInitial.latitude, worldInitial.longitude), 17.5f, worldInitial.rotation)
     }
 
-    override fun newLocationReceived(location: Location) {
-        // When we receive a location update event, we will move the camera to follow the location.
-        googleMap?.apply {
-            // With each new location, move the camera to be locked firmly on the device's location and bearing.
-            moveCamera(LatLng(location.latitude, location.longitude), 17.5f, location.bearing)
-        }
-    }
+    */
 }

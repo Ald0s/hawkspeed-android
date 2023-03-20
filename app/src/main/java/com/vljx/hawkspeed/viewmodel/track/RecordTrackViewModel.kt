@@ -9,6 +9,7 @@ import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.requests.SubmitTrackPointRequest
 import com.vljx.hawkspeed.domain.requests.SubmitTrackRequest
 import com.vljx.hawkspeed.draft.track.RecordedPointDraft
+import com.vljx.hawkspeed.draft.track.RecordedTrackDraft
 import com.vljx.hawkspeed.draft.track.TrackDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -40,15 +41,18 @@ class RecordTrackViewModel @Inject constructor(
 
     /**
      * The track's name.
-     * TODO: two way binding to track name text view
      */
     val mutableTrackName: MutableStateFlow<String?> = MutableStateFlow(null)
 
     /**
      * The track's description.
-     * TODO: two way binding to track description text view
      */
     val mutableTrackDescription: MutableStateFlow<String?> = MutableStateFlow(null)
+
+    /**
+     * The track's recorded points, that we are confirmed to use. Setting this to a non-null value will change the UI to require the track details.
+     */
+    private val mutableRecordedTrackDraft: MutableStateFlow<RecordedTrackDraft?> = MutableStateFlow(null)
 
     private val mutableIsRecording: MutableStateFlow<Boolean> =
         MutableStateFlow(false)
@@ -85,6 +89,29 @@ class RecordTrackViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
+     * A state flow for the currently set recorded track, that is to be drawn to the google map, and the viewport be centered such that it gets this
+     * track perfectly in view.
+     */
+    val recordedTrackDraft: StateFlow<RecordedTrackDraft?> =
+        mutableRecordedTrackDraft
+
+    /**
+     * A state flow that will emit true when the recording interface should be shown, or false if the details interface should be shown.
+     */
+    val shouldShowRecordingInterface: StateFlow<Boolean> =
+        mutableRecordedTrackDraft.map {
+            it == null
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /**
+     * A state flow that will emit true when the new track is being submitted, that is, the newTrackResult is on LOADING.
+     */
+    val shouldShowLoadingInterface: StateFlow<Boolean> =
+        newTrackResult.map { trackResource ->
+            trackResource.status == Resource.Status.LOADING
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
      * A state flow for whether this track's attributes are currently valid.
      * This is simply a combination of all other validation state flows.
      */
@@ -98,18 +125,28 @@ class RecordTrackViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
+     * A state flow that will emit true if at least one point is recorded, or the latest point index is greater than -1, its default value.
+     */
+    private val hasRecordedHistory: StateFlow<Boolean> =
+        combine(
+            mutablePointIndex,
+            mutableRecordedPoints
+        ) { pointIndex, recordedPoints ->
+            pointIndex > -1 || recordedPoints?.isNotEmpty() == true
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
      * A state flow for the latest track draft.
      * When all required variables are at least not null, this will be rendered non-null, representing what will be sent to the foreign server.
-     * TODO: use as parameter to presenter call on button click for submit track
      */
     val trackDraft: StateFlow<TrackDraft?> =
         combine(
             mutableTrackName,
             mutableTrackDescription,
-            mutableRecordedPoints
-        ) { name, description, points ->
-            if(name != null && description != null && points != null) {
-                return@combine TrackDraft(name, description, points)
+            mutableRecordedTrackDraft
+        ) { name, description, recordedTrackDraft ->
+            if(name != null && description != null && recordedTrackDraft != null) {
+                return@combine TrackDraft(name, description, recordedTrackDraft.recordedPoints)
             } else {
                 return@combine null
             }
@@ -118,7 +155,6 @@ class RecordTrackViewModel @Inject constructor(
     /**
      * A state flow for whether the track can be submitted.
      * It can be submitted when the track is determined valid, and the current track draft is not null.
-     * TODO: one way binding on enabled attribute for button responsible for submitting track
      */
     val canSubmitTrack: StateFlow<Boolean> =
         combine(
@@ -133,17 +169,6 @@ class RecordTrackViewModel @Inject constructor(
      */
     val isRecording: StateFlow<Boolean> =
         mutableIsRecording
-
-    /**
-     * A state flow that will emit true if at least one point is recorded, or the latest point index is greater than -1, its default value.
-     */
-    val hasRecordedHistory: StateFlow<Boolean> =
-        combine(
-            mutablePointIndex,
-            mutableRecordedPoints
-        ) { pointIndex, recordedPoints ->
-            pointIndex > -1 || recordedPoints?.isNotEmpty() == true
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
      * A state flow that will emit the current list of recorded point drafts, in order of point index.
@@ -195,9 +220,9 @@ class RecordTrackViewModel @Inject constructor(
      * Start the recording of points.
      * This will clear points prior to recording.
      */
-    fun record() {
+    fun recordTrack() {
         // Reset all values.
-        reset()
+        resetRecordedTrack()
         // Set is recording to true.
         mutableIsRecording.tryEmit(true)
     }
@@ -205,7 +230,7 @@ class RecordTrackViewModel @Inject constructor(
     /**
      * Stop the recording of points.
      */
-    fun stop() {
+    fun stopRecording() {
         // Set is recording to false, do not reset values though.
         mutableIsRecording.tryEmit(false)
     }
@@ -213,9 +238,26 @@ class RecordTrackViewModel @Inject constructor(
     /**
      * Clear all recorded progress.
      */
-    fun reset() {
+    fun resetRecordedTrack() {
         mutablePointIndex.tryEmit(-1)
         mutableRecordedPoints.tryEmit(null)
+    }
+
+    /**
+     * Use the provided recorded track points list as the desired track. Calling this function will set the recorded track draft state flow, which will
+     * change the UI to instead accept the new track's details such as name and description.
+     */
+    fun useRecordedTrack(recordedPointDrafts: List<RecordedPointDraft>) {
+        mutableRecordedTrackDraft.tryEmit(
+            RecordedTrackDraft(recordedPointDrafts)
+        )
+    }
+
+    /**
+     * Send the interface back to the recording of the track by clearing the recorded track draft.
+     */
+    fun backToRecordingTrack() {
+        mutableRecordedTrackDraft.tryEmit(null)
     }
 
     /**
@@ -251,7 +293,7 @@ class RecordTrackViewModel @Inject constructor(
     fun submitTrack(trackDraft: TrackDraft) {
         if(!canSubmitTrack.value) {
             // TODO: properly handle this error case.
-           //throw NotImplementedError("Failed to submit track draft as canSubmitTrack is false. This is also not handled.")
+            throw NotImplementedError("Failed to submit track draft as canSubmitTrack is false. This is also not handled.")
         }
         // Launch the rest in view model scope.
         viewModelScope.launch {

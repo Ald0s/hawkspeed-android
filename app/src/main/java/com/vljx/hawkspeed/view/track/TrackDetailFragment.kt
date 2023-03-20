@@ -5,8 +5,10 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.viewModels
 import com.vljx.hawkspeed.databinding.FragmentTrackDetailBinding
 import com.vljx.hawkspeed.view.base.BaseFragment
+import com.vljx.hawkspeed.viewmodel.track.TrackDetailViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -16,6 +18,8 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class TrackDetailFragment : BaseFragment<FragmentTrackDetailBinding>() {
+    private val trackDetailViewModel: TrackDetailViewModel by viewModels()
+
     override val bindingInflater: (LayoutInflater, ViewGroup?, Boolean) -> FragmentTrackDetailBinding
         get() = FragmentTrackDetailBinding::inflate
 

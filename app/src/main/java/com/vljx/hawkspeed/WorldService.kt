@@ -189,7 +189,7 @@ class WorldService: Service() {
      * been instructed to be in a connected state to the world, nothing will happen (for now.)
      */
     @SuppressLint("MissingPermission") // TODO: suppressing MissingPermission warning, probably not a good idea.
-    fun joinWorld(viewport: Viewport, forceRejoin: Boolean = false) {
+    fun joinWorld(forceRejoin: Boolean = false) {
         // Check the currently world permission state, if it is already CanJoin, do not do anything unless we are being forced.
         if(worldSocketSession.currentWorldSocketPermissionState is WorldSocketPermissionState.CanJoinWorld && !forceRejoin) {
             // Do nothing, since we are already connected.
@@ -202,10 +202,11 @@ class WorldService: Service() {
                 // Get the most recent location availability status.
                 currentLocationAvailability = getCurrentLocationAvailability()
                 Timber.d("Connecting to game server started, location available: $currentLocationAvailability")
+                if(!currentLocationAvailability) {
+                    // TODO: check currentLocationAvailability and decide on a coarse of action, depending on its value. Is it worth it to try and get a location irrespective???
+                }
                 // Next, continue by getting the current location for this device. This is required for connecting to the server.
-                // TODO: check currentLocationAvailability and decide on a coarse of action, depending on its value. Is it worth it to try and get a
-                // TODO: location irrespective???
-                // TODO: Customise the CUrrentLocationRequest further to include distance travelled.
+                // TODO: Customise the CurrentLocationRequest further to include distance travelled.
                 val location: Location = getCurrentLocation(
                     CurrentLocationRequest.Builder()
                         .setMaxUpdateAgeMillis(5000)
@@ -214,11 +215,6 @@ class WorldService: Service() {
                 // Build a connect/authentication request dto for the connection protocol.
                 // TODO: this breaks clean arch, I think... Revise.
                 val connectAuthenticationRequestDto = ConnectAuthenticationRequestDto(
-                    viewport.minX,
-                    viewport.minY,
-                    viewport.maxX,
-                    viewport.maxY,
-                    viewport.zoom,
                     location.latitude,
                     location.longitude,
                     location.bearing,

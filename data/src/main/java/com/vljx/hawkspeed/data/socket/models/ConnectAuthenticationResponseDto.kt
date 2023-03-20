@@ -19,9 +19,5 @@ data class ConnectAuthenticationResponseDto(
 
     @Expose
     @SerializedName("rotation")
-    val rotation: Float,
-
-    @Expose
-    @SerializedName("viewport_update")
-    val viewportUpdate: ViewportUpdateResponseDto?
+    val rotation: Float
 )

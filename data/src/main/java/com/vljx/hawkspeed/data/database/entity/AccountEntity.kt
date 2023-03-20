@@ -14,6 +14,8 @@ data class AccountEntity(
     val isPasswordVerified: Boolean,
     val isProfileSetup: Boolean,
 
+    val canCreateTracks: Boolean,
+
     // A Room only attribute, this will (for now) serve as the unique identifier for the currently logged in
     // account. However...
     // TODO: this must be used alongside some indication of the associated cookie as well, to detect a mismatch.

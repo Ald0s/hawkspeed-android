@@ -11,7 +11,7 @@ import com.vljx.hawkspeed.data.database.entity.*
 
 @Database(
     entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPointEntity::class, RaceEntity::class, RaceOutcomeEntity::class],
-    version = 7
+    version = 9
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {

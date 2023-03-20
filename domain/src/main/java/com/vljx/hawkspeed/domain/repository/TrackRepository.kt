@@ -13,14 +13,17 @@ interface TrackRepository {
     fun getCachedTracks(): Flow<List<Track>>
 
     /**
-     *
+     * Return a flow for a specific track, without its path.
      */
     fun getTrack(getTrackRequest: GetTrackRequest): Flow<Resource<Track>>
 
     /**
-     *
+     * Submit the track in the SubmitTrackRequest. This will also cache the new track, without its path.
      */
     suspend fun submitNewTrack(submitTrackRequest: SubmitTrackRequest): Flow<Resource<Track>>
 
+    /**
+     * Cache the given tracks.
+     */
     suspend fun cacheTracks(tracks: List<Track>)
 }
