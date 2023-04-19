@@ -32,6 +32,7 @@ import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.WorldService
 import com.vljx.hawkspeed.data.socket.WorldSocketState
 import com.vljx.hawkspeed.databinding.FragmentWorldMapBinding
+import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.models.world.Viewport
 import com.vljx.hawkspeed.presenter.world.WorldMapPresenter
 import com.vljx.hawkspeed.view.base.BaseWorldMapFragment
@@ -176,10 +177,9 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
         // Attempt to locate a track for this marker.
         worldObjectManager.findTrackWithMarker(p0)?.let { trackWithPath ->
             // Invoke a download for the path of this track.
-            /**
-             * TODO: With the result of the call to getTrackPath, open up a track preview for it as well.
-             */
             worldMapViewModel.getTrackPath(trackWithPath.track)
+            // Now, open a track preview with this track.
+            showTrackPreview(trackWithPath)
         }
         return false
     }
@@ -198,6 +198,16 @@ class WorldMapFragment : BaseWorldMapFragment<FragmentWorldMapBinding>(), WorldM
             // TODO: security exception raised, location permission is probably not granted, resolve location permissions again.
             resolveLocationPermission()
         }
+    }
+
+    /**
+     * Show a track preview dialog fragment.
+     */
+    private fun showTrackPreview(trackWithPath: TrackWithPath) {
+        /**
+         * TODO: show the track preview fragment.
+         * We will pass the track with path object to the track preview fragment, where the Race button can be found, and from where the race can be started.
+         */
     }
 
     /**

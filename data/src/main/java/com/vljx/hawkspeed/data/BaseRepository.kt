@@ -40,43 +40,35 @@ abstract class BaseRepository {
         networkQuery: suspend () -> Resource<DataModel>,
         cacheResult: suspend (DataModel) -> Unit
     ): Flow<Resource<DomainModel>> = flow {
-        // Open a new coroutine scope. We'll need to simultaneously run remote logic while keeping the flow open for Room updates.
-        coroutineScope {
-            // Declare a new deferred resource, which is the network request itself.
-            // This block will perform the network query, and return a resource as its deferred value; either success or error.
-            val networkRequestJob: Deferred<Resource<DomainModel>> = async {
-                // Perform the actual remote query now.
-                val remoteModelResource: Resource<DataModel> = networkQuery.invoke()
-                if(remoteModelResource.status == Resource.Status.ERROR) {
-                    // If this is NOT successful, create and emit an error on the basis of this resource's error contents.
-                    return@async ResourceImpl(remoteModelResource.status, null, remoteModelResource.resourceError)
-                } else {
-                    // Otherwise, we potentially have a successful result! We'll therefore get the data model version of this type.
-                    val remoteModel: DataModel? = remoteModelResource.data
-                    if(remoteModel == null) {
-                        Timber.e("Querying for remote model resource returned NULL!")
-                        // TODO: implement something smarter here.
-                        throw NotImplementedError()
-                    }
-                    // We have a proper data model for the required resource, we will first cache this result.
-                    cacheResult(remoteModel)
-                    // Finally, we'll map this to a domain level model, and emit a new successful resource containing this.
-                    val remote: DomainModel = mapper.mapFromData(remoteModel)
-                    return@async ResourceImpl.success(remote)
+        // Create a flow for a resource of the domain model, to query the network.
+        val networkRequestFlow: Flow<Resource<DomainModel>> = flow {
+            // Perform the actual remote query now.
+            val remoteModelResource: Resource<DataModel> = networkQuery.invoke()
+            if(remoteModelResource.status == Resource.Status.ERROR) {
+                // If this is NOT successful, create and emit an error on the basis of this resource's error contents.
+                emit(ResourceImpl(remoteModelResource.status, null, remoteModelResource.resourceError))
+            } else {
+                // Otherwise, we potentially have a successful result! We'll therefore get the data model version of this type.
+                val remoteModel: DataModel? = remoteModelResource.data
+                if(remoteModel == null) {
+                    Timber.e("Querying for remote model resource returned NULL!")
+                    // TODO: implement something smarter here.
+                    throw NotImplementedError()
                 }
+                // We have a proper data model for the required resource, we will first cache this result.
+                cacheResult(remoteModel)
+                // Finally, we'll map this to a domain level model, and emit a new successful resource containing this.
+                val remote: DomainModel = mapper.mapFromData(remoteModel)
+                emit(ResourceImpl.success(remote))
             }
-            // Here's where we will invoke our database query, returning a flow for the data model.
-            val cachedModelQueryFlow: Flow<DataModel?> = databaseQuery.invoke()
-            // We'll augment this flow with a filter to remove null emissions, as well as a mapping to domain layer as per generic requirements.
-            // We will emit all collections from this flow.
-            emitAll(
-                cachedModelQueryFlow
-                    .filter { nullableDataModel: DataModel? -> nullableDataModel != null }
-                    .map { dataModel: DataModel? -> ResourceImpl.success(mapper.mapFromData(dataModel!!)) }
-            )
-            // The network request will now be performed, and its result will be emitted to the flow.
-            emit(networkRequestJob.await())
         }
+        // Here's where we will invoke our database query, returning a flow for the data model. We'll also map this flow immediately to a domain level resource
+        // of the desired model type, with the given mapper.
+        val cachedModelQueryFlow: Flow<Resource<DomainModel>> = databaseQuery.invoke()
+            .filter { nullableDataModel: DataModel? -> nullableDataModel != null }
+            .map { dataModel: DataModel? -> ResourceImpl.success(mapper.mapFromData(dataModel!!)) }
+        // Finally, we'll emit all from a merge between the network request flow and the cached query flow.
+        emitAll(merge(cachedModelQueryFlow, networkRequestFlow))
     }
 
     /**

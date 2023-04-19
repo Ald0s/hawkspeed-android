@@ -1,9 +1,13 @@
 package com.vljx.hawkspeed.domain.models.track
 
+import android.os.Parcelable
+import kotlinx.android.parcel.Parcelize
+
+@Parcelize
 data class TrackWithPath(
     val track: Track,
     var path: TrackPath?
-) {
+): Parcelable {
     override fun equals(other: Any?): Boolean {
         return if(other is TrackWithPath) {
             other.track.trackUid == track.trackUid
