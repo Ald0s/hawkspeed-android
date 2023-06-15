@@ -10,9 +10,10 @@ import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 
 @Module
-@InstallIn(AuthenticationComponent::class)
+@InstallIn(SingletonComponent::class)
 interface DataModule {
     @Binds
     fun bindAccountLocalData(accountLocalDataImpl: AccountLocalDataImpl): AccountLocalData

@@ -1,10 +1,13 @@
 package com.vljx.hawkspeed
 
 import com.vljx.hawkspeed.data.database.AccountLocalDataImpl
+import com.vljx.hawkspeed.data.database.RaceLocalDataImpl
+import com.vljx.hawkspeed.data.database.RaceOutcomeLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackPathLocalDataImpl
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
+import com.vljx.hawkspeed.data.network.RaceOutcomeRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
 import com.vljx.hawkspeed.data.source.*
@@ -36,4 +39,13 @@ interface FakeDataModule {
 
     @Binds
     fun bindTrackPathRemoteData(trackPathRemoteDataImpl: TrackPathRemoteDataImpl): TrackPathRemoteData
+
+    @Binds
+    fun bindRaceLocalData(raceLocalDataImpl: RaceLocalDataImpl): RaceLocalData
+
+    @Binds
+    fun bindRaceOutcomeLocalData(raceOutcomeLocalDataImpl: RaceOutcomeLocalDataImpl): RaceOutcomeLocalData
+
+    @Binds
+    fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceOutcomeRemoteDataImpl): RaceOutcomeRemoteData
 }

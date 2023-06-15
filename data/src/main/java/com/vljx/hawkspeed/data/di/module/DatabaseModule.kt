@@ -7,10 +7,11 @@ import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
-@InstallIn(AuthenticationComponent::class)
+@InstallIn(SingletonComponent::class)
 class DatabaseModule {
     @Provides
     fun provideDatabase(application: Application): AppDatabase =
