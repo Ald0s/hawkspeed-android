@@ -4,36 +4,55 @@ import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.account.CheckName
 import com.vljx.hawkspeed.domain.models.account.Registration
-import com.vljx.hawkspeed.domain.requests.CheckNameRequest
-import com.vljx.hawkspeed.domain.requests.LoginRequest
-import com.vljx.hawkspeed.domain.requests.RegisterLocalAccountRequest
-import com.vljx.hawkspeed.domain.requests.SetupProfileRequest
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestLogin
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestRegisterLocalAccount
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestSetupProfile
 import kotlinx.coroutines.flow.Flow
 
 interface AccountRepository {
     /**
-     * Get a flow for an instance of Account.
+     * Open a flow for the current account in use, but a network query will also be performed to update that account in cache.
      */
-    fun getAccountByUid(userUid: String): Flow<Resource<Account>>
-
-    suspend fun checkUsernameTaken(checkNameRequest: CheckNameRequest): Flow<Resource<CheckName>>
-    suspend fun setupProfile(setupProfileRequest: SetupProfileRequest): Flow<Resource<Account>>
+    suspend fun getCurrentAccount(): Resource<Account>
 
     /**
-     * Attempt authentication without any parameters - this will attempt to authenticate the current login token stored in cookies. If this function
-     * fails, this means that a login is required.
+     * Open a flow for the current account in use. This does not perform any network queries and will instead just watch a query for the
+     * account instance currently entered in cache.
      */
-    suspend fun attemptAuthentication(): Flow<Resource<Account>>
+    fun getCurrentCachedAccount(): Flow<Account?>
 
     /**
-     * Attempt authentication with normal login parameters.
+     * Attempt a (re)authentication of the current User's account. This will first use the cookie currently stored for HawkSpeed, and only
+     * upon failure will that cookie be cleared and a full authentication be required. This function will therefore attempt to authenticate,
+     * then on success will upsert the latest User's account.
      */
-    suspend fun attemptAuthentication(loginRequest: LoginRequest): Flow<Resource<Account>>
+    fun attemptAuthentication(): Flow<Resource<Account>>
 
     /**
-     * Logout from the current account.
+     * Attempt an authentication for a locally registered account. This will send an authorisation request and on success will store the
+     * latest account for the User.
      */
-    suspend fun logout(): Flow<Resource<Account>>
+    fun attemptLocalAuthentication(requestLogin: RequestLogin): Flow<Resource<Account>>
 
-    suspend fun registerLocalAccount(params: RegisterLocalAccountRequest): Flow<Resource<Registration>>
+    /**
+     * Perform a query to determine whether the username given by the request model is already taken by another User.
+     */
+    suspend fun checkUsernameTaken(requestCheckName: RequestCheckName): Resource<CheckName>
+
+    /**
+     * Perform the setup account profile query.
+     */
+    fun setupAccountProfile(requestSetupProfile: RequestSetupProfile): Flow<Resource<Account>>
+
+    /**
+     * Register a new local account, that is, one with a password.
+     */
+    fun registerLocalAccount(params: RequestRegisterLocalAccount): Flow<Resource<Registration>>
+
+    /**
+     * Log the current User out. This will clear the current account in use whether it succeeds or fails. This function will return an account
+     * instance in response, but will not cache it. This is therefore a once-off function. This function will also clear the data store.
+     */
+    suspend fun logout(): Resource<Account>
 }

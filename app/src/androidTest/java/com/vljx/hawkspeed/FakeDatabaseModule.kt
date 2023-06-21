@@ -6,7 +6,9 @@ import com.vljx.hawkspeed.data.database.dao.AccountDao
 import com.vljx.hawkspeed.data.database.dao.RaceDao
 import com.vljx.hawkspeed.data.database.dao.RaceOutcomeDao
 import com.vljx.hawkspeed.data.database.dao.TrackDao
+import com.vljx.hawkspeed.data.database.dao.TrackPathDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDao
+import com.vljx.hawkspeed.data.database.dao.UserDao
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import dagger.Module
 import dagger.Provides
@@ -32,6 +34,10 @@ class FakeDatabaseModule {
         appDatabase.trackDao()
 
     @Provides
+    fun provideTrackPathDao(appDatabase: AppDatabase): TrackPathDao =
+        appDatabase.trackPathDao()
+
+    @Provides
     fun provideTrackPointDao(appDatabase: AppDatabase): TrackPointDao =
         appDatabase.trackPointDao()
 
@@ -42,4 +48,8 @@ class FakeDatabaseModule {
     @Provides
     fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceOutcomeDao =
         appDatabase.raceOutComeDao()
+
+    @Provides
+    fun provideUserDao(appDatabase: AppDatabase): UserDao =
+        appDatabase.userDao()
 }

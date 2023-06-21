@@ -10,14 +10,19 @@ abstract class AccountDao: BaseDao<AccountEntity>() {
     @Query("""
         SELECT *
         FROM account
-        WHERE userUid = :userUid
+        LIMIT 1
     """)
-    abstract fun selectAccountByUid(userUid: String): Flow<AccountEntity?>
+    abstract fun selectCurrentAccount(): Flow<AccountEntity?>
 
     @Query("""
-        UPDATE account
-        SET isInUse = 0
-        WHERE userUid <> :exceptUserUid
+        SELECT *
+        FROM account
+        LIMIT 1
     """)
-    abstract suspend fun setAllUnused(exceptUserUid: String)
+    abstract suspend fun getCurrentAccount(): AccountEntity?
+
+    @Query("""
+        DELETE FROM account
+    """)
+    abstract suspend fun clearCurrentAccount()
 }

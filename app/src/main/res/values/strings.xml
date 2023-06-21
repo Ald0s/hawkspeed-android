@@ -2,4 +2,9 @@
     <string name="app_name">HawkSpeed</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="world_map_loading">Loading world</string>
+    <string name="world_map_loading_location">Waiting for first location</string>
+    <string name="world_map_loading_connecting">Connecting to game</string>
 </resources>

@@ -15,6 +15,10 @@ data class TrackEntity(
     @Embedded(prefix = "start_")
     val startPoint: TrackPointEntity,
     val isVerified: Boolean,
+    val numPositiveVotes: Int,
+    val numNegativeVotes: Int,
+    val yourRating: Boolean?,
+    val numComments: Int,
     val canRace: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean

@@ -18,10 +18,13 @@ class TrackDtoMapper @Inject constructor(
             userDtoMapper.mapFromDto(dto.owner),
             trackPointDtoMapper.mapFromDto(dto.startPoint),
             dto.isVerified,
+            dto.ratings.numPositiveVotes,
+            dto.ratings.numNegativeVotes,
+            dto.yourRating,
+            dto.numComments,
             dto.canRace,
             dto.canEdit,
-            dto.canDelete,
-            //dto.points.map { trackPointDtoMapper.mapFromDto(it) }
+            dto.canDelete
         )
     }
 }

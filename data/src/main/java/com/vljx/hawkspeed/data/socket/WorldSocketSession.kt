@@ -1,30 +1,34 @@
 package com.vljx.hawkspeed.data.socket
 
-import android.location.Location
 import com.google.gson.Gson
 import com.vljx.hawkspeed.data.BuildConfig
-import com.vljx.hawkspeed.data.mapper.race.RaceMapper
-import com.vljx.hawkspeed.data.mapper.track.TrackMapper
-import com.vljx.hawkspeed.data.network.mapper.race.RaceUpdateDtoMapper
-import com.vljx.hawkspeed.data.network.mapper.track.TrackDtoMapper
-import com.vljx.hawkspeed.data.network.models.race.RaceUpdateDto
-import com.vljx.hawkspeed.data.socket.Extension.emit
+import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
+import com.vljx.hawkspeed.data.models.world.PlayerUpdateResultModel
+import com.vljx.hawkspeed.data.models.world.ViewportUpdateResultModel
+import com.vljx.hawkspeed.data.socket.models.RaceUpdateDto
 import com.vljx.hawkspeed.data.socket.Extension.on
+import com.vljx.hawkspeed.data.socket.Extension.sendMessage
+import com.vljx.hawkspeed.data.socket.mapper.race.StartRaceResponseDtoMapper
+import com.vljx.hawkspeed.data.socket.mapper.world.PlayerUpdateResultDtoMapper
+import com.vljx.hawkspeed.data.socket.mapper.world.ViewportUpdateResultDtoMapper
 import com.vljx.hawkspeed.data.socket.models.*
-import com.vljx.hawkspeed.data.socket.requests.ConnectAuthenticationRequestDto
-import com.vljx.hawkspeed.data.socket.requests.PlayerUpdateRequestDto
-import com.vljx.hawkspeed.data.socket.requests.StartRaceRequestDto
-import com.vljx.hawkspeed.data.socket.requests.ViewportUpdateRequestDto
-import com.vljx.hawkspeed.domain.di.Bridged
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestConnectAuthenticationDto
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestPlayerLocationDto
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestStartRaceDto
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportDto
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportUpdateDto
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
-import com.vljx.hawkspeed.domain.models.race.Race
-import com.vljx.hawkspeed.domain.models.track.Track
-import com.vljx.hawkspeed.domain.repository.RaceRepository
-import com.vljx.hawkspeed.domain.repository.TrackRepository
+import com.vljx.hawkspeed.domain.di.scope.AuthenticationScope
+import com.vljx.hawkspeed.domain.models.world.GameSettings
+import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.Viewport
+import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
+import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.CookieJar
@@ -38,66 +42,56 @@ import java.net.URI
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * The world socket session class that centralises communication with the HawkSpeed game server.
+ */
 @Singleton
 class WorldSocketSession @Inject constructor(
     private val applicationScope: ApplicationScope,
     private val cookieJar: CookieJar,
-    @Bridged
-    private val trackRepository: TrackRepository,
-    @Bridged
-    private val raceRepository: RaceRepository,
+    private val gson: Gson,
 
-    private val raceUpdateDtoMapper: RaceUpdateDtoMapper,
-    private val raceMapper: RaceMapper,
-
-    private val trackDtoMapper: TrackDtoMapper,
-    private val trackMapper: TrackMapper
+    private val startRaceResponseDtoMapper: StartRaceResponseDtoMapper,
+    private val playerUpdateResultDtoMapper: PlayerUpdateResultDtoMapper,
+    private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper
 ) {
-    /**
-     * A mutable state flow for the target server information that will be set by the service, when a request to join the world has been completed.
-     * This forms half of the base requirements for connection to the game server.
-     */
-    private val mutableServerInfoState: MutableStateFlow<ServerInfoState> =
-        MutableStateFlow(ServerInfoState.None)
+    // Objects for the socket IO server.
+    // The socket IO manager.
+    private var socketManager: Manager? = null
+    // The current client socket in use.
+    private var socket: Socket? = null
 
     /**
-     * A state flow that will observe all changes to the inner requirements for access to the world. If this changes to not satisfied,
-     * the existing connection to the server will be closed.
+     * A mutable state flow for the current state of the connection to the game server.
      */
-    private val worldRequirementsState: StateFlow<WorldRequirementsState> =
-        flow {
-            emit(WorldRequirementsState.Satisfied)
-        }.stateIn(applicationScope, SharingStarted.Eagerly, WorldRequirementsState.NotSatisfied)
+    private val mutableWorldSocketState: MutableStateFlow<WorldSocketState> = MutableStateFlow(
+        WorldSocketState.Disconnected())
 
     /**
-     * A mutable shared flow for the current state of the connection to the game server.
+     * A state flow for the mechanical gatekeeper to game server connection. This boolean should be used to carefully control when, though all arguments are
+     * valid for a connection, should a connection be attempted.
      */
-    private val mutableWorldSocketState: MutableSharedFlow<WorldSocketState> = MutableSharedFlow(
-        replay = 0,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-        extraBufferCapacity = 1
-    )
+    private val mutableShouldConnect: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     /**
-     * A state flow for the current world socket permission, which represents what the connection to the server is required to do. For instance, if this
-     * emits CanJoinWorld, a connection to the socket server will be established. This will combine all requirements and emit the required action.
+     * A state flow for the current game settings this client is configured to use while connecting to the socket server.
      */
-    private val worldSocketPermissionState: StateFlow<WorldSocketPermissionState> =
-        combine(
-            mutableServerInfoState,
-            worldRequirementsState
-        ) { serverInfoState, requirementsState ->
-            if(serverInfoState is ServerInfoState.Connect && requirementsState is WorldRequirementsState.Satisfied) {
-                return@combine WorldSocketPermissionState.CanJoinWorld(serverInfoState.connectAuthenticationRequestDto)
-            } else {
-                return@combine WorldSocketPermissionState.CantJoinWorld
-            }
-        }.stateIn(applicationScope, SharingStarted.Eagerly, WorldSocketPermissionState.CantJoinWorld)
+    private val mutableGameSettings: MutableStateFlow<GameSettings?> = MutableStateFlow(null)
 
     /**
      * A state flow for the current location, or whichever was most recently sent.
      */
-    private val mutableCurrentLocation: MutableStateFlow<Location?> = MutableStateFlow(null)
+    private val mutableCurrentLocation: MutableStateFlow<PlayerPosition?> = MutableStateFlow(null)
+
+    /**
+     * A state flow for the current location availability.
+     */
+    private val mutableLocationAvailability: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /**
+     * A state flow for the latest viewport.
+     */
+    private val mutableLatestViewport: MutableStateFlow<Viewport?> = MutableStateFlow(null)
 
     /**
      * A state flow for the current state of the connection to the game server.
@@ -108,133 +102,125 @@ class WorldSocketSession @Inject constructor(
     /**
      * The current location.
      */
-    val currentLocation: StateFlow<Location?> =
+    val currentLocation: StateFlow<PlayerPosition?> =
         mutableCurrentLocation
 
     /**
-     * A property that will return the current world socket permission state, which represents the most recent instruction given to the
-     * world socket session.
+     * The current game settings.
      */
-    val currentWorldSocketPermissionState: WorldSocketPermissionState
-        get() = worldSocketPermissionState.value
-
-    // Objects for the socket IO server.
-    // The socket IO manager.
-    private var socketManager: Manager? = null
-    // The current client socket in use.
-    private var socket: Socket? = null
+    val currentGameSettings: StateFlow<GameSettings?> =
+        mutableGameSettings
 
     /**
-     * Initialise this singleton instance.
-     * In the application scope, we will launch a collection for the latest world permission state. The current state of this flow
-     * will then inform whether we will connect/disconnect to the game server.
+     * The current viewport.
+     */
+    val latestViewport: StateFlow<Viewport?> =
+        mutableLatestViewport
+
+    /**
+     * A combined flow of current game settings and current location. This flow will determine the overall intent to connect to the game server and
+     * will emit the appropriate outcome state. If either settings or location are null, user has configured client against connecting, or the game
+     * server is not available, this will emit intent against. Otherwise, intent for.
+     */
+    private val worldSocketIntentState: Flow<WorldSocketIntentState> =
+        combine(
+            mutableShouldConnect,
+            currentGameSettings,
+            currentLocation
+        ) { shouldConnect, settings, location ->
+            // If either are null, emit can't join.
+            if(!shouldConnect || location == null || settings == null) {
+                WorldSocketIntentState.CantJoinWorld
+            } else {
+                // Otherwise, if settings informs us either that game is configured to not connect, or server is unavailable, same result.
+                if(!settings.canConnectGame || !settings.isServerAvailable) {
+                    WorldSocketIntentState.CantJoinWorld
+                }
+                // TODO: we can place a validator on age of location here.
+                // Otherwise, emit intent to join server.
+                WorldSocketIntentState.CanJoinWorld(
+                    settings.entryToken!!,
+                    settings.gameServerInfo!!,
+                    location
+                )
+            }
+        }
+
+    /**
+     * Initialise this singleton instance. In the application scope, we will launch a collection for the latest world intent state.
+     * The current state of this flow will then inform whether we will connect/disconnect to the game server.
      */
     init {
         applicationScope.launch {
-            worldSocketPermissionState.collect { permissionState ->
-                when(permissionState) {
-                    is WorldSocketPermissionState.CanJoinWorld -> openConnection(permissionState)
-                    is WorldSocketPermissionState.CantJoinWorld -> closeConnection()
+            worldSocketIntentState.collect { intentState ->
+                when(intentState) {
+                    is WorldSocketIntentState.CanJoinWorld -> ensureConnectionOpen(intentState)
+                    is WorldSocketIntentState.CantJoinWorld -> closeConnection()
                 }
             }
         }
     }
 
     /**
-     * Update the permission granted for opening a connection to the game server, this is done by setting the server info for the target.
-     * This is one of a few requirements before a connection will be established.
+     * Place the world socket session into a state totally receptive of a connection to game server. The given game settings will be updated,
+     * the location given will be used (as long as it is newer than the current location stored) and the connection gatekeeper will be disabled.
      */
-    fun updateServerInfo(entryToken: String, gameServerInfo: String, connectAuthenticationRequestDto: ConnectAuthenticationRequestDto) {
-        mutableServerInfoState.tryEmit(
-            ServerInfoState.Connect(
-                entryToken,
-                gameServerInfo,
-                connectAuthenticationRequestDto
-            )
-        )
-    }
-
-    /**
-     * Clear the permission to be connected to the game server. This will close any existing connection.
-     */
-    fun clearServerInfo() {
-        mutableServerInfoState.tryEmit(ServerInfoState.None)
-    }
-
-    /**
-     * Update the current location for the device.
-     */
-    fun setCurrentLocation(location: Location?) {
-        mutableCurrentLocation.tryEmit(location)
-    }
-
-    /**
-     * Request a new race on the given race track, given a fresh location.
-     */
-    fun sendRaceRequest(startRaceRequest: StartRaceRequestDto) {
-        if(socket == null || socket?.connected() != true) {
-            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
-            throw NotImplementedError()
+    fun requestJoinWorld(gameSettings: GameSettings, location: PlayerPosition) {
+        Timber.d("APPROVING intent to join world.")
+        // Set our newest game settings.
+        setGameSettings(gameSettings)
+        // If current location is null or older than given location, set newest location.
+        if(currentLocation.value == null || currentLocation.value!!.loggedAt < location.loggedAt) {
+            mutableCurrentLocation.tryEmit(location)
         }
-        // Perform an emission toward the event name associated with the start race handler.
-        socket!!.emit<StartRaceRequestDto, RaceStartedResponseDto>("start_race", startRaceRequest) { raceStartedResponse ->
-            // TODO: properly handle the case in which race was NOT started properly. For now, simply throw an exc.
-            if(!raceStartedResponse.isStarted) {
-                throw NotImplementedError("Failed to handle raceStartedResponse - isStarted not handled yet.")
-            }
-            handleRaceStarted(raceStartedResponse)
-        }
+        // Finally, enable our gatekeeper switch.
+        mutableShouldConnect.tryEmit(true)
     }
 
     /**
-     * Update the Player's position.
+     * Place the world socket session into a state that indicates a connection to the game server should no longer be allowed. This function will
+     * enable the gatekeeper, which will trigger a chain reaction that will eventually disconnect the client and clear all previous connection
+     * information such as game settings.
      */
-    fun sendPlayerUpdate(playerUpdateRequest: PlayerUpdateRequestDto) {
-        if(socket == null || socket?.connected() != true) {
-            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
-            throw NotImplementedError()
-        }
-        // Perform an emission toward this event name.
-        socket!!.emit<PlayerUpdateRequestDto, PlayerUpdateResponseDto>("player_update", playerUpdateRequest) { playerUpdateResponse ->
-            handlePlayerUpdateResponse(playerUpdateResponse)
-        }
+    fun requestLeaveWorld(reason: String? = null) {
+        Timber.d("REVOKING intent to join world.")
+        // TODO: if we are currently connected, send a message to server letting it know we're leaving, optionally with reason.
+        // Simply set gatekeeper to false.
+        mutableShouldConnect.tryEmit(false)
     }
 
     /**
-     * Update the Player's viewport, receiving all objects in their sight.
+     * Update the current location availability.
      */
-    fun sendViewportUpdate(viewportUpdateRequestDto: ViewportUpdateRequestDto) {
-        if(socket == null || socket?.connected() != true) {
+    fun setLocationAvailability(availability: Boolean) {
+        mutableLocationAvailability.tryEmit(availability)
+    }
+
+    /**
+     * Update the current game settings to be used on next connection cycle.
+     */
+    private fun setGameSettings(gameSettings: GameSettings) {
+        mutableGameSettings.tryEmit(gameSettings)
+    }
+
+    /**
+     * Ensure the connection to the server is open, given the provided intent state. This function will always return if the socket is currently connecting or
+     * connected, and will only obey a new configuration after a reconnect.
+     */
+    private fun ensureConnectionOpen(canJoinWorld: WorldSocketIntentState.CanJoinWorld) {
+        if(mutableWorldSocketState.value is WorldSocketState.Connecting || mutableWorldSocketState.value is WorldSocketState.Connected) {
+            // TODO: If socket is currently connected, we'll check whether the difference between the data in the given intent and the data currently used in connection
+            // TODO: is sufficiently different to warrant a disruptive reconnection. We're satisfied that this is the case if the IP address has changed. For now, we'll return.
             return
         }
-        // Perform an emission toward the event name 'viewport_update'.
-        socket!!.emit<ViewportUpdateRequestDto, ViewportUpdateResponseDto>("viewport_update", viewportUpdateRequestDto) { viewportUpdateResponse ->
-            handleViewportUpdateResponse(viewportUpdateResponse)
-        }
-    }
-
-    /**
-     * Commence the connection-opening procedure.
-     * This function will create a new socket manager, informed of the current session cookie set by previous logins. Then, a new socket will be created and opened
-     * toward the game server.
-     */
-    private fun openConnection(canJoinWorld: WorldSocketPermissionState.CanJoinWorld) {
-        // If we have a socket existing, and it is connected, close the connection now.
-        if(socket?.connected() == true) {
-            Timber.w("WorldSocketSession has been asked to open a connection to the game server, when one is already existing... Closing old one first...")
-            closeConnection()
-        }
-        // Set our game server state to connecting.
+        // Otherwise emit a new state; connecting.
         mutableWorldSocketState.tryEmit(WorldSocketState.Connecting)
-        Timber.d("We have been granted permission to connect to the game server...")
-        // Each time, instantiate a new socket manager pointing toward the given world game server's connection info.
-        // TODO: for simplicity sake, we'll keep this identical.
-        val serverInfo = "http://192.168.0.253:5000"
+        Timber.d("Received intent to connect to game server.")
         // TODO: we will now get the HawkSpeed login cookie(s) used by the okhttpclient.
         val relevantCookies: List<String> = getRelevantCookies()
         // Create the manager now, with our injected options.
         socketManager = Manager(
-            URI.create(serverInfo),
+            URI.create(canJoinWorld.gameServerInfo),
             IO.Options.builder()
                 .setExtraHeaders(mapOf("Cookie" to relevantCookies))
                 .build()
@@ -258,9 +244,15 @@ class WorldSocketSession @Inject constructor(
                 else -> value.toString()
             }
         }
-        val gson = Gson()
         // Convert the DTO model to a JSONObject.
-        val dtoAsJSONObject: JSONObject = JSONObject(gson.toJson(canJoinWorld.connectAuthenticationRequestDto, ConnectAuthenticationRequestDto::class.java))
+        val requestConnectAuthenticationDto = RequestConnectAuthenticationDto(
+            canJoinWorld.location.latitude,
+            canJoinWorld.location.longitude,
+            canJoinWorld.location.rotation,
+            canJoinWorld.location.speed,
+            canJoinWorld.location.loggedAt
+        )
+        val dtoAsJSONObject: JSONObject = JSONObject(gson.toJson(requestConnectAuthenticationDto, RequestConnectAuthenticationDto::class.java))
         val dtoAsMap: Map<String, String> = dtoAsJSONObject.toMap()
         socket = socketManager?.socket("/",
             IO.Options.builder()
@@ -275,10 +267,85 @@ class WorldSocketSession @Inject constructor(
             on("disconnect") { response -> handleDisconnection(response) }
             // Register all custom handlers.
             on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it) }
+            on<SocketErrorDto>("kicked") { handleKicked(it) }
             on<RaceUpdateDto>("race-finished") { handleRaceFinished(it) }
             on<RaceUpdateDto>("race-disqualified") { handleRaceDisqualified(it) }
             on<RaceUpdateDto>("race-cancelled") { handleRaceCancelled(it) }
         }?.connect()
+    }
+
+    /**
+     * Request a new race on the given race track, given a fresh location.
+     */
+    suspend fun startRace(requestStartRace: RequestStartRace): StartRaceResultModel {
+        if(socket == null || socket?.connected() != true) {
+            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
+            throw NotImplementedError()
+        }
+        // Build a DTO for our request to start a race.
+        val requestStartRaceDto = RequestStartRaceDto(requestStartRace)
+        // Use send message to send this request, and receive back the result.
+        val startRaceResponseDto: StartRaceResponseDto = socket!!.sendMessage("start_race", requestStartRaceDto)
+        // Finally, map this to model and return.
+        return startRaceResponseDtoMapper.mapFromDto(startRaceResponseDto)
+    }
+
+    /**
+     * Send the given player update to the server, and receive an update model for the result.
+     */
+    suspend fun sendPlayerUpdate(requestPlayerUpdate: RequestPlayerUpdate): PlayerUpdateResultModel {
+        // Set this location as the current location.
+        mutableCurrentLocation.value = PlayerPosition(
+            requestPlayerUpdate.latitude,
+            requestPlayerUpdate.longitude,
+            requestPlayerUpdate.rotation,
+            requestPlayerUpdate.speed,
+            requestPlayerUpdate.loggedAt
+        )
+
+        if(socket == null || socket?.connected() != true) {
+            throw NotImplementedError("Handle this properly.")
+        }
+        // Construct the required DTO for now.
+        val requestPlayerUpdateDto = RequestPlayerLocationDto(requestPlayerUpdate)
+        // Call send message, receiving a DTO for this.
+        val playerUpdateResponse: PlayerUpdateResponseDto = socket!!.sendMessage("player_update", requestPlayerUpdateDto)
+        // Finally, map and return the result.
+        return playerUpdateResultDtoMapper.mapFromDto(playerUpdateResponse)
+    }
+
+    /**
+     * Sets this viewport as the latest stored viewport in the session, then sends the viewport as an update
+     * to the server, receiving all objects in that view in response.
+     */
+    suspend fun sendViewportUpdate(requestViewportUpdate: RequestViewportUpdate): ViewportUpdateResultModel {
+        // Set viewport to the one provided.
+        mutableLatestViewport.value = Viewport(
+            requestViewportUpdate.viewportMinX,
+            requestViewportUpdate.viewportMinY,
+            requestViewportUpdate.viewportMaxX,
+            requestViewportUpdate.viewportMaxY,
+            requestViewportUpdate.zoom
+        )
+
+        if(socket == null || socket?.connected() != true) {
+            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
+            throw NotImplementedError()
+        }
+        // Construct a request for viewport update.
+        val requestViewportUpdateDto = RequestViewportUpdateDto(
+            RequestViewportDto(
+                requestViewportUpdate.viewportMinX,
+                requestViewportUpdate.viewportMinY,
+                requestViewportUpdate.viewportMaxX,
+                requestViewportUpdate.viewportMaxY,
+                requestViewportUpdate.zoom
+            )
+        )
+        // Perform a send message toward the event name 'viewport_update'.
+        val viewportUpdateResponse: ViewportUpdateResponseDto = socket!!.sendMessage("viewport_update", requestViewportUpdateDto)
+        // Finally, map and return result.
+        return viewportUpdateResultDtoMapper.mapFromDto(viewportUpdateResponse)
     }
 
     /**
@@ -300,7 +367,7 @@ class WorldSocketSession @Inject constructor(
      * permission to be in the world has been withdrawn. This function will invoke the handle disconnection.
      */
     private fun closeConnection() {
-        Timber.d("We have been instructed to close the connection to the world.")
+        Timber.d("We have been told connection to server should be closed, or is not currently allowed.")
         socket?.close()
         socket?.off()
         socketManager?.off()
@@ -328,43 +395,10 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
-     * Handle an acknowledgement response to the submission of a player update.
+     * Handle the case where the socket server has decided to kick this client from service.
      */
-    private fun handlePlayerUpdateResponse(playerUpdateResponse: PlayerUpdateResponseDto) {
-        // If the viewport update within this response is not null, handle a viewport update response for it.
-        if(playerUpdateResponse.viewportUpdate != null) {
-            handleViewportUpdateResponse(playerUpdateResponse.viewportUpdate)
-        }
-        // TODO: handle other things from player update response.
-    }
-
-    /**
-     * Handle an acknowledgement response to the submission of a viewport update.
-     */
-    private fun handleViewportUpdateResponse(viewportUpdateResponse: ViewportUpdateResponseDto) {
-        applicationScope.launch {
-            // Get the tracks and map them to model, then to domain.
-            val tracks: List<Track> = viewportUpdateResponse.tracks
-                    .map { trackDtoMapper.mapFromDto(it) }
-                    .map { trackMapper.mapFromData(it) }
-            // Upsert these tracks.
-            trackRepository.cacheTracks(tracks)
-        }
-    }
-
-    /**
-     * Handle a race being successfully started.
-     */
-    private fun handleRaceStarted(raceStartedResponse: RaceStartedResponseDto) {
-        if(!raceStartedResponse.isStarted) {
-            throw NotImplementedError("handleRaceStarted is not supposed to ever handle a failed attempt to start a new race (isStarted == false)")
-        }
-        applicationScope.launch {
-            // We can be sure the race has actually started. We can read the RaceUpdate from this and upsert it.
-            upsertRaceUpdate(
-                raceStartedResponse.race!!
-            )
-        }
+    private fun handleKicked(socketError: SocketErrorDto) {
+        throw NotImplementedError("handleKicked is not implemented.")
     }
 
     /**
@@ -373,7 +407,7 @@ class WorldSocketSession @Inject constructor(
     private fun handleRaceFinished(raceUpdate: RaceUpdateDto) {
         applicationScope.launch {
             // When we are notified of the race finishing, we must simply upsert the received race.
-            upsertRaceUpdate(raceUpdate)
+            //upsertRaceUpdate(raceUpdate)
         }
     }
 
@@ -384,7 +418,7 @@ class WorldSocketSession @Inject constructor(
     private fun handleRaceDisqualified(raceUpdate: RaceUpdateDto) {
         applicationScope.launch {
             // When we are notified of a disqualification, we must simply upsert the received race.
-            upsertRaceUpdate(raceUpdate)
+            //upsertRaceUpdate(raceUpdate)
         }
     }
 
@@ -395,7 +429,7 @@ class WorldSocketSession @Inject constructor(
     private fun handleRaceCancelled(raceUpdate: RaceUpdateDto) {
         applicationScope.launch {
             // When we are notified of a cancellation, we must simply upsert the received race.
-            upsertRaceUpdate(raceUpdate)
+            //upsertRaceUpdate(raceUpdate)
         }
     }
 
@@ -408,9 +442,10 @@ class WorldSocketSession @Inject constructor(
             Timber.d("Connerror: $it")
         }
         // TODO: we can add more information to the connection error event.
-        mutableWorldSocketState.tryEmit(
-            WorldSocketState.Disconnected
-        )
+        throw NotImplementedError("Please implement handleConnectionError, we need to pass a ResourceError to Disconnected")
+        //mutableWorldSocketState.tryEmit(
+        //    WorldSocketState.Disconnected
+        //)
     }
 
     /**
@@ -422,20 +457,21 @@ class WorldSocketSession @Inject constructor(
             Timber.d("Error: $it")
         }
         // TODO: we can add more information to the disconnection event.
-        mutableWorldSocketState.tryEmit(
-            WorldSocketState.Disconnected
-        )
+        throw NotImplementedError("Please implement handleDisconnection, we need to pass a ResourceError to Disconnected")
+        //mutableWorldSocketState.tryEmit(
+        //    WorldSocketState.Disconnected()
+        //)
     }
 
     /**
      * A function to reduce code duplication involved in updating a Race instance.
      */
-    private suspend fun upsertRaceUpdate(raceUpdate: RaceUpdateDto) {
+    /*private suspend fun upsertRaceUpdate(raceUpdate: RaceUpdateDto) {
         // Map from DTO and from Model.
         val race: Race = raceMapper.mapFromData(
             raceUpdateDtoMapper.mapFromDto(raceUpdate)
         )
         // Upsert this.
         raceRepository.cacheRace(race)
-    }
+    }*/
 }

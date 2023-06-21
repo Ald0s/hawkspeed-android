@@ -11,7 +11,7 @@ class TrackPointEntityMapper @Inject constructor(
         return TrackPointModel(
             entity.latitude,
             entity.longitude,
-            entity.trackUid
+            entity.trackPathUid
         )
     }
 

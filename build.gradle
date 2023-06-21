@@ -1,20 +1,46 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.1'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.20"
-        classpath 'com.google.dagger:hilt-android-gradle-plugin:2.44.2'
-        classpath "org.jetbrains.kotlin:kotlin-serialization:1.7.22"
-        classpath "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1"
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
-    }
+plugins {
+    id 'com.google.dagger.hilt.android' version '2.45' apply false
+    id 'org.jetbrains.kotlin.android' version '1.8.0' apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.8.0'
+    id 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin' version '2.0.1' apply false
+
+    id 'com.android.application' version '8.0.1' apply false
+    id 'com.android.library' version '8.0.1' apply false
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+ext {
+    coreKtxVersion = "1.8.0"
+    lifecycleRuntimeKtxVersion = "2.3.1"
+    activityComposeVersion = "1.5.1"
+    composeBomVersion = "2022.10.00"
+
+    gsonVersion = "2.9.1"
+
+    hiltNavigationComposeVersion = "1.0.0"
+    navigationFragmentKtxVersion = "2.5.3"
+    navigationComposeVersion = "2.5.3"
+
+    pagingKtxVersion = "3.1.1"
+    timberVersion = "5.0.1"
+
+    daggerHiltAndroidVersion = "2.45"
+    daggerHiltCompilerVersion = "2.45"
+
+    retrofit2Version = "2.9.0"
+
+    okHttpVersion = "4.10.0"
+
+    cookieStoreVersion = "1.5.0"
+
+    roomVersion = "2.5.1"
+
+    dataStorePreferencesVersion = "1.0.0"
+
+    picassoVersion = "2.8"
+
+    junitTestVersion = "4.13.2"
+    testExtJunitVersion = "1.1.5"
+    espressoCoreVersion = "3.5.1"
+    espressoIdlingResourceVersion = "3.5.1"
 }

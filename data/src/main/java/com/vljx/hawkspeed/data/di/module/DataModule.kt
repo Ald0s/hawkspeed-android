@@ -1,12 +1,15 @@
 package com.vljx.hawkspeed.data.di.module
 
+import com.vljx.hawkspeed.data.WorldSocketRepositoryImpl
 import com.vljx.hawkspeed.data.database.*
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
 import com.vljx.hawkspeed.data.network.RaceOutcomeRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
+import com.vljx.hawkspeed.data.network.UserRemoteDataImpl
 import com.vljx.hawkspeed.data.source.*
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
+import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -41,4 +44,13 @@ interface DataModule {
 
     @Binds
     fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceOutcomeRemoteDataImpl): RaceOutcomeRemoteData
+
+    @Binds
+    fun bindUserLocalData(userLocalDataImpl: UserLocalDataImpl): UserLocalData
+
+    @Binds
+    fun bindUserRemoteData(userRemoteDataImpl: UserRemoteDataImpl): UserRemoteData
+
+    @Binds
+    fun bindWorldSocketRepository(worldSocketRepositoryImpl: WorldSocketRepositoryImpl): WorldSocketRepository
 }

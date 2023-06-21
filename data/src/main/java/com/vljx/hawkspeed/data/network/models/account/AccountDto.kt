@@ -21,15 +21,15 @@ data class AccountDto(
     val privilege: Int,
 
     @Expose
-    @SerializedName("account_verified")
-    val isVerified: Boolean,
+    @SerializedName("is_account_verified")
+    val isAccountVerified: Boolean,
 
     @Expose
-    @SerializedName("password_verified")
+    @SerializedName("is_password_verified")
     val isPasswordVerified: Boolean,
 
     @Expose
-    @SerializedName("profile_setup")
+    @SerializedName("is_profile_setup")
     val isProfileSetup: Boolean,
 
     @Expose

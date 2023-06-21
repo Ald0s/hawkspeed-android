@@ -13,6 +13,6 @@ data class TrackPointDto(
     val longitude: Double,
 
     @Expose
-    @SerializedName("track_uid")
+    @SerializedName("tuid")
     val trackUid: String
 )

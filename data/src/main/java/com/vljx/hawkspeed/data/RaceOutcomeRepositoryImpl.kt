@@ -12,39 +12,38 @@ import com.vljx.hawkspeed.data.source.RaceOutcomeRemoteData
 import com.vljx.hawkspeed.data.source.TrackLocalData
 import com.vljx.hawkspeed.domain.models.race.RaceOutcome
 import com.vljx.hawkspeed.domain.repository.RaceOutcomeRepository
-import com.vljx.hawkspeed.domain.requests.track.PageLeaderboardRequest
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageLeaderboard
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class RaceOutcomeRepositoryImpl @Inject constructor(
-    // TODO: the Paging library itself seems to compress all layers into a single one. This is by design so yes, I will be breaking clean architecture for this.
     private val appDatabase: AppDatabase,
+
+    private val trackLocalData: TrackLocalData,
 
     private val raceOutcomeRemoteData: RaceOutcomeRemoteData,
     private val raceOutcomeLocalData: RaceOutcomeLocalData,
-    private val raceOutcomeMapper: RaceOutcomeMapper,
 
-    // TODO: this probably breaks Clean Architecture principles as we're mixing interfaces, but for now, I'll just get the job done.
-    private val trackLocalData: TrackLocalData,
-    private val raceOutcomeEntityMapper: RaceOutcomeEntityMapper
+    private val raceOutcomeEntityMapper: RaceOutcomeEntityMapper,
+    private val raceOutcomeMapper: RaceOutcomeMapper
 ): BaseRepository(), RaceOutcomeRepository {
     @ExperimentalPagingApi
-    override fun pageLeaderboardForTrack(pageLeaderboardRequest: PageLeaderboardRequest): Flow<PagingData<RaceOutcome>> =
+    override fun pageLeaderboardForTrack(requestPageLeaderboard: RequestPageLeaderboard): Flow<PagingData<RaceOutcome>> =
         Pager(
-            config = PagingConfig(pageSize = 5), /* TODO: this should be in sync with the server's configuration. */
+            config = PagingConfig(pageSize = 20),
             remoteMediator = object: BaseRemoteMediator<RaceOutcomeEntity, RaceLeaderboardPageModel>(
                 appDatabase,
-                remoteQuery = { loadKey -> raceOutcomeRemoteData.queryLeaderboardPage(pageLeaderboardRequest, loadKey) },
+                remoteQuery = { loadKey -> raceOutcomeRemoteData.queryLeaderboardPage(requestPageLeaderboard, loadKey) },
                 upsertQuery = { dataModel: RaceLeaderboardPageModel ->
                     // Upsert the Track object itself, to both update the Track if we have it, or add it if we don't; in case the track itself is required.
                     trackLocalData.upsertTrack(dataModel.trackModel)
                     // Now, upsert all race outcomes.
                     raceOutcomeLocalData.upsertRaceLeaderboard(dataModel)
                 },
-                clearAllQuery = { raceOutcomeLocalData.clearLeaderboardFor(pageLeaderboardRequest.trackUid) }
+                clearAllQuery = { raceOutcomeLocalData.clearLeaderboardFor(requestPageLeaderboard.trackUid) }
             ) { },
-            pagingSourceFactory = { raceOutcomeLocalData.pageRaceOutcomesFromTrack(pageLeaderboardRequest) }
+            pagingSourceFactory = { raceOutcomeLocalData.pageRaceOutcomesFromTrack(requestPageLeaderboard) }
         ).flow.map { raceOutcomeEntityPagingData ->
             raceOutcomeEntityPagingData.map { raceOutcomeEntity ->
                 raceOutcomeMapper.mapFromData(

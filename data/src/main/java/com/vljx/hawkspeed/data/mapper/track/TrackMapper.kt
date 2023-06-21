@@ -18,10 +18,13 @@ class TrackMapper @Inject constructor(
             userMapper.mapFromData(model.owner),
             trackPointMapper.mapFromData(model.startPoint),
             model.isVerified,
+            model.numPositiveVotes,
+            model.numNegativeVotes,
+            model.yourRating,
+            model.numComments,
             model.canRace,
             model.canEdit,
             model.canDelete
-            //model.points.map { trackPointMapper.mapFromData(it) }
         )
     }
 
@@ -33,10 +36,13 @@ class TrackMapper @Inject constructor(
             userMapper.mapToData(domain.owner),
             trackPointMapper.mapToData(domain.startPoint),
             domain.isVerified,
+            domain.numPositiveVotes,
+            domain.numNegativeVotes,
+            domain.yourRating,
+            domain.numComments,
             domain.canRace,
             domain.canEdit,
-            domain.canDelete,
-            //domain.points.map { trackPointMapper.mapToData(it) }
+            domain.canDelete
         )
     }
 }

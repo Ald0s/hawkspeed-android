@@ -1,31 +1,44 @@
 package com.vljx.hawkspeed.domain
 
-import com.vljx.hawkspeed.domain.base.BaseApiError
+import com.google.gson.GsonBuilder
+import com.vljx.hawkspeed.domain.base.ApiErrorWrapper
+import java.lang.StringBuilder
 
-interface ResourceError {
-    enum class Type {
-        API,
-        NETWORK,
-        DEVICE,
-        OTHER
+sealed class ResourceError {
+    data class ApiError(
+        val httpStatusCode: Int,
+        val httpStatus: String,
+        val apiErrorWrapper: ApiErrorWrapper
+    ): ResourceError() {
+        override val errorSummary: String
+            get() = StringBuilder().apply {
+                appendLine("=== API Error Error ===")
+                appendLine("HTTP Status Code\t\t$httpStatusCode")
+                appendLine("HTTP Status\t\t$httpStatus")
+                val prettyGson = GsonBuilder()
+                    .setPrettyPrinting()
+                    .create()
+                appendLine("API Error name\t\t${apiErrorWrapper.name}")
+                appendLine("API Error severity\t\t${apiErrorWrapper.severity}")
+                appendLine("API Error dict\n${prettyGson.toJson(apiErrorWrapper.errorInformation)}")
+            }.toString()
     }
 
-    val type: Type
-    val httpStatusCode: Int?
-    val httpStatus: String?
-    val message: String?
-    val apiError: BaseApiError?
-    val exception: Exception?
+    data class GeneralError(
+        val message: String,
+        val exception: Exception?
+    ): ResourceError() {
+        override val errorSummary: String
+            get() = StringBuilder().apply {
+                appendLine("=== General Error ===")
+                appendLine("Message\t\t${message}")
+                if(exception != null) {
+                    appendLine("Exception type\t\t${exception.javaClass.name}")
+                    appendLine("Exception message\t\t${exception.message}")
+                    appendLine("Exception stack trace\n${exception.stackTraceToString()}")
+                }
+            }.toString()
+    }
 
-    /**
-     * Return a code-type prompt that represents the error as a whole; this code will be passed to all functions
-     * responsible for translating errors into readable/user-friendly resources.
-     */
-    fun getErrorCode(): String
-
-    /**
-     * Return a printable readout that type/domain agnostically describes this resource error. This consists of multiple
-     * lines each showing information only if made available by the error.
-     */
-    fun summariseError(): String
+    abstract val errorSummary: String
 }

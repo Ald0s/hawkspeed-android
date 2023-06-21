@@ -13,7 +13,7 @@ class RaceLeaderboardPageDtoMapper @Inject constructor(
     override fun mapFromDto(dto: RaceLeaderboardPageDto): RaceLeaderboardPageModel {
         return RaceLeaderboardPageModel(
             trackDtoMapper.mapFromDto(dto.trackDto),
-            dto.raceOutcomes.map { raceOutcomeDtoMapper.mapFromDto(it) },
+            raceOutcomeDtoMapper.mapFromDtoList(dto.raceOutcomes),
             dto.thisPage,
             dto.nextPage
         )

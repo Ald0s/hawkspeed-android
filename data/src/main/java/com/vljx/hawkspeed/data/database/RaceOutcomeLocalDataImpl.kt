@@ -6,7 +6,7 @@ import com.vljx.hawkspeed.data.database.entity.RaceOutcomeEntity
 import com.vljx.hawkspeed.data.database.mapper.RaceOutcomeEntityMapper
 import com.vljx.hawkspeed.data.models.race.RaceLeaderboardPageModel
 import com.vljx.hawkspeed.data.source.RaceOutcomeLocalData
-import com.vljx.hawkspeed.domain.requests.track.PageLeaderboardRequest
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageLeaderboard
 import javax.inject.Inject
 
 class RaceOutcomeLocalDataImpl @Inject constructor(
@@ -14,8 +14,8 @@ class RaceOutcomeLocalDataImpl @Inject constructor(
 
     private val raceOutcomeEntityMapper: RaceOutcomeEntityMapper
 ): RaceOutcomeLocalData {
-    override fun pageRaceOutcomesFromTrack(pageLeaderboardRequest: PageLeaderboardRequest): PagingSource<Int, RaceOutcomeEntity> =
-        raceOutcomeDao.pageRaceOutcomesFromTrack(pageLeaderboardRequest.trackUid)
+    override fun pageRaceOutcomesFromTrack(requestPageLeaderboard: RequestPageLeaderboard): PagingSource<Int, RaceOutcomeEntity> =
+        raceOutcomeDao.pageRaceOutcomesFromTrack(requestPageLeaderboard.trackUid)
 
     override suspend fun upsertRaceLeaderboard(raceLeaderboardPageModel: RaceLeaderboardPageModel) {
         // Map all race outcomes to their entity equivalents.

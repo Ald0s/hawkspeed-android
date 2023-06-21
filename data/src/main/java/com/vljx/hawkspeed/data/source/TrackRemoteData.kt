@@ -2,11 +2,17 @@ package com.vljx.hawkspeed.data.source
 
 import com.vljx.hawkspeed.data.models.track.TrackModel
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.requests.SubmitTrackRequest
-import com.vljx.hawkspeed.domain.requests.track.GetTrackRequest
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestSubmitTrack
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrack
 
 interface TrackRemoteData {
-    suspend fun queryTrack(getTrackRequest: GetTrackRequest): Resource<TrackModel>
+    /**
+     * Query a track given the request.
+     */
+    suspend fun queryTrack(requestGetTrack: RequestGetTrack): Resource<TrackModel>
 
-    suspend fun createNewTrack(submitTrackRequest: SubmitTrackRequest): Resource<TrackModel>
+    /**
+     * Perform a query to request the creation of a new track.
+     */
+    suspend fun createNewTrack(requestSubmitTrack: RequestSubmitTrack): Resource<TrackModel>
 }

@@ -23,8 +23,8 @@ class UserMapper @Inject constructor(
             domain.userUid,
             domain.userName,
             domain.privilege,
-            domain.isYou,
-            domain.isBot
+            domain.isBot,
+            domain.isYou
         )
     }
 }

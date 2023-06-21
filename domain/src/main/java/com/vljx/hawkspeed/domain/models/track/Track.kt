@@ -3,7 +3,7 @@ package com.vljx.hawkspeed.domain.models.track
 import android.location.Location
 import android.os.Parcelable
 import com.vljx.hawkspeed.domain.models.user.User
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class Track(
@@ -13,10 +13,13 @@ data class Track(
     val owner: User,
     val startPoint: TrackPoint,
     val isVerified: Boolean,
+    val numPositiveVotes: Int,
+    val numNegativeVotes: Int,
+    val yourRating: Boolean?,
+    val numComments: Int,
     val canRace: Boolean,
     val canEdit: Boolean,
-    val canDelete: Boolean,
-    //val points: List<TrackPoint>
+    val canDelete: Boolean
 ): Parcelable {
     /**
      * Determines whether the Player referred to by the latitude, longitude and the rotation is situated such that they can

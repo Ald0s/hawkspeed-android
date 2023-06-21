@@ -16,6 +16,10 @@ class TrackEntityMapper @Inject constructor(
             userEntityMapper.mapFromEntity(entity.owner),
             trackPointEntityMapper.mapFromEntity(entity.startPoint),
             entity.isVerified,
+            entity.numPositiveVotes,
+            entity.numNegativeVotes,
+            entity.yourRating,
+            entity.numComments,
             entity.canRace,
             entity.canEdit,
             entity.canDelete
@@ -30,6 +34,10 @@ class TrackEntityMapper @Inject constructor(
             userEntityMapper.mapToEntity(model.owner),
             trackPointEntityMapper.mapToEntity(model.startPoint),
             model.isVerified,
+            model.numPositiveVotes,
+            model.numNegativeVotes,
+            model.yourRating,
+            model.numComments,
             model.canRace,
             model.canEdit,
             model.canDelete

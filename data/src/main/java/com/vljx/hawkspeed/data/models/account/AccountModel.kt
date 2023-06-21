@@ -4,7 +4,7 @@ data class AccountModel(
     val userUid: String,
     val emailAddress: String,
     val userName: String?,
-    val isVerified: Boolean,
+    val isAccountVerified: Boolean,
     val isPasswordVerified: Boolean,
     val isProfileSetup: Boolean,
     val canCreateTracks: Boolean

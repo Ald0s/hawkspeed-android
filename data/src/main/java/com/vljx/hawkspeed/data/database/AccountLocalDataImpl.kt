@@ -5,47 +5,42 @@ import com.vljx.hawkspeed.data.database.entity.AccountEntity
 import com.vljx.hawkspeed.data.database.mapper.AccountEntityMapper
 import com.vljx.hawkspeed.data.models.account.AccountModel
 import com.vljx.hawkspeed.data.source.AccountLocalData
+import com.vljx.hawkspeed.domain.exc.AccountChangedException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class AccountLocalDataImpl @Inject constructor(
     private val accountDao: AccountDao,
+    private val appDatabase: AppDatabase,
 
     private val accountEntityMapper: AccountEntityMapper
 ): AccountLocalData {
-    override fun selectAccountByUid(userUid: String): Flow<AccountModel?> {
-        val accountEntityFlow: Flow<AccountEntity?> = accountDao.selectAccountByUid(userUid)
-        return accountEntityFlow.map { accountEntity ->
+    override fun selectCurrentAccount(): Flow<AccountModel?> =
+        accountDao.selectCurrentAccount().map { accountEntity ->
             accountEntity?.run { accountEntityMapper.mapFromEntity(accountEntity) }
         }
+
+    override suspend fun upsertAccount(account: AccountModel) {
+        // We'll first get the current account that's in cache, if any.
+        val accountEntity: AccountEntity? = accountDao.getCurrentAccount()
+        // If the account is not null, and the uids do not match the one we will upsert, the current User has not properly logged out.
+        if(accountEntity != null && accountEntity.userUid != account.userUid) {
+            // Throw an account changed exception, which will signal to repository that authentication status has been lost.
+            throw AccountChangedException()
+        }
+        // Upsert the given account into cache.
+        accountDao.upsert(
+            accountEntityMapper.mapToEntity(account)
+        )
     }
 
-    override suspend fun setAccountLoggedIn(accountModel: AccountModel) {
-        // Convert model to an entity.
-        val accountEntity: AccountEntity = accountEntityMapper.mapToEntity(accountModel)
-        // isUnUse will always be false after mapping. So here we'll set it to true.
-        accountEntity.isInUse = true
-        // Now we will set all other account entities to not be in use, where the account not the same as this one.
-        // We specify this WHERE clause to avoid a potential update being emitted that could log the account out...
-        accountDao.setAllUnused(accountEntity.userUid)
-        // Now upsert our entity.
-        accountDao.upsert(accountEntity)
-    }
-
-    override suspend fun accountLoggedOut(accountModel: AccountModel) {
-        // Map to entity.
-        val accountEntity: AccountEntity = accountEntityMapper.mapToEntity(accountModel)
-        // We'll now set isInUse to false manually.
-        accountEntity.isInUse = false
-        // And upsert.
-        accountDao.upsert(accountEntity)
-    }
-
-    override suspend fun upsertAccount(accountModel: AccountModel) {
-        // Map to entity.
-        val accountEntity: AccountEntity = accountEntityMapper.mapToEntity(accountModel)
-        // Upsert the account.
-        accountDao.upsert(accountEntity)
+    override suspend fun clearAccount() {
+        CoroutineScope(Dispatchers.IO).launch {
+            appDatabase.clearAllTables()
+        }
     }
 }

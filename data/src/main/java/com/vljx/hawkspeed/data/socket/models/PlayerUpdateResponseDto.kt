@@ -6,6 +6,10 @@ import com.vljx.hawkspeed.data.network.models.track.TrackDto
 
 data class PlayerUpdateResponseDto(
     @Expose
+    @SerializedName("player_uid")
+    val playerUid: String,
+
+    @Expose
     @SerializedName("latitude")
     val latitude: Double,
 
@@ -18,6 +22,6 @@ data class PlayerUpdateResponseDto(
     val rotation: Double,
 
     @Expose
-    @SerializedName("viewport_update")
-    val viewportUpdate: ViewportUpdateResponseDto?
+    @SerializedName("world_object_update")
+    val worldObjectUpdate: WorldObjectUpdateResponseDto?
 )

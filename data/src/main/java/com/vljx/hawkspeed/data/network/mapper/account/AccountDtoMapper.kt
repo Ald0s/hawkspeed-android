@@ -13,7 +13,7 @@ class AccountDtoMapper @Inject constructor(
             dto.userUid,
             dto.emailAddress,
             dto.userName,
-            dto.isVerified,
+            dto.isAccountVerified,
             dto.isPasswordVerified,
             dto.isProfileSetup,
             dto.canCreateTracks

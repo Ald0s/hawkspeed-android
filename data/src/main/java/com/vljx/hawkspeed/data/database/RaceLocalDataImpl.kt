@@ -5,7 +5,7 @@ import com.vljx.hawkspeed.data.database.entity.RaceEntity
 import com.vljx.hawkspeed.data.database.mapper.RaceEntityMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.RaceLocalData
-import com.vljx.hawkspeed.domain.requests.race.GetRaceRequest
+import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -15,9 +15,9 @@ class RaceLocalDataImpl @Inject constructor(
 
     private val raceEntityMapper: RaceEntityMapper
 ): RaceLocalData {
-    override fun selectRace(getRaceRequest: GetRaceRequest): Flow<RaceModel?> {
+    override fun selectRace(requestGetRace: RequestGetRace): Flow<RaceModel?> {
         // Get the query for the race entity, as a flow.
-        val raceEntityFlow: Flow<RaceEntity?> = raceDao.selectRace(getRaceRequest.raceUid)
+        val raceEntityFlow: Flow<RaceEntity?> = raceDao.selectRace(requestGetRace.raceUid)
         // Return a map for this entity flow to a model flow.
         return raceEntityFlow.map { raceEntity ->
             raceEntity?.run { raceEntityMapper.mapFromEntity(raceEntity) }

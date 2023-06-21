@@ -1,6 +1,6 @@
 package com.vljx.hawkspeed.domain
 
-import com.vljx.hawkspeed.domain.models.ApiError
+import com.vljx.hawkspeed.domain.base.ApiErrorWrapper
 
 data class ResourceImpl<out T>(
     override val status: Resource.Status,
@@ -17,53 +17,21 @@ data class ResourceImpl<out T>(
         }
 
         /**
-         * To be called whenever any device related error has occurred. Remember, this does NOT relate to Android errors at all,
-         * specifically just errors that originate from the data layer as a result of the device.
+         * Signals that the requested resource is loading.
          */
-        fun <T> deviceError(message: String, exception: Exception?): ResourceImpl<T> {
-            return ResourceImpl(
-                Resource.Status.ERROR, null,
-                ResourceErrorImpl(
-                    ResourceError.Type.DEVICE,
-                    null,
-                    null,
-                    message,
-                    null,
-                    exception
-                )
-            )
-        }
-
-        /**
-         * To be called whenever a network error occurs.
-         */
-        fun <T> networkError(httpStatusCode: Int, httpStatus: String, exception: Exception? = null): ResourceImpl<T> {
-            return ResourceImpl(Resource.Status.ERROR, null,
-                ResourceErrorImpl(
-                    ResourceError.Type.NETWORK,
-                    httpStatusCode,
-                    httpStatus,
-                    null,
-                    null,
-                    exception
-                )
-            )
+        fun <T> loading(): Resource<T> {
+            return ResourceImpl(Resource.Status.LOADING, null, null)
         }
 
         /**
          * To be called whenever an API error has occurred. That is, a remote data request has returned any other status than
          * one of the success indicators.
          */
-        fun <T> apiError(httpStatusCode: Int, httpStatus: String, apiError: ApiError? = null): ResourceImpl<T> {
-            return ResourceImpl(Resource.Status.ERROR, null,
-                ResourceErrorImpl(
-                    ResourceError.Type.API,
-                    httpStatusCode,
-                    httpStatus,
-                    null,
-                    apiError,
-                    null
-                )
+        fun <T> apiError(httpStatusCode: Int, httpStatus: String, apiErrorWrapper: ApiErrorWrapper): ResourceImpl<T> {
+            return ResourceImpl(
+                Resource.Status.ERROR,
+                null,
+                ResourceError.ApiError(httpStatusCode, httpStatus, apiErrorWrapper)
             )
         }
 
@@ -71,23 +39,11 @@ data class ResourceImpl<out T>(
          * To be called whenever any other type of error has occurred.
          */
         fun <T> error(message: String, exception: Exception?): Resource<T> {
-            return ResourceImpl(Resource.Status.ERROR, null,
-                ResourceErrorImpl(
-                    ResourceError.Type.OTHER,
-                    null,
-                    null,
-                    message,
-                    null,
-                    exception
-                )
+            return ResourceImpl(
+                Resource.Status.ERROR,
+                null,
+                ResourceError.GeneralError(message, exception)
             )
-        }
-
-        /**
-         * Signals that the requested resource is loading.
-         */
-        fun <T> loading(): Resource<T> {
-            return ResourceImpl(Resource.Status.LOADING, null, null)
         }
     }
 }

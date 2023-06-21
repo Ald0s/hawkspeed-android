@@ -26,8 +26,20 @@ data class TrackDto(
     val startPoint: TrackPointDto,
 
     @Expose
-    @SerializedName("verified")
+    @SerializedName("is_verified")
     val isVerified: Boolean,
+
+    @Expose
+    @SerializedName("ratings")
+    val ratings: TrackRatingsDto,
+
+    @Expose
+    @SerializedName("your_rating")
+    val yourRating: Boolean?,
+
+    @Expose
+    @SerializedName("num_comments")
+    val numComments: Int,
 
     @Expose
     @SerializedName("can_race")
@@ -39,9 +51,5 @@ data class TrackDto(
 
     @Expose
     @SerializedName("can_delete")
-    val canDelete: Boolean,
-
-    //@Expose
-    //@SerializedName("points")
-    //val points: List<TrackPointDto>
+    val canDelete: Boolean
 )

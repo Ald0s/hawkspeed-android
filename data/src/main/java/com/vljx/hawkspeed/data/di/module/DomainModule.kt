@@ -24,4 +24,10 @@ interface DomainModule {
 
     @Binds
     fun bindRaceOutcomeRepository(raceOutcomeRepositoryImpl: RaceOutcomeRepositoryImpl): RaceOutcomeRepository
+
+    @Binds
+    fun bindUserRepository(userRepositoryImpl: UserRepositoryImpl): UserRepository
+
+    @Binds
+    fun bindWorldRepository(worldRepositoryImpl: WorldRepositoryImpl): WorldRepository
 }

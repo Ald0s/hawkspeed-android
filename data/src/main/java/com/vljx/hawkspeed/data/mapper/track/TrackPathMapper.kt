@@ -11,14 +11,14 @@ class TrackPathMapper @Inject constructor(
     override fun mapFromData(model: TrackPathModel): TrackPath {
         return TrackPath(
             model.trackUid,
-            model.points.map { trackPointMapper.mapFromData(it) }
+            trackPointMapper.mapFromDataList(model.points)
         )
     }
 
     override fun mapToData(domain: TrackPath): TrackPathModel {
         return TrackPathModel(
-            domain.trackUid,
-            domain.points.map { trackPointMapper.mapToData(it) }
+            domain.trackPathUid,
+            trackPointMapper.mapToDataList(domain.points)
         )
     }
 }

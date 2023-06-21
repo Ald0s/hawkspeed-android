@@ -54,17 +54,6 @@ class NetworkModule {
     fun provideCookieJar(cookieManager: CookieManager): CookieJar =
         JavaNetCookieJar(cookieManager)
 
-    @Provides
-    @Singleton
-    fun provideGson(): Gson =
-        GsonBuilder()
-            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss")
-            .enableComplexMapKeySerialization()
-            .excludeFieldsWithoutExposeAnnotation()
-            .registerTypeAdapter(LocalDate::class.java, LocalDateSerialiser())
-            .registerTypeAdapter(LocalDate::class.java, LocalDateDeserialiser())
-            .create()
-
     // TODO .addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
     @Provides
     @Singleton

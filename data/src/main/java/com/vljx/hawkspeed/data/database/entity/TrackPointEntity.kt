@@ -9,5 +9,5 @@ data class TrackPointEntity(
     val trackPointId: Long?,
     val latitude: Double,
     val longitude: Double,
-    val trackUid: String
+    val trackPathUid: String
 )

@@ -7,13 +7,13 @@ import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.base.BasePaged
+import com.vljx.hawkspeed.domain.base.Paged
 import retrofit2.HttpException
 import timber.log.Timber
 import java.io.IOException
 
 @OptIn(ExperimentalPagingApi::class)
-open class BaseRemoteMediator<EntityModel: Any, DataModel: BasePaged>(
+open class BaseRemoteMediator<EntityModel: Any, DataModel: Paged>(
     private val appDatabase: AppDatabase,
     private val remoteQuery: suspend (loadKey: Int) -> Resource<DataModel>,
     private val upsertQuery: suspend (dataModel: DataModel) -> Unit,
@@ -45,7 +45,7 @@ open class BaseRemoteMediator<EntityModel: Any, DataModel: BasePaged>(
             val modelResource: Resource<DataModel> = remoteQuery.invoke(loadKey ?: 1)
             // If the request is not successful, throw a remote mediator resource exception.
             if(modelResource.status != Resource.Status.SUCCESS) {
-                Timber.e("Failed to call remote query in mediator! A resource error occurred! Summary:\n${modelResource.resourceError?.summariseError()}")
+                Timber.e("Failed to call remote query in mediator! A resource error occurred! Summary:\n${modelResource.resourceError?.errorSummary}")
                 throw RemoteMediatorResourceException(modelResource.resourceError!!)
             }
             // Otherwise, get the data model itself.

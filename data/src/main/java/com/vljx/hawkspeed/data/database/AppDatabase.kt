@@ -10,16 +10,18 @@ import com.vljx.hawkspeed.data.database.dao.*
 import com.vljx.hawkspeed.data.database.entity.*
 
 @Database(
-    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPointEntity::class, RaceEntity::class, RaceOutcomeEntity::class],
-    version = 9
+    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceOutcomeEntity::class],
+    version = 39
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun trackDao(): TrackDao
+    abstract fun trackPathDao(): TrackPathDao
     abstract fun trackPointDao(): TrackPointDao
     abstract fun raceDao(): RaceDao
     abstract fun raceOutComeDao(): RaceOutcomeDao
+    abstract fun userDao(): UserDao
 
     companion object {
         const val DATABASE_NAME = "hawkdb"

@@ -9,35 +9,47 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.*
 import androidx.core.app.NotificationCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.location.*
-import com.google.android.gms.location.R
 import com.google.android.gms.tasks.Tasks
-import com.vljx.hawkspeed.data.socket.ServerInfoState
-import com.vljx.hawkspeed.data.socket.WorldSocketPermissionState
 import com.vljx.hawkspeed.data.socket.WorldSocketSession
-import com.vljx.hawkspeed.data.socket.WorldSocketState
-import com.vljx.hawkspeed.data.socket.requests.*
-import com.vljx.hawkspeed.domain.ResourceError
-import com.vljx.hawkspeed.models.world.Viewport
-import com.vljx.hawkspeed.models.world.WorldInitial
-import com.vljx.hawkspeed.models.world.WorldInitial.Companion.ARG_WORLD_INITIAL
-import com.vljx.hawkspeed.util.Extension.putExtra
-import com.vljx.hawkspeed.view.MainActivity
+import com.vljx.hawkspeed.data.socket.requestmodels.*
+import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.SetLocationAvailabilityUseCase
+import com.vljx.hawkspeed.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
 import timber.log.Timber
 import java.util.concurrent.ExecutionException
 import javax.inject.Inject
 
+/**
+ * The world service component; maintains the responsibility of single source of truth for location updates. New locations and location availabilities will be passed
+ * directly to the world socket session instance from here. Communication with this service should be avoided for HawkSpeed specific functionality. That should be done
+ * via view models that communicate via repos to world socket session.
+ *
+ * TODO: should we instead employ use cases to communicate with world socket session?
+ */
 @AndroidEntryPoint
 class WorldService: Service() {
+    inner class WorldServiceBinder: Binder() {
+        fun getService(): WorldService = this@WorldService
+    }
+
     @Inject
-    lateinit var worldSocketSession: WorldSocketSession
+    lateinit var sendPlayerUpdateUseCase: SendPlayerUpdateUseCase
 
+    @Inject
+    lateinit var requestLeaveWorldUseCase: RequestLeaveWorldUseCase
+
+    @Inject
+    lateinit var setLocationAvailabilityUseCase: SetLocationAvailabilityUseCase
+
+    // A binder to provide on bind to clients.
     private val binder = WorldServiceBinder()
-
     // Access to the location client.
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     // Provides parameters for the location request.
@@ -51,17 +63,26 @@ class WorldService: Service() {
     // The notification channel.
     private lateinit var notificationChannel: NotificationChannel
 
-    // The latest viewport reported by any user of the world service.
-    private val mutableLatestViewport: MutableStateFlow<Viewport?> = MutableStateFlow(null)
-
     // Objects for managing asynchronous operations.
     // Create a new job.
     private val job = SupervisorJob()
     // Create a new coroutine scope based on this job.
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
-    // A boolean that indicates whether location updates are generally available.
-    private var currentLocationAvailability: Boolean = false
+    // Whether or not we are currently receiving updates.
+    private var receivingLocationUpdates: Boolean = false
+
+    /**
+     * Set the current mocked location. This function will only run if build config is currently set to use mock locations.
+     */
+    @SuppressLint("MissingPermission")
+    fun mockLocation(location: Location) {
+        if(!BuildConfig.USE_MOCK_LOCATION) {
+            throw NotImplementedError()
+        }
+        location.accuracy = 3.0f
+        fusedLocationClient.setMockLocation(location)
+    }
 
     @SuppressLint("MissingPermission")
     override fun onCreate() {
@@ -114,6 +135,10 @@ class WorldService: Service() {
         serviceHandler = Handler(serviceHandlerThread.looper)
     }
 
+    /**
+     * Sending a start command to the world service will bring it to the foreground, and begin location tracking operations. It will not connect the client to the
+     * game server, however.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             Timber.d("World service has received a start command...")
@@ -125,7 +150,9 @@ class WorldService: Service() {
                 // TODO: onStartCommand invoked by notification.
                 throw NotImplementedError("WorldService.onStartCommand being invoked via notification is NOT YET handled!")
             }
-            // TODO: move this as we only need foreground when app is active (?)
+            // Begin receiving location updates.
+            beginLocationUpdates()
+            // Start the service in the foreground now.
             startForeground(ONGOING_NOTIFICATION_ID, getNotification())
         } catch(se: SecurityException) {
             // TODO: emit a world service failure status indicating that there's a locational permission error.
@@ -161,168 +188,30 @@ class WorldService: Service() {
     }
 
     /**
-     * Update the latest viewport and send a viewport update to the server.
-     */
-    fun sendViewportUpdate(viewport: Viewport) {
-        // Set the latest viewport to this one.
-        setLatestViewport(viewport)
-        // Now, perform that request. Create the viewport update request dto, and send to socket session.
-        val viewportUpdateRequestDto = ViewportUpdateRequestDto(
-            viewport.minX,
-            viewport.minY,
-            viewport.maxX,
-            viewport.maxY,
-            viewport.zoom
-        )
-        worldSocketSession.sendViewportUpdate(viewportUpdateRequestDto)
-    }
-
-    /**
-     * Update the latest viewport.
-     */
-    fun setLatestViewport(viewport: Viewport) {
-        mutableLatestViewport.tryEmit(viewport)
-    }
-
-    /**
-     * This function will begin the process of authenticating and connecting this service instance to the HawkSpeed world. If the internal structure has already
-     * been instructed to be in a connected state to the world, nothing will happen (for now.)
-     */
-    @SuppressLint("MissingPermission") // TODO: suppressing MissingPermission warning, probably not a good idea.
-    fun joinWorld(forceRejoin: Boolean = false) {
-        // Check the currently world permission state, if it is already CanJoin, do not do anything unless we are being forced.
-        if(worldSocketSession.currentWorldSocketPermissionState is WorldSocketPermissionState.CanJoinWorld && !forceRejoin) {
-            // Do nothing, since we are already connected.
-            Timber.d("Skipped joining world once again, we are already joined.")
-            return
-        }
-        // In our custom scope, launch a new coroutine that will actually connect to the server.
-        scope.launch {
-            try {
-                // Get the most recent location availability status.
-                currentLocationAvailability = getCurrentLocationAvailability()
-                Timber.d("Connecting to game server started, location available: $currentLocationAvailability")
-                if(!currentLocationAvailability) {
-                    // TODO: check currentLocationAvailability and decide on a coarse of action, depending on its value. Is it worth it to try and get a location irrespective???
-                }
-                // Next, continue by getting the current location for this device. This is required for connecting to the server.
-                // TODO: Customise the CurrentLocationRequest further to include distance travelled.
-                val location: Location = getCurrentLocation(
-                    CurrentLocationRequest.Builder()
-                        .setMaxUpdateAgeMillis(5000)
-                        .build()
-                )
-                // Build a connect/authentication request dto for the connection protocol.
-                // TODO: this breaks clean arch, I think... Revise.
-                val connectAuthenticationRequestDto = ConnectAuthenticationRequestDto(
-                    location.latitude,
-                    location.longitude,
-                    location.bearing,
-                    location.speed,
-                    location.time
-                )
-                // TODO: get entry token & target game server info, if provided and when implemented.
-                // Update the world socket session to be aware of this configuration. All other requirements satisfied, this should trigger the connection procedure.
-                worldSocketSession.updateServerInfo(
-                    "TOKEN HERE",
-                    "GAME SERVER INFO HERE",
-                    connectAuthenticationRequestDto
-                )
-                // Now start a collection for the state of the world socket.
-                worldSocketSession.worldSocketState.collect { worldSocketState: WorldSocketState ->
-                    // The idea is, this collection will continue until the world socket state changes to disconnected, at which point, we will run disconnection
-                    // logic, then cancel the coroutine; which will hopefully also cancel this collection...
-                    when(worldSocketState) {
-                        is WorldSocketState.Connected -> {
-                            Timber.d("World service has reported that it has successfully connected to the World service!")
-                            // Begin the location updates.
-                            beginLocationUpdates()
-                        }
-                        is WorldSocketState.Connecting -> {
-                            Timber.d("World service has reported that the connection to World service is in progress...")
-                        }
-                        is WorldSocketState.Disconnected -> {
-                            Timber.d("World service has reported that connection to the World service is no longer available...")
-                            cancel()
-                        }
-                    }
-                }
-            } catch(e: Exception) {
-                // TODO: properly handle exceptions resulting from calls to requestJoinWorld()
-                // TODO: properly handle exceptions resulting from beginLocationUpdates()
-                // TODO: properly handle this exception.
-                Timber.e(e)
-                throw e
-            }
-        }
-    }
-
-    /**
-     * Inform the server of the User's intent to start a new race. This function expects the location logged when the race's countdown was started, which will be used
-     * to calculate deviation measurements for validating the circumstances of the race's start- serverside. This function is a suspend function as it is tied to the
-     * lifecycle/scope of its caller.
-     */
-    @SuppressLint("MissingPermission")
-    suspend fun startNewRace(trackUid: String, countdownStarted: Location) {
-        // Begin by getting the current location, fresh to this instant.
-        val location: Location = getCurrentLocation(
-            CurrentLocationRequest.Builder()
-                .setMaxUpdateAgeMillis(0)
-                .build()
-        )
-        // Now, construct a start new race request.
-        val startRaceRequestDto = StartRaceRequestDto(
-            trackUid,
-            location.latitude,
-            location.longitude,
-            location.bearing,
-            location.speed,
-            location.time,
-            PlayerLocationRequestDto(
-                countdownStarted.latitude,
-                countdownStarted.longitude,
-                countdownStarted.bearing,
-                countdownStarted.speed,
-                countdownStarted.time,
-            )
-        )
-        // Send this to the server.
-        worldSocketSession.sendRaceRequest(startRaceRequestDto)
-        // TODO: get a response from this request. If server has decided on a disqualification or false-start, raise an appropriate error here.
-    }
-
-    /**
      * Function responsible for leaving the world. This will attempt to communicate this to the remote server, as well as clearing all information on the
      * device about the world. This will also cease location updates being received.
      */
     fun leaveWorld() {
         Timber.d("Leaving the world...")
-        // TODO: communicate to the server if isConnectedToGame is true.
-        worldSocketSession.clearServerInfo()
-        // Send out a LEFT status broadcast.
-        // TODO: add reason as to why we left the world.
+        // Instructed to leave world, we'll revoke intent to connect to the game server.
+        // TODO: can add reason here.
+        requestLeaveWorldUseCase(
+            RequestLeaveWorld()
+        )
     }
 
     /**
-     *
+     * Stop the world service completely. This is to be called when the User is exiting the app, or they have decided to revoke permissions or change settings
+     * that affect their eligibility.
      */
     fun stopWorldService() {
         Timber.d("Stopping world service...")
-        // Leave the world.
-        leaveWorld()
         // Stop receiving location updates.
         removeLocationUpdates()
+        // Leave the world.
+        leaveWorld()
         // Finally, stop the service.
         stopSelf()
-    }
-
-    @SuppressLint("MissingPermission")
-    fun mockLocation(location: Location) {
-        if(!BuildConfig.USE_MOCK_LOCATION) {
-            throw NotImplementedError()
-        }
-        location.accuracy = 3.0f
-        fusedLocationClient.setMockLocation(location)
     }
 
     /**
@@ -334,8 +223,11 @@ class WorldService: Service() {
         try {
             // Now, request location updates.
             fusedLocationClient.requestLocationUpdates(
-                locationRequest, locationReceived, serviceHandler.looper
+                locationRequest,
+                locationReceived,
+                serviceHandler.looper
             )
+            receivingLocationUpdates = true
         } catch (npe: java.lang.NullPointerException) {
             // TODO: this can be caused by 'invalid null looper' which is when the looper is actually running but the activity has finished underneath it.
             Timber.e(npe)
@@ -352,8 +244,11 @@ class WorldService: Service() {
      */
     private fun removeLocationUpdates() {
         try {
-            // Remove location updates toward this callback.
-            fusedLocationClient.removeLocationUpdates(locationReceived)
+            if(receivingLocationUpdates) {
+                // Remove location updates toward this callback.
+                fusedLocationClient.removeLocationUpdates(locationReceived)
+                receivingLocationUpdates = false
+            }
         } catch(se: SecurityException) {
             Timber.e(se)
             // TODO: handle security exception.
@@ -366,20 +261,12 @@ class WorldService: Service() {
      * we have regained location availability back. Both states should be communicated to both the server and the view.
      */
     private fun locationAvailabilityChanged(locationAvailability: LocationAvailability) {
-        // TODO: implement this properly.
         when(locationAvailability.isLocationAvailable) {
-            true -> {
-                Timber.d("Location availability to world service has changed to AVAILABLE!")
-            }
-            else -> {
-                Timber.d("Location availability to world service has changed to NOT AVAILABLE!")
-            }
+            true -> Timber.d("Location availability to world service has changed to AVAILABLE!")
+            else -> Timber.d("Location availability to world service has changed to NOT AVAILABLE!")
         }
         // Update this service's awareness of location availability.
-        currentLocationAvailability = locationAvailability.isLocationAvailable
-        // TODO: we must still perform some work to inform the view of what has happened.
-        // Send a communication to the server informing it of this change.
-        // TODO: send a communication about this.
+        setLocationAvailabilityUseCase(locationAvailability.isLocationAvailable)
     }
 
     /**
@@ -388,45 +275,41 @@ class WorldService: Service() {
      */
     private fun newLocationReceived(locationResult: LocationResult) {
         val latestLocation: Location
-        val latestViewport: Viewport
         try {
-            // Get the latest viewport, and the location; and we should raise a npe if either is null.
-            latestLocation = locationResult.lastLocation
-                ?: throw NullPointerException()
-            // TODO: review this. It may be inadvisable to send both the location & the viewport on location update, especially if a new location means a new camera position means
-            // TODO: both the viewport update & player update events will be triggered
-            latestViewport = mutableLatestViewport.value
-                ?: throw NullPointerException()
+            if(BuildConfig.USE_MOCK_LOCATION) {
+                latestLocation = Location(LocationManager.GPS_PROVIDER).apply {
+                    latitude = -37.757557
+                    longitude = 144.958444
+                    speed = 0f
+                    bearing = 180f
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                }
+                mockLocation(latestLocation)
+            } else {
+                latestLocation = locationResult.lastLocation
+                    ?: throw NullPointerException()
+            }
+            // Create a new player position from this.
+            val playerPosition = PlayerPosition(latestLocation)
+            // Whenever we get a new location from the service, pass it directly to the world socket session.
+            scope.launch {
+                // TODO: properly handle this, not implemented error will be called when sendPlayerUpdate is called but socket is not connected.
+                try {
+                    sendPlayerUpdateUseCase(
+                        RequestPlayerUpdate(playerPosition)
+                    )
+                } catch (iee: NotImplementedError) {
+
+                }
+            }
         } catch(npe: NullPointerException) {
-            Timber.e("No player update sent - there is no last location received from updates, or there is no latest viewport.")
+            Timber.e("No player update sent - there is no last location received from updates.")
             // We'll return for now.
             return
         } catch(e: Exception) {
             throw e
         }
-        // Now, with the location and viewport we will instantiate a new player update request.
-        val playerUpdateRequest = PlayerUpdateRequestDto(
-            latestViewport.minX,
-            latestViewport.maxY,
-            latestViewport.maxX,
-            latestViewport.maxY,
-            latestViewport.zoom,
-            latestLocation.latitude,
-            latestLocation.longitude,
-            latestLocation.bearing,
-            latestLocation.speed,
-            latestLocation.time
-        )
-        /**
-         * TODO: watch this closely, and only remove this todo and the warning below when the following has been clarified:
-         * Each time a location update is triggered, we grab the latest viewport from the service, which is set on every camera movement in the service.
-         * Also on every viewport idle, a separate viewport update request is triggered. Will these double up bandwidth use?
-         */
-        Timber.w("SENDING PLAYER UPDATE (AND VIEWPORT) UPDATE")
-        // Send this location to the world socket session.
-        worldSocketSession.setCurrentLocation(locationResult.lastLocation)
-        // Take this player update request and send it to the server now.
-        worldSocketSession.sendPlayerUpdate(playerUpdateRequest)
     }
 
     /**
@@ -482,12 +365,6 @@ class WorldService: Service() {
         }
     }
 
-    private fun handleErrorType(resourceError: ResourceError?) {
-        // TODO: broadcast a LEFT status with this resource error or some clue as to its reason.
-        Timber.e("HANDLE ERROR TYPE")
-        throw NotImplementedError()
-    }
-
     private fun getNotification(): Notification {
         // Setup an intent to differentiate between accessing onStartCommand via the notification.
         val intent = Intent(this, WorldService::class.java).apply {
@@ -512,10 +389,6 @@ class WorldService: Service() {
         return notificationBuilder.build()
     }
 
-    inner class WorldServiceBinder: Binder() {
-        fun getService(): WorldService = this@WorldService
-    }
-
     companion object {
         fun newLocationRequest(): LocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateIntervalMillis(5000)
@@ -523,11 +396,7 @@ class WorldService: Service() {
 
         const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"
         const val CHANNEL_NAME = "HawkSpeed"
-
         const val ONGOING_NOTIFICATION_ID = 8011997
-
-        const val ACTION_WORLD_STATUS = "com.vljx.hawkspeed.WorldService.ACTION_WORLD_STATUS"
-
         const val ARG_STARTED_FROM_NOTIFICATION = "com.vljx.hawkspeed.WorldService.ARG_STARTED_FROM_NOTIFICATION"
     }
 }

@@ -3,12 +3,10 @@ package com.vljx.hawkspeed.data.di.module
 import android.app.Application
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.database.dao.*
-import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,6 +24,10 @@ class DatabaseModule {
         appDatabase.trackDao()
 
     @Provides
+    fun provideTrackPathDao(appDatabase: AppDatabase): TrackPathDao =
+        appDatabase.trackPathDao()
+
+    @Provides
     fun provideTrackPointDao(appDatabase: AppDatabase): TrackPointDao =
         appDatabase.trackPointDao()
 
@@ -36,4 +38,8 @@ class DatabaseModule {
     @Provides
     fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceOutcomeDao =
         appDatabase.raceOutComeDao()
+
+    @Provides
+    fun provideUserDao(appDatabase: AppDatabase): UserDao =
+        appDatabase.userDao()
 }

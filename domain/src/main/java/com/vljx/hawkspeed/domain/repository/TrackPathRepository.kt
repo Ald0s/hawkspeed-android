@@ -1,19 +1,24 @@
 package com.vljx.hawkspeed.domain.repository
 
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
-import com.vljx.hawkspeed.domain.requests.track.GetTrackPathRequest
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestDeleteTrackAndPath
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import kotlinx.coroutines.flow.Flow
 
 interface TrackPathRepository {
     /**
-     *
+     * Get a track with its path. This function will open a flow, perform a query for the track and its path, then cache both.
      */
-    fun getTrackPath(getTrackPathRequest: GetTrackPathRequest): Flow<Resource<TrackPath>>
+    fun getTrackWithPath(requestGetTrackWithPath: RequestGetTrackWithPath): Flow<Resource<TrackWithPath>>
 
     /**
-     * Gets all tracks cached, with their paths where they are stored too.
+     * Get all tracks and their optional paths. This function will open a flow, only to cache. No network queries will be performed.
      */
-    fun getTracksWithPaths(): Flow<List<TrackWithPath>>
+    fun getTracksWithPathsFromCache(): Flow<List<TrackWithPath>>
+
+    /**
+     * Delete the given track, with its path and points, if applicable.
+     */
+    suspend fun deleteTrackAndPath(requestDeleteTrackAndPath: RequestDeleteTrackAndPath)
 }

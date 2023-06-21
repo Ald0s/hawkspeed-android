@@ -9,6 +9,10 @@ data class TrackPathDto(
     val trackUid: String,
 
     @Expose
+    @SerializedName("crs")
+    val crs: Int,
+
+    @Expose
     @SerializedName("points")
     val points: List<TrackPointDto>
 )

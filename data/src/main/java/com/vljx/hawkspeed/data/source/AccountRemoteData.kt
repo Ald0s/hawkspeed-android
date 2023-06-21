@@ -4,21 +4,50 @@ import com.vljx.hawkspeed.data.models.account.AccountModel
 import com.vljx.hawkspeed.data.models.account.CheckNameModel
 import com.vljx.hawkspeed.data.models.account.RegistrationModel
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.requests.CheckNameRequest
-import com.vljx.hawkspeed.domain.requests.RegisterLocalAccountRequest
-import com.vljx.hawkspeed.domain.requests.SetupProfileRequest
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestLogin
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestRegisterLocalAccount
+import com.vljx.hawkspeed.domain.requestmodels.account.RequestSetupProfile
 
 interface AccountRemoteData {
-    suspend fun checkUsernameTaken(checkNameRequest: CheckNameRequest): Resource<CheckNameModel>
-    suspend fun setupProfile(setupProfileRequest: SetupProfileRequest): Resource<AccountModel>
+    /**
+     * Query the current User's account. Right now, this will simply query the authentication API route to be served the current User's account.
+     */
+    suspend fun queryCurrentAccount(): Resource<AccountModel>
 
+    /**
+     * Attempt authentication for the current User's account. Without arguments, a HawkSpeed token will be checked for and used in
+     * a (re)authentication request.
+     */
     suspend fun attemptAuthentication(): Resource<AccountModel>
-    suspend fun attemptAuthentication(
-        emailAddress: String,
-        password: String
-    ): Resource<AccountModel>
 
+    /**
+     * Attempt authentication for the current User's account given a login local request.
+     */
+    suspend fun attemptAuthentication(requestLogin: RequestLogin): Resource<AccountModel>
+
+    /**
+     * Perform a request to set the current User's profile up, this includes their username vehicle etc.
+     */
+    suspend fun registerLocalAccount(requestRegisterLocalAccount: RequestRegisterLocalAccount): Resource<RegistrationModel>
+
+    /**
+     * Perform a once-off request to check if a username has already been taken by another User.
+     */
+    suspend fun checkUsernameTaken(requestCheckName: RequestCheckName): Resource<CheckNameModel>
+
+    /**
+     * Perform the setup account profile request.
+     */
+    suspend fun setupAccountProfile(requestSetupProfile: RequestSetupProfile): Resource<AccountModel>
+
+    /**
+     * Clear the current HawkSpeed cookie from cache.
+     */
+    suspend fun clearCookie()
+
+    /**
+     * Logout the current User.
+     */
     suspend fun logout(): Resource<AccountModel>
-
-    suspend fun registerLocalAccount(registerLocalAccountRequest: RegisterLocalAccountRequest): Resource<RegistrationModel>
 }

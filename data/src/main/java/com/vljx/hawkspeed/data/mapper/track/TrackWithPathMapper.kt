@@ -7,19 +7,19 @@ import javax.inject.Inject
 
 class TrackWithPathMapper @Inject constructor(
     private val trackMapper: TrackMapper,
-    private val trackPathMapper: TrackPathMapper
+    private val trackPathWithPointsMapper: TrackPathWithPointsMapper
 ): Mapper<TrackWithPathModel, TrackWithPath> {
     override fun mapFromData(model: TrackWithPathModel): TrackWithPath {
         return TrackWithPath(
             trackMapper.mapFromData(model.track),
-            model.path?.let { trackPathMapper.mapFromData(it) }
+            model.trackPathWithPoints?.let { trackPathWithPointsMapper.mapFromData(it) }
         )
     }
 
     override fun mapToData(domain: TrackWithPath): TrackWithPathModel {
         return TrackWithPathModel(
             trackMapper.mapToData(domain.track),
-            domain.path?.let { trackPathMapper.mapToData(it) }
+            domain.path?.let { trackPathWithPointsMapper.mapToData(it) }
         )
     }
 }

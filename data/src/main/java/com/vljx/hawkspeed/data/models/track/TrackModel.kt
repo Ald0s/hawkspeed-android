@@ -9,8 +9,11 @@ data class TrackModel(
     val owner: UserModel,
     val startPoint: TrackPointModel,
     val isVerified: Boolean,
+    val numPositiveVotes: Int,
+    val numNegativeVotes: Int,
+    val yourRating: Boolean?,
+    val numComments: Int,
     val canRace: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean
-    //val points: List<TrackPointModel>
 )

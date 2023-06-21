@@ -1,7 +1,5 @@
 package com.vljx.hawkspeed.domain.authentication
 
-import com.vljx.hawkspeed.domain.models.account.Account
-
 sealed class AuthenticationState {
     data class Authenticated(
         val userUid: String,
@@ -12,16 +10,8 @@ sealed class AuthenticationState {
         val isProfileSetup: Boolean,
         val canCreateTracks: Boolean
     ): AuthenticationState() {
-        constructor(account: Account):
-                this(
-                    account.userUid,
-                    account.emailAddress,
-                    account.userName,
-                    account.isVerified,
-                    account.isPasswordVerified,
-                    account.isProfileSetup,
-                    account.canCreateTracks
-                )
+        val anySetupOrCompletionRequired: Boolean
+            get() = !isVerified || !isPasswordVerified || !isProfileSetup
     }
 
     object NotAuthenticated: AuthenticationState()

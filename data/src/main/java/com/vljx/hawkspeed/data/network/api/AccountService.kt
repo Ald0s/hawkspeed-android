@@ -3,8 +3,8 @@ package com.vljx.hawkspeed.data.network.api
 import com.vljx.hawkspeed.data.network.models.account.AccountDto
 import com.vljx.hawkspeed.data.network.models.account.CheckNameDto
 import com.vljx.hawkspeed.data.network.models.account.RegistrationDto
-import com.vljx.hawkspeed.data.network.requests.RegisterLocalAccountRequestDto
-import com.vljx.hawkspeed.data.network.requests.SetupProfileRequestDto
+import com.vljx.hawkspeed.data.network.requestmodels.RequestRegisterLocalAccountDto
+import com.vljx.hawkspeed.data.network.requestmodels.RequestSetupProfileDto
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -23,7 +23,7 @@ interface AccountService {
     @POST("v1/register")
     @Headers("Content-Type: application/json")
     suspend fun registerLocalAccount(
-        @Body registerLocalAccountRequestDto: RegisterLocalAccountRequestDto
+        @Body requestRegisterLocalAccountDto: RequestRegisterLocalAccountDto
     ): Response<RegistrationDto>
 
     @POST("v1/setup/name/{userName}")
@@ -34,6 +34,6 @@ interface AccountService {
     @POST("v1/setup")
     @Headers("Content-Type: application/json")
     suspend fun setupProfile(
-        @Body setupAccountSocialRequestDto: SetupProfileRequestDto
+        @Body setupAccountSocialRequestDto: RequestSetupProfileDto
     ): Response<AccountDto>
 }

@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.network.mapper.race
 
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.network.mapper.DtoMapper
-import com.vljx.hawkspeed.data.network.models.race.RaceUpdateDto
+import com.vljx.hawkspeed.data.socket.models.RaceUpdateDto
 import javax.inject.Inject
 
 class RaceUpdateDtoMapper @Inject constructor(

@@ -3,7 +3,7 @@ package com.vljx.hawkspeed.data.network.models.race
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.vljx.hawkspeed.data.network.models.track.TrackDto
-import com.vljx.hawkspeed.domain.base.BasePaged
+import com.vljx.hawkspeed.domain.base.Paged
 
 data class RaceLeaderboardPageDto(
     @Expose
@@ -21,4 +21,4 @@ data class RaceLeaderboardPageDto(
     @Expose
     @SerializedName("next_page")
     override val nextPage: Int?
-): BasePaged
+): Paged

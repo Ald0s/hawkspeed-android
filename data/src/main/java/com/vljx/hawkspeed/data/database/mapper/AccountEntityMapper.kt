@@ -12,7 +12,7 @@ class AccountEntityMapper @Inject constructor(
             entity.userUid,
             entity.emailAddress,
             entity.userName,
-            entity.isVerified,
+            entity.isAccountVerified,
             entity.isPasswordVerified,
             entity.isProfileSetup,
             entity.canCreateTracks
@@ -24,7 +24,7 @@ class AccountEntityMapper @Inject constructor(
             model.userUid,
             model.emailAddress,
             model.userName,
-            model.isVerified,
+            model.isAccountVerified,
             model.isPasswordVerified,
             model.isProfileSetup,
             model.canCreateTracks

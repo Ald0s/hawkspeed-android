@@ -11,7 +11,7 @@ class TrackPathDtoMapper @Inject constructor(
     override fun mapFromDto(dto: TrackPathDto): TrackPathModel {
         return TrackPathModel(
             dto.trackUid,
-            dto.points.map { trackPointDtoMapper.mapFromDto(it) }
+            trackPointDtoMapper.mapFromDtoList(dto.points)
         )
     }
 }

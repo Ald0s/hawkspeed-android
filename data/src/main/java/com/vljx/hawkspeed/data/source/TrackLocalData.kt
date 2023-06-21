@@ -1,14 +1,21 @@
 package com.vljx.hawkspeed.data.source
 
 import com.vljx.hawkspeed.data.models.track.TrackModel
-import com.vljx.hawkspeed.data.models.track.TrackPathModel
-import com.vljx.hawkspeed.domain.requests.track.GetTrackRequest
 import kotlinx.coroutines.flow.Flow
 
 interface TrackLocalData {
-    fun selectTracks(): Flow<List<TrackModel>>
-    fun selectTrack(getTrackRequest: GetTrackRequest): Flow<TrackModel?>
+    /**
+     * Select a Track, opening a flow, without its path, by its UID.
+     */
+    fun selectTrackByUid(trackUid: String): Flow<TrackModel?>
 
-    suspend fun upsertTrack(trackModel: TrackModel)
-    suspend fun upsertTracks(trackModels: List<TrackModel>)
+    /**
+     * Upsert the given track's model into cache.
+     */
+    suspend fun upsertTrack(track: TrackModel)
+
+    /**
+     * Upsert all given track models into cache.
+     */
+    suspend fun upsertTracks(tracks: List<TrackModel>)
 }

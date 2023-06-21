@@ -3,11 +3,11 @@ package com.vljx.hawkspeed.data.network
 import com.vljx.hawkspeed.data.models.track.TrackModel
 import com.vljx.hawkspeed.data.network.api.TrackService
 import com.vljx.hawkspeed.data.network.mapper.track.TrackDtoMapper
-import com.vljx.hawkspeed.data.network.requests.track.SubmitTrackRequestDto
+import com.vljx.hawkspeed.data.network.requestmodels.track.SubmitTrackRequestDto
 import com.vljx.hawkspeed.data.source.TrackRemoteData
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.requests.SubmitTrackRequest
-import com.vljx.hawkspeed.domain.requests.track.GetTrackRequest
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestSubmitTrack
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrack
 import javax.inject.Inject
 
 class TrackRemoteDataImpl @Inject constructor(
@@ -15,14 +15,14 @@ class TrackRemoteDataImpl @Inject constructor(
 
     private val trackDtoMapper: TrackDtoMapper
 ): BaseRemoteData(), TrackRemoteData {
-    override suspend fun queryTrack(getTrackRequest: GetTrackRequest): Resource<TrackModel> = getResult({
-        trackService.queryTrackByUid(getTrackRequest.trackUid)
+    override suspend fun queryTrack(requestGetTrack: RequestGetTrack): Resource<TrackModel> = getResult({
+        trackService.queryTrackByUid(requestGetTrack.trackUid)
     }, trackDtoMapper)
 
-    override suspend fun createNewTrack(submitTrackRequest: SubmitTrackRequest): Resource<TrackModel> = getResult({
+    override suspend fun createNewTrack(requestSubmitTrack: RequestSubmitTrack): Resource<TrackModel> = getResult({
         trackService.submitNewTrack(
             SubmitTrackRequestDto(
-                submitTrackRequest
+                requestSubmitTrack
             )
         )
     }, trackDtoMapper)

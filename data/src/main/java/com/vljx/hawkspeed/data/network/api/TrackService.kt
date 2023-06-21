@@ -2,8 +2,8 @@ package com.vljx.hawkspeed.data.network.api
 
 import com.vljx.hawkspeed.data.network.models.race.RaceLeaderboardPageDto
 import com.vljx.hawkspeed.data.network.models.track.TrackDto
-import com.vljx.hawkspeed.data.network.models.track.TrackPathDto
-import com.vljx.hawkspeed.data.network.requests.track.SubmitTrackRequestDto
+import com.vljx.hawkspeed.data.network.models.track.TrackWithPathDto
+import com.vljx.hawkspeed.data.network.requestmodels.track.SubmitTrackRequestDto
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -14,9 +14,9 @@ interface TrackService {
     ): Response<TrackDto>
 
     @GET("v1/track/{uidTrack}/path")
-    suspend fun queryTrackPathByUid(
+    suspend fun queryTrackWithPathByUid(
         @Path(value = "uidTrack", encoded = true) uidTrack: String
-    ): Response<TrackPathDto>
+    ): Response<TrackWithPathDto>
 
     @GET("v1/track/{uidTrack}/leaderboard")
     suspend fun queryLeaderboardPage(
