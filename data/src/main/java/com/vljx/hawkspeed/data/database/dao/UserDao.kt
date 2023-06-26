@@ -13,4 +13,15 @@ abstract class UserDao: BaseDao<UserEntity>() {
         WHERE userUid = :userUid
     """)
     abstract fun selectUserByUid(userUid: String): Flow<UserEntity?>
+
+    @Query("""
+        DELETE FROM user
+        WHERE userUid = :userUid
+    """)
+    abstract suspend fun deleteUserByUid(userUid: String)
+
+    @Query("""
+        DELETE FROM user
+    """)
+    abstract suspend fun clearAllUsers()
 }

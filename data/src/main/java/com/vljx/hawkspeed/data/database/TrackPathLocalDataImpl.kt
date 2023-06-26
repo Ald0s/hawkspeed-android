@@ -4,10 +4,10 @@ import androidx.room.Transaction
 import com.vljx.hawkspeed.data.database.dao.TrackDao
 import com.vljx.hawkspeed.data.database.dao.TrackPathDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDao
-import com.vljx.hawkspeed.data.database.entity.TrackWithPathEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackWithPathEntity
 import com.vljx.hawkspeed.data.database.mapper.TrackWithPathEntityMapper
 import com.vljx.hawkspeed.data.models.track.TrackWithPathModel
-import com.vljx.hawkspeed.data.source.TrackPathLocalData
+import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestDeleteTrackAndPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import kotlinx.coroutines.flow.Flow

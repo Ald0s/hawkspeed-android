@@ -1,10 +1,10 @@
 package com.vljx.hawkspeed.data.database
 
 import com.vljx.hawkspeed.data.database.dao.TrackDao
-import com.vljx.hawkspeed.data.database.entity.TrackEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackEntity
 import com.vljx.hawkspeed.data.database.mapper.TrackEntityMapper
 import com.vljx.hawkspeed.data.models.track.TrackModel
-import com.vljx.hawkspeed.data.source.TrackLocalData
+import com.vljx.hawkspeed.data.source.track.TrackLocalData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject

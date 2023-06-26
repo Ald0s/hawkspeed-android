@@ -1,6 +1,6 @@
 package com.vljx.hawkspeed.data.database.mapper
 
-import com.vljx.hawkspeed.data.database.entity.TrackPointEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackPointEntity
 import com.vljx.hawkspeed.data.models.track.TrackPointModel
 import javax.inject.Inject
 

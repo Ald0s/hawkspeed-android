@@ -1,6 +1,6 @@
 package com.vljx.hawkspeed.domain.usecase.socket
 
-import com.vljx.hawkspeed.domain.models.world.StartRaceResult
+import com.vljx.hawkspeed.domain.models.race.StartRaceResult
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.usecase.BaseSuspendingUseCase

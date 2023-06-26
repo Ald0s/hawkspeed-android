@@ -3,7 +3,7 @@ package com.vljx.hawkspeed.data.network
 import com.vljx.hawkspeed.data.models.track.TrackWithPathModel
 import com.vljx.hawkspeed.data.network.api.TrackService
 import com.vljx.hawkspeed.data.network.mapper.track.TrackWithPathDtoMapper
-import com.vljx.hawkspeed.data.source.TrackPathRemoteData
+import com.vljx.hawkspeed.data.source.track.TrackPathRemoteData
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import javax.inject.Inject

@@ -1,8 +1,8 @@
 package com.vljx.hawkspeed.data
 
 import com.vljx.hawkspeed.data.mapper.track.TrackWithPathMapper
-import com.vljx.hawkspeed.data.source.TrackPathLocalData
-import com.vljx.hawkspeed.data.source.TrackPathRemoteData
+import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
+import com.vljx.hawkspeed.data.source.track.TrackPathRemoteData
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.repository.TrackPathRepository

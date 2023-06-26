@@ -9,29 +9,29 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface AccountService {
-    @POST("v1/auth")
+    @POST("api/v1/auth")
     suspend fun authenticate(): Response<AccountDto>
 
-    @POST("v1/auth")
+    @POST("api/v1/auth")
     suspend fun authenticate(
         @Header("Authorization") authHeader: String
     ): Response<AccountDto>
 
-    @POST("v1/logout")
+    @POST("api/v1/logout")
     suspend fun logout(): Response<AccountDto>
 
-    @POST("v1/register")
+    @POST("api/v1/register")
     @Headers("Content-Type: application/json")
     suspend fun registerLocalAccount(
         @Body requestRegisterLocalAccountDto: RequestRegisterLocalAccountDto
     ): Response<RegistrationDto>
 
-    @POST("v1/setup/name/{userName}")
+    @POST("api/v1/setup/name/{userName}")
     suspend fun checkName(
         @Path("userName", encoded = true) userName: String
     ): Response<CheckNameDto>
 
-    @POST("v1/setup")
+    @POST("api/v1/setup")
     @Headers("Content-Type: application/json")
     suspend fun setupProfile(
         @Body setupAccountSocialRequestDto: RequestSetupProfileDto

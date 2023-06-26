@@ -52,6 +52,14 @@ class WorldMapViewModel @Inject constructor(
     private val sendViewportUpdateUseCase: SendViewportUpdateUseCase
 ): ViewModel() {
     /**
+     * A data class for collapsing the Android location related states into a single entity.
+     */
+    data class LocationAccess(
+        val locationPermissionState: LocationPermissionState,
+        val locationSettingsState: LocationSettingsState
+    )
+
+    /**
      * Get the current location from world socket session.
      */
     private val currentLocation: StateFlow<PlayerPosition?> =
@@ -109,6 +117,27 @@ class WorldMapViewModel @Inject constructor(
     )
 
     /**
+     * Combine the location permission and settings states into a location access entity.
+     */
+    private val locationAccessStates: Flow<LocationAccess> =
+        combine(
+            mutableLocationPermissionState
+                .distinctUntilChanged(),
+            mutableLocationSettingsState
+                .distinctUntilChanged()
+        ) { permissionState, settingsState ->
+            LocationAccess(
+                permissionState,
+                settingsState
+            )
+        }
+
+    /**
+     * A mutable state flow for the current world action state.
+     */
+    private val mutableWorldActionState: MutableStateFlow<WorldActionState> = MutableStateFlow(WorldActionState.StandardMode)
+
+    /**
      * Flat map the latest desired world objects configuration to a new flow from cache to retrieve the desired world objects.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -129,33 +158,53 @@ class WorldMapViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), WorldObjectsUiState.Loading)
 
     /**
-     * Publicise both states.
-     */
-    val locationPermissionState: SharedFlow<LocationPermissionState> =
-        mutableLocationPermissionState
-
-    val locationSettingsState: SharedFlow<LocationSettingsState> =
-        mutableLocationSettingsState
-
-    /**
-     * Combine the current location, location permissions and location settings states and map these to the most appropriate world map ui state. The first emission
-     * from this state flow will only be considered when all sources emit at least one. If settings are not appropriate, fail. If location permissions are either
-     * fully granted or approximate, this is a map loaded condition. If the location is null, emit a location failure to trigger a start command to the service.
-     * Finally, the socket connection to the server will be monitored and reported as appropriate.
+     * Combine all parameters required in determining what UI state the world should currently be displaying.
+     *
+     * TODO: world map action states that are non-standard such as race mode and record track mode should not work with approximate only location. This check ideally should
+     * TODO: be performed much sooner, such as disabling related buttons that trigger race mode/record track mode for approximate only states. But its also a good idea to
+     * TODO: support a mini check thereof in this flow; perhaps like an Error state that displays a dialog with grayed boundaries, that lets the Player know this action is
+     * TODO: not supported until fine location access given, and with a dialog button that emits standard mode to be used on click.
+     *
+     * TODO: changed to make space for allowing action type state. simply change location access states to:
+     * locationPermissionState.distinctUntilChanged(),
+     * locationSettingsState.distinctUntilChanged(),
      */
     val worldMapUiState: StateFlow<WorldMapUiState> =
         combine(
             gameSettings,
-            locationPermissionState.distinctUntilChanged(),
-            locationSettingsState.distinctUntilChanged(),
+            mutableWorldActionState,
+            locationAccessStates,
             currentLocationDistinctOnNull,
             currentSocketSessionState
-        ) { settings, permissionState, settingsState, location, socketState ->
+        ) { settings, worldAction, locationAccess, location, socketState ->
+            val permissionState = locationAccess.locationPermissionState
+            val settingsState = locationAccess.locationSettingsState
+
             return@combine when {
-                (settings == null) || (!settings.canConnectGame || !settings.isServerAvailable) -> WorldMapUiState.GameSettingsFailure(settings)
+                /**
+                 * Fail with game settings failure if either the User has decided against connecting to game server (canConnectGame is false) or if server has reported
+                 * that the game server is down (isServerAvailable is false).
+                 */
+                (settings == null) || (!settings.canConnectGame || !settings.isServerAvailable) ->
+                    WorldMapUiState.GameSettingsFailure(settings)
+
+                /**
+                 * Fail with permission/settings failure if location settings are not appropriate, or location permission granted is None granted. Allow coarse location
+                 * access at this point.
+                 */
                 settingsState !is LocationSettingsState.Appropriate || (permissionState is LocationPermissionState.NoneGranted) ->
                     WorldMapUiState.PermissionOrSettingsFailure(permissionState, settingsState)
-                location == null -> WorldMapUiState.NoLocation(null)
+
+                /**
+                 * Fail with no location failure if there is no current location. This will prompt world service to start receiving location updates if not already.
+                 */
+                location == null ->
+                    WorldMapUiState.NoLocation(null)
+
+                /**
+                 * Fail with world socket state disconnected if the game client can be connected, but currently is not. This will prompt a request for joining the world
+                 * to be made to world socket session.
+                 */
                 socketState is WorldSocketState.Disconnected -> {
                     if(socketState.resourceError != null) {
                         // This is a connection error.
@@ -168,13 +217,57 @@ class WorldMapViewModel @Inject constructor(
                         )
                     }
                 }
-                socketState is WorldSocketState.Connecting -> WorldMapUiState.Loading
-                else -> WorldMapUiState.WorldMapLoaded(
+
+                /**
+                 * Emit the loading state if we are currently connecting to the server.
+                 */
+                socketState is WorldSocketState.Connecting ->
+                    WorldMapUiState.Loading
+
+                /**
+                 * If world action requests standard mode, emit the standard mode UI state with all applicable arguments. Coarse location access is allowed
+                 * at this point.
+                 */
+                worldAction is WorldActionState.StandardMode ->
+                    WorldMapUiState.WorldMapLoadedStandardMode(
                     (socketState as WorldSocketState.Connected).playerUid,
                     settings,
                     location,
                     permissionState is LocationPermissionState.OnlyCoarseGranted
                 )
+
+                /**
+                 * If world action is either record track or race mode, and we only have coarse location access, fail with the error world state communicating that
+                 * full access is required to perform this action.
+                 */
+                (permissionState is LocationPermissionState.OnlyCoarseGranted) && (worldAction is WorldActionState.RecordTrackMode || worldAction is WorldActionState.RaceMode) ->
+                    throw NotImplementedError("only coarse granted, world action requires full permission is NOT HANDLED. Return Non standard mode failure") // TODO: implement this please.
+                    /*WorldMapUiState.NonStandardModeFailure(
+                        worldAction,
+                        "UNKOWN"
+                    )*/
+
+                /**
+                 * If world action is record track mode, we'll emit the appropriate UI state, since we have all arguments satisfied.
+                 */
+                worldAction is WorldActionState.RecordTrackMode ->
+                    WorldMapUiState.WorldMapLoadedRecordTrackMode(
+                        (socketState as WorldSocketState.Connected).playerUid,
+                        settings,
+                        location,
+                        worldAction.trackDraftId
+                    )
+
+                /**
+                 * If world action is race mode, we'll emit the appropriate UI state, since we have all arguments satisfied.
+                 */
+                worldAction is WorldActionState.RaceMode -> throw NotImplementedError("WorldAction RaceMode is not implemented!")
+
+                /**
+                 * The default case, unhandled for now.
+                 * TODO: handle this.
+                 */
+                else -> throw NotImplementedError("Failed to emit proper action for worldMapUiState. A case was not handled.")
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), WorldMapUiState.Loading)
 
@@ -259,6 +352,48 @@ class WorldMapViewModel @Inject constructor(
             getTrackWithPathUseCase(
                 RequestGetTrackWithPath(track.trackUid)
             ).collect()
+        }
+    }
+
+    /**
+     * Engage the world map in race mode. Given the result from actually starting a race on the game server, this function will update
+     * the world action state to reform the UI accordingly.
+     */
+    fun raceStarted() {
+
+    }
+
+    /**
+     *
+     */
+    fun cancelRace() {
+
+    }
+
+    /**
+     * Place the world map view in record track mode.
+     */
+    fun startRecordTrack() {
+        viewModelScope.launch {
+            // TODO: get the new record's draft id by creating a new blank track.
+            val draftTrackId: Long = 0L
+            // Set the world action state to record track mode with the given Id. This should set the world map to the record UI.
+            mutableWorldActionState.value = WorldActionState.RecordTrackMode(draftTrackId)
+        }
+    }
+
+    /**
+     * Release the world map view frm record track mode, back to standard mode, but before doing so, either saving or deleting the track draft to cache.
+     */
+    fun stopRecordingTrack(draftTrackId: Long, shouldSaveDraft: Boolean) {
+        viewModelScope.launch {
+            if(shouldSaveDraft) {
+                // TODO: save draft to cache.
+            } else {
+                // TODO: delete draft.
+            }
+            // Simply emit standard map mode to action state.
+            mutableWorldActionState.value = WorldActionState.StandardMode
         }
     }
 }

@@ -2,7 +2,8 @@ package com.vljx.hawkspeed.domain.models.race
 
 import android.os.Parcelable
 import com.vljx.hawkspeed.domain.models.user.User
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.IgnoredOnParcel
+import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class RaceOutcome(
@@ -13,4 +14,9 @@ data class RaceOutcome(
     val stopwatch: Int,
     val player: User,
     val trackUid: String
-): Parcelable
+): Parcelable {
+    // TODO: finish pretty time.
+    @IgnoredOnParcel
+    val prettyTime: String
+        get() = "${stopwatch/1000L}.${stopwatch%1000L}s"
+}

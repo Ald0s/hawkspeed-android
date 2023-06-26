@@ -2,26 +2,42 @@ package com.vljx.hawkspeed.data.socket
 
 import com.google.gson.Gson
 import com.vljx.hawkspeed.data.BuildConfig
+import com.vljx.hawkspeed.data.models.race.CancelRaceResultModel
 import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
 import com.vljx.hawkspeed.data.models.world.PlayerUpdateResultModel
 import com.vljx.hawkspeed.data.models.world.ViewportUpdateResultModel
-import com.vljx.hawkspeed.data.socket.models.RaceUpdateDto
 import com.vljx.hawkspeed.data.socket.Extension.on
 import com.vljx.hawkspeed.data.socket.Extension.sendMessage
+import com.vljx.hawkspeed.data.socket.Extension.toMap
+import com.vljx.hawkspeed.data.socket.mapper.race.CancelRaceResponseDtoMapper
+import com.vljx.hawkspeed.data.socket.mapper.race.RaceDisqualifiedDtoMapper
+import com.vljx.hawkspeed.data.socket.mapper.race.RaceFinishedDtoMapper
+import com.vljx.hawkspeed.data.socket.mapper.race.RaceProgressDtoMapper
 import com.vljx.hawkspeed.data.socket.mapper.race.StartRaceResponseDtoMapper
 import com.vljx.hawkspeed.data.socket.mapper.world.PlayerUpdateResultDtoMapper
 import com.vljx.hawkspeed.data.socket.mapper.world.ViewportUpdateResultDtoMapper
 import com.vljx.hawkspeed.data.socket.models.*
+import com.vljx.hawkspeed.data.socket.models.race.CancelRaceResponseDto
+import com.vljx.hawkspeed.data.socket.models.race.RaceDisqualifiedDto
+import com.vljx.hawkspeed.data.socket.models.race.RaceFinishedDto
+import com.vljx.hawkspeed.data.socket.models.race.RaceProgressDto
+import com.vljx.hawkspeed.data.socket.models.race.StartRaceResponseDto
+import com.vljx.hawkspeed.data.socket.models.world.ConnectAuthenticationResponseDto
+import com.vljx.hawkspeed.data.socket.models.world.PlayerUpdateResponseDto
+import com.vljx.hawkspeed.data.socket.models.world.ViewportUpdateResponseDto
+import com.vljx.hawkspeed.data.socket.requestmodels.RequestCancelRaceDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestConnectAuthenticationDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestPlayerLocationDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestStartRaceDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportUpdateDto
+import com.vljx.hawkspeed.data.source.account.AccountRemoteData
+import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
-import com.vljx.hawkspeed.domain.di.scope.AuthenticationScope
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.Viewport
+import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
@@ -35,7 +51,6 @@ import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.internal.cookieToString
-import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
 import java.net.URI
@@ -51,7 +66,13 @@ class WorldSocketSession @Inject constructor(
     private val cookieJar: CookieJar,
     private val gson: Gson,
 
+    private val accountRemoteData: AccountRemoteData,
+
     private val startRaceResponseDtoMapper: StartRaceResponseDtoMapper,
+    private val cancelRaceResponseDtoMapper: CancelRaceResponseDtoMapper,
+    private val raceFinishedDtoMapper: RaceFinishedDtoMapper,
+    private val raceDisqualifiedDtoMapper: RaceDisqualifiedDtoMapper,
+    private val raceProgressDtoMapper: RaceProgressDtoMapper,
     private val playerUpdateResultDtoMapper: PlayerUpdateResultDtoMapper,
     private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper
 ) {
@@ -216,61 +237,48 @@ class WorldSocketSession @Inject constructor(
         // Otherwise emit a new state; connecting.
         mutableWorldSocketState.tryEmit(WorldSocketState.Connecting)
         Timber.d("Received intent to connect to game server.")
-        // TODO: we will now get the HawkSpeed login cookie(s) used by the okhttpclient.
-        val relevantCookies: List<String> = getRelevantCookies()
+        // Get all applicable cookies to the HawkSpeed service URL and map them to a list of strings.
+        // TODO: change this back to use account remote data, get applicable cookies once you figure out the issue here.
+        //val hawkSpeedCookies: List<String> = accountRemoteData.getApplicableCookies().map { cookie ->
+        //    cookie.value
+        //}
+        val hawkSpeedCookies: List<String> = getRelevantCookies()
         // Create the manager now, with our injected options.
         socketManager = Manager(
             URI.create(canJoinWorld.gameServerInfo),
             IO.Options.builder()
-                .setExtraHeaders(mapOf("Cookie" to relevantCookies))
+                .setExtraHeaders(mapOf("Cookie" to hawkSpeedCookies))
                 .build()
         ).apply {
-            // TODO: supply proper handlers for manager events.
-            on("reconnect") { response -> throw NotImplementedError("Handler for manager event 'reconnect' not set.") }
-            on("reconnect_attempt") { response -> throw NotImplementedError("Handler for manager event 'reconnect_attempt' not set.") }
-            on("reconnect_error") { response -> throw NotImplementedError("Handler for manager event 'reconnect_error' not set.") }
-            on("reconnect_failed") { response -> throw NotImplementedError("Handler for manager event 'reconnect_failed' not set.") }
+            // Register all connection handlers for the reconnection flow.
+            attachReconnectionHandlers(this)
         }
-        // Now, create a new socket from this manager, just toward default namespace.
-        // We want to set the connect request dto passed with server info state as the auth dictionary.
-        fun JSONObject.toMap(): Map<String, String> = keys().asSequence().associateWith {
-            // TODO: come up with proprietary solution for this.
-            /* https://stackoverflow.com/a/64002903 */
-            when (val value = this[it])
-            {
-                is JSONArray -> throw NotImplementedError()
-                is JSONObject -> throw NotImplementedError()
-                JSONObject.NULL -> throw NotImplementedError()
-                else -> value.toString()
-            }
-        }
-        // Convert the DTO model to a JSONObject.
-        val requestConnectAuthenticationDto = RequestConnectAuthenticationDto(
-            canJoinWorld.location.latitude,
-            canJoinWorld.location.longitude,
-            canJoinWorld.location.rotation,
-            canJoinWorld.location.speed,
-            canJoinWorld.location.loggedAt
-        )
-        val dtoAsJSONObject: JSONObject = JSONObject(gson.toJson(requestConnectAuthenticationDto, RequestConnectAuthenticationDto::class.java))
-        val dtoAsMap: Map<String, String> = dtoAsJSONObject.toMap()
+        // Convert the request to connect to game server to a JSON object, then map that JSON object to a map of string to string.
+        val dtoAsJsonString = JSONObject(
+            gson.toJson(
+                RequestConnectAuthenticationDto(
+                    canJoinWorld.location.latitude,
+                    canJoinWorld.location.longitude,
+                    canJoinWorld.location.rotation,
+                    canJoinWorld.location.speed,
+                    canJoinWorld.location.loggedAt
+                ),
+                RequestConnectAuthenticationDto::class.java
+            )
+        ).toMap()
+        // Setup the socket given the socket manager, and set authentication parameters as our string above.
         socket = socketManager?.socket("/",
             IO.Options.builder()
-                .setAuth(dtoAsMap)
+                .setAuth(dtoAsJsonString)
                 .build()
         )?.apply {
             // Register all handlers for the basic connection.
-            on("connect") {
-                Timber.w("Connected to the desired SocketIO server, successfully!")
-            }
-            on("connect_error") { response -> handleConnectionError(response) }
-            on("disconnect") { response -> handleDisconnection(response) }
-            // Register all custom handlers.
-            on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it) }
-            on<SocketErrorDto>("kicked") { handleKicked(it) }
-            on<RaceUpdateDto>("race-finished") { handleRaceFinished(it) }
-            on<RaceUpdateDto>("race-disqualified") { handleRaceDisqualified(it) }
-            on<RaceUpdateDto>("race-cancelled") { handleRaceCancelled(it) }
+            attachConnectionHandlers(this)
+            // Register handlers for welcoming Player to world, and when Player is kicked.
+            on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it!!) }
+            on<SocketErrorWrapperDto>("kicked") { handleKicked(it!!) }
+            // Register all race handlers.
+            attachRaceHandlers(this)
         }?.connect()
     }
 
@@ -288,6 +296,22 @@ class WorldSocketSession @Inject constructor(
         val startRaceResponseDto: StartRaceResponseDto = socket!!.sendMessage("start_race", requestStartRaceDto)
         // Finally, map this to model and return.
         return startRaceResponseDtoMapper.mapFromDto(startRaceResponseDto)
+    }
+
+    /**
+     * Send a message to cancel the current race. This will return a cancel race result object.
+     */
+    suspend fun cancelRace(requestCancelRace: RequestCancelRace): CancelRaceResultModel {
+        if(socket == null || socket?.connected() != true) {
+            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
+            throw NotImplementedError()
+        }
+        // Build a DTO for our request to cancel a race.
+        val requestCancelRaceDto = RequestCancelRaceDto(requestCancelRace)
+        // Use send message to send this request and receive back the result.
+        val cancelRaceResponseDto: CancelRaceResponseDto = socket!!.sendMessage("cancel-race", requestCancelRaceDto)
+        // Finally, map this to model and return.
+        return cancelRaceResponseDtoMapper.mapFromDto(cancelRaceResponseDto)
     }
 
     /**
@@ -349,20 +373,6 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
-     * Query for, and return a list of all cookies associated with the HawkSpeed game server.
-     */
-    private fun getRelevantCookies(): List<String> {
-        // Load all cookies for the HawkSpeed server from our cookie jar.
-        // TODO: Get a proper service URL here. We are getting all cookies from the service URL set in build config, which refers to the API, aka, central server.
-        val targetUrl: HttpUrl = BuildConfig.SERVICE_URL.toHttpUrl()
-        val cookies = cookieJar.loadForRequest(targetUrl)
-        // From the cookie jar, map all cookies to a string and return the result.
-        return cookies.map {
-            cookieToString(it, false)
-        }
-    }
-
-    /**
      * Close the socket's connection, then remove all handlers from the socket and the socket manager. This function will be invoked when the session is notified that
      * permission to be in the world has been withdrawn. This function will invoke the handle disconnection.
      */
@@ -374,16 +384,62 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
+     * Attach all handlers related to connections to the given socket.
+     */
+    private fun attachConnectionHandlers(socket: Socket) {
+        socket.apply {
+            /**
+             * Called when socket successfully connects to the server.
+             */
+            on("connect") {
+                Timber.w("Connected to the desired SocketIO server, successfully!")
+            }
+            /**
+             * Called when the socket has failed to connect to the server, response could contain almost anything, but we must be sure to check for instances of socket
+             * error wrappers being sent, which indicate a refusal by the server.
+             */
+            on<SocketErrorWrapperDto>("connect_error", { socketErrorWrapperDto ->
+                // Successfully read a socket error from the response, which means we were rejected from the server for a HawkSpeed reason. Build a socket resource error.
+                val socketError = ResourceError.SocketError(socketErrorWrapperDto)
+                Timber.w("We failed to connect to game server!\n${socketError.errorSummary}")
+                // TODO: do something with socket error.
+                // TODO: set state to disconnected.
+                throw NotImplementedError()
+            }, { response ->
+                Timber.d("Failed to connect to SocketIO server, for a non-hawkspeed reason.")
+                // For now, just print out all errors in response.
+                response.forEach {
+                    Timber.d("Connerror: $it")
+                }
+                // TODO: we can add more information to the connection error event.
+                throw NotImplementedError("Please implement handleConnectionError, we need to pass a ResourceError to Disconnected")
+                //mutableWorldSocketState.tryEmit(
+                //    WorldSocketState.Disconnected
+                //)
+            })
+            /**
+             * Called when the socket has been disconnected.
+             */
+            on("disconnect") { response ->
+                Timber.d("Disconnected from SocketIO server.")
+                response.forEach {
+                    Timber.d("Error: $it")
+                }
+                // TODO: we can add more information to the disconnection event.
+                throw NotImplementedError("Please implement handleDisconnection, we need to pass a ResourceError to Disconnected")
+                //mutableWorldSocketState.tryEmit(
+                //    WorldSocketState.Disconnected()
+                //)
+            }
+        }
+    }
+
+    /**
      * Handle an event in which the server has welcomed this client to the server. The resulting object will contain all preliminary data about the position
      * and surroundings for this client. This should be passed alongside the game server state update.
      */
     private fun handleWelcomeToWorld(connectAuthenticationResponseDto: ConnectAuthenticationResponseDto) {
         Timber.d("We have received a welcome-to-world message. We are now connected & joined.")
-        // If we have been sent a viewport update response, handle a viewport update response.
-        //if(connectAuthenticationResponseDto.viewportUpdate != null) {
-        //    handleViewportUpdateResponse(connectAuthenticationResponseDto.viewportUpdate)
-        //}
-        // Update world game server state to reflect connected. (and joined?)
         mutableWorldSocketState.tryEmit(
             WorldSocketState.Connected(
                 connectAuthenticationResponseDto.playerUid,
@@ -397,81 +453,71 @@ class WorldSocketSession @Inject constructor(
     /**
      * Handle the case where the socket server has decided to kick this client from service.
      */
-    private fun handleKicked(socketError: SocketErrorDto) {
+    private fun handleKicked(socketError: SocketErrorWrapperDto) {
         throw NotImplementedError("handleKicked is not implemented.")
     }
 
     /**
-     * Handle the current race being finished successfully.
+     * Attach all handlers related to reconnections to the given manager.
      */
-    private fun handleRaceFinished(raceUpdate: RaceUpdateDto) {
-        applicationScope.launch {
-            // When we are notified of the race finishing, we must simply upsert the received race.
-            //upsertRaceUpdate(raceUpdate)
+    private fun attachReconnectionHandlers(manager: Manager) {
+        manager.apply {
+            /**
+             *
+             */
+            on("reconnect") { response -> throw NotImplementedError("Handler for manager event 'reconnect' not set.") }
+            /**
+             *
+             */
+            on("reconnect_attempt") { response -> throw NotImplementedError("Handler for manager event 'reconnect_attempt' not set.") }
+            /**
+             *
+             */
+            on("reconnect_error") { response -> throw NotImplementedError("Handler for manager event 'reconnect_error' not set.") }
+            /**
+             *
+             */
+            on("reconnect_failed") { response -> throw NotImplementedError("Handler for manager event 'reconnect_failed' not set.") }
         }
     }
 
     /**
-     * Handle the server alerting the device that a race we're currently in has been disqualified. This is already committed on the serverside, and as such,
-     * this is just a reactive handle.
+     * Attach all handlers related to races and their messages to the given socket.
      */
-    private fun handleRaceDisqualified(raceUpdate: RaceUpdateDto) {
-        applicationScope.launch {
-            // When we are notified of a disqualification, we must simply upsert the received race.
-            //upsertRaceUpdate(raceUpdate)
+    private fun attachRaceHandlers(socket: Socket) {
+        socket.apply {
+            /**
+             * Event will be invoked when the server determines the client has successfully reached the end of a race track.
+             */
+            on<RaceFinishedDto>("race-finished") { raceFinished ->
+
+            }
+            /**
+             * Event will be invoked each time the Player has an ongoing race, and submits a location update.
+             */
+            on<RaceProgressDto>("race-progress") { raceProgress ->
+
+            }
+            /**
+             * Event will be invoked if the server determines the race should be disqualified.
+             */
+            on<RaceDisqualifiedDto>("race-disqualified") { raceDisqualified ->
+
+            }
         }
     }
 
     /**
-     * Handle the server alerting the device that a race we're currently in has been cancelled. This is already committed on the serverside, and as such,
-     * this is just a reactive handle.
+     * Query for, and return a list of all cookies associated with the HawkSpeed game server.
      */
-    private fun handleRaceCancelled(raceUpdate: RaceUpdateDto) {
-        applicationScope.launch {
-            // When we are notified of a cancellation, we must simply upsert the received race.
-            //upsertRaceUpdate(raceUpdate)
+    private fun getRelevantCookies(): List<String> {
+        // Load all cookies for the HawkSpeed server from our cookie jar.
+        // TODO: Get a proper service URL here. We are getting all cookies from the service URL set in build config, which refers to the API, aka, central server.
+        val targetUrl: HttpUrl = BuildConfig.SERVICE_URL.toHttpUrl()
+        val cookies = cookieJar.loadForRequest(targetUrl)
+        // From the cookie jar, map all cookies to a string and return the result.
+        return cookies.map {
+            cookieToString(it, false)
         }
     }
-
-    /**
-     * Handle any connection errors raised while attempting connection to the server.
-     */
-    private fun handleConnectionError(response: Array<out Any>) {
-        Timber.d("Failed to connect to SocketIO server.")
-        response.forEach {
-            Timber.d("Connerror: $it")
-        }
-        // TODO: we can add more information to the connection error event.
-        throw NotImplementedError("Please implement handleConnectionError, we need to pass a ResourceError to Disconnected")
-        //mutableWorldSocketState.tryEmit(
-        //    WorldSocketState.Disconnected
-        //)
-    }
-
-    /**
-     * Handle a disconnection from the server.
-     */
-    private fun handleDisconnection(response: Array<out Any>) {
-        Timber.d("Disconnected from SocketIO server.")
-        response.forEach {
-            Timber.d("Error: $it")
-        }
-        // TODO: we can add more information to the disconnection event.
-        throw NotImplementedError("Please implement handleDisconnection, we need to pass a ResourceError to Disconnected")
-        //mutableWorldSocketState.tryEmit(
-        //    WorldSocketState.Disconnected()
-        //)
-    }
-
-    /**
-     * A function to reduce code duplication involved in updating a Race instance.
-     */
-    /*private suspend fun upsertRaceUpdate(raceUpdate: RaceUpdateDto) {
-        // Map from DTO and from Model.
-        val race: Race = raceMapper.mapFromData(
-            raceUpdateDtoMapper.mapFromDto(raceUpdate)
-        )
-        // Upsert this.
-        raceRepository.cacheRace(race)
-    }*/
 }

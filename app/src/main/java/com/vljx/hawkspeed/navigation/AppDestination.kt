@@ -18,7 +18,7 @@ abstract class AppDestination(
     /**
      * Construct a destination toward the implementing destination with a consideration for arguments.
      */
-    fun withArgs(vararg args: String): String {
+    fun withArgs(vararg args: Any): String {
         return buildString {
             append(route)
             args.forEach { arg ->

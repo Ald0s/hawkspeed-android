@@ -4,7 +4,7 @@ import com.vljx.hawkspeed.data.database.dao.AccountDao
 import com.vljx.hawkspeed.data.database.entity.AccountEntity
 import com.vljx.hawkspeed.data.database.mapper.AccountEntityMapper
 import com.vljx.hawkspeed.data.models.account.AccountModel
-import com.vljx.hawkspeed.data.source.AccountLocalData
+import com.vljx.hawkspeed.data.source.account.AccountLocalData
 import com.vljx.hawkspeed.domain.exc.AccountChangedException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

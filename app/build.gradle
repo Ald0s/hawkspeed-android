@@ -17,8 +17,8 @@ android {
         applicationId "com.vljx.hawkspeed"
         minSdk 29
         targetSdk 33
-        versionCode 10
-        versionName "1.10.00"
+        versionCode 11
+        versionName "1.10.05"
 
         testInstrumentationRunner = "com.vljx.hawkspeed.HawkSpeedJUnitRunner"
         vectorDrawables {
@@ -57,13 +57,13 @@ android {
         realLocalServer {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
-            buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.44:5000/api/\""
+            buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.44:5000/\""
             buildConfigField "boolean", "USE_MOCK_LOCATION", "true"
         }
         real {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
-            buildConfigField "String", "SERVICE_URL", "\"http://TODO.com\""
+            buildConfigField "String", "SERVICE_URL", "\"http://TODO.com/\""
             buildConfigField "boolean", "USE_MOCK_LOCATION", "false"
         }
     }

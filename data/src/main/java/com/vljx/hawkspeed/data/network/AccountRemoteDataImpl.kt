@@ -10,7 +10,7 @@ import com.vljx.hawkspeed.data.network.mapper.account.CheckNameDtoMapper
 import com.vljx.hawkspeed.data.network.mapper.account.RegistrationDtoMapper
 import com.vljx.hawkspeed.data.network.requestmodels.RequestRegisterLocalAccountDto
 import com.vljx.hawkspeed.data.network.requestmodels.RequestSetupProfileDto
-import com.vljx.hawkspeed.data.source.AccountRemoteData
+import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.exc.NoSessionCookieException
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
@@ -87,10 +87,7 @@ class AccountRemoteDataImpl @Inject constructor(
         accountService.logout()
     }, accountDtoMapper)
 
-    /**
-     * Return a list of all cookies applicable to the HawkSpeed session.
-     */
-    private fun getApplicableCookies(): List<HttpCookie> {
+    override fun getApplicableCookies(): List<HttpCookie> {
         val cookieStore: CookieStore = cookieManager.cookieStore
         val httpUri = URI.create(BuildConfig.SERVICE_URL)
         return cookieStore.get(httpUri)

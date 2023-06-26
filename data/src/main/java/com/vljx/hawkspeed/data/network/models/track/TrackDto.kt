@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.data.network.models.track
 
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
+import com.vljx.hawkspeed.data.network.models.race.RaceOutcomeDto
 import com.vljx.hawkspeed.data.network.models.user.UserDto
 
 data class TrackDto(
@@ -20,6 +21,10 @@ data class TrackDto(
     @Expose
     @SerializedName("owner")
     val owner: UserDto,
+
+    @Expose
+    @SerializedName("top_leaderboard")
+    val topLeaderboard: List<RaceOutcomeDto>,
 
     @Expose
     @SerializedName("start_point")
@@ -51,5 +56,9 @@ data class TrackDto(
 
     @Expose
     @SerializedName("can_delete")
-    val canDelete: Boolean
+    val canDelete: Boolean,
+
+    @Expose
+    @SerializedName("can_comment")
+    val canComment: Boolean
 )

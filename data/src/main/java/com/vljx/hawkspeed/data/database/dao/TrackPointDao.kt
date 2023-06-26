@@ -2,8 +2,7 @@ package com.vljx.hawkspeed.data.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Transaction
-import com.vljx.hawkspeed.data.database.entity.TrackPointEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackPointEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

@@ -42,4 +42,8 @@ class DatabaseModule {
     @Provides
     fun provideUserDao(appDatabase: AppDatabase): UserDao =
         appDatabase.userDao()
+
+    @Provides
+    fun provideTrackCommentDao(appDatabase: AppDatabase): TrackCommentDao =
+        appDatabase.trackCommentDao()
 }

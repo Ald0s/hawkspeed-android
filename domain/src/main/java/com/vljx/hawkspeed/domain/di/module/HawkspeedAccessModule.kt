@@ -17,8 +17,10 @@ interface AuthenticationEntryPoint {
     fun accountRepository(): AccountRepository
     fun trackRepository(): TrackRepository
     fun trackPathRepository(): TrackPathRepository
+    fun trackCommentRepository(): TrackCommentRepository
+    fun userRepository(): UserRepository
     fun raceRepository(): RaceRepository
-    fun raceOutcomeRepository(): RaceOutcomeRepository
+    fun raceOutcomeRepository(): LeaderboardRepository
     fun worldRepository(): WorldRepository
 }
 
@@ -54,6 +56,24 @@ class AuthenticationAccessModule {
 
     @Bridged
     @Provides
+    fun provideTrackCommentRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): TrackCommentRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .trackCommentRepository()
+
+    @Bridged
+    @Provides
+    fun provideUserRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): UserRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .userRepository()
+
+    @Bridged
+    @Provides
     fun provideRaceRepository(
         authenticationComponentManager: AuthenticationComponentManager
     ): RaceRepository =
@@ -65,7 +85,7 @@ class AuthenticationAccessModule {
     @Provides
     fun provideRaceOutcomeRepository(
         authenticationComponentManager: AuthenticationComponentManager
-    ): RaceOutcomeRepository =
+    ): LeaderboardRepository =
         EntryPoints
             .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
             .raceOutcomeRepository()

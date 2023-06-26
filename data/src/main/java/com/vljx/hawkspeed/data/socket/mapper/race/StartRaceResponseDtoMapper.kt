@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.socket.mapper.race
 
 import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
 import com.vljx.hawkspeed.data.socket.mapper.SocketDtoMapper
-import com.vljx.hawkspeed.data.socket.models.StartRaceResponseDto
+import com.vljx.hawkspeed.data.socket.models.race.StartRaceResponseDto
 import javax.inject.Inject
 
 class StartRaceResponseDtoMapper @Inject constructor(

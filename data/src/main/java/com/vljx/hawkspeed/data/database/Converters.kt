@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.vljx.hawkspeed.data.database.entity.RaceOutcomeEntity
 import java.time.LocalDate
 import java.util.*
 import javax.inject.Inject
@@ -65,5 +66,18 @@ class Converters {
             return null
         }
         return gson.toJson(value)
+    }
+
+    @TypeConverter
+    fun toTopLeaderboard(value: String?): List<RaceOutcomeEntity>? =
+        value?.let { jsonString ->
+            gson.fromJson(value, Array<RaceOutcomeEntity>::class.java).toList()
+        }
+
+    @TypeConverter
+    fun fromTopLeaderboard(topLeaderboard: List<RaceOutcomeEntity>?): String? {
+        return topLeaderboard?.let { value ->
+            gson.toJson(topLeaderboard.toTypedArray(), Array<RaceOutcomeEntity>::class.java)
+        }
     }
 }

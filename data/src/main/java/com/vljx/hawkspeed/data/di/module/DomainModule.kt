@@ -20,10 +20,13 @@ interface DomainModule {
     fun bindTrackPathRepository(trackPathRepositoryImpl: TrackPathRepositoryImpl): TrackPathRepository
 
     @Binds
+    fun bindTrackCommentRepository(trackCommentRepositoryImpl: TrackCommentRepositoryImpl): TrackCommentRepository
+
+    @Binds
     fun bindRaceRepository(raceRepositoryImpl: RaceRepositoryImpl): RaceRepository
 
     @Binds
-    fun bindRaceOutcomeRepository(raceOutcomeRepositoryImpl: RaceOutcomeRepositoryImpl): RaceOutcomeRepository
+    fun bindRaceOutcomeRepository(raceOutcomeRepositoryImpl: LeaderboardRepositoryImpl): LeaderboardRepository
 
     @Binds
     fun bindUserRepository(userRepositoryImpl: UserRepositoryImpl): UserRepository

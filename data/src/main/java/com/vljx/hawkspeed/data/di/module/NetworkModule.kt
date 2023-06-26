@@ -8,6 +8,7 @@ import com.vljx.hawkspeed.data.BuildConfig
 import com.vljx.hawkspeed.data.network.api.AccountService
 import com.vljx.hawkspeed.data.network.api.RaceService
 import com.vljx.hawkspeed.data.network.api.TrackService
+import com.vljx.hawkspeed.data.network.api.UserService
 import com.vljx.hawkspeed.data.network.serialisation.LocalDateDeserialiser
 import com.vljx.hawkspeed.data.network.serialisation.LocalDateSerialiser
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
@@ -116,4 +117,9 @@ class NetworkModule {
     @Singleton
     fun provideRaceService(retrofit: Retrofit): RaceService =
         retrofit.create(RaceService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUserService(retrofit: Retrofit): UserService =
+        retrofit.create(UserService::class.java)
 }

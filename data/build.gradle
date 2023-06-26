@@ -40,12 +40,12 @@ android {
         realLocalServer {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
-            buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.44:5000/api/\""
+            buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.44:5000/\""
         }
         real {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
-            buildConfigField "String", "SERVICE_URL", "\"http://TODO.com\""
+            buildConfigField "String", "SERVICE_URL", "\"http://TODO.com/\""
         }
     }
     buildFeatures {

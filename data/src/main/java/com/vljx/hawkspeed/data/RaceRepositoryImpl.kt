@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data
 
 import com.vljx.hawkspeed.data.mapper.race.RaceMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
-import com.vljx.hawkspeed.data.source.RaceLocalData
+import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.repository.RaceRepository
 import kotlinx.coroutines.flow.Flow

@@ -1,5 +1,6 @@
 package com.vljx.hawkspeed.data.models.track
 
+import com.vljx.hawkspeed.data.models.race.RaceOutcomeModel
 import com.vljx.hawkspeed.data.models.user.UserModel
 
 data class TrackModel(
@@ -7,6 +8,7 @@ data class TrackModel(
     val name: String,
     val description: String,
     val owner: UserModel,
+    val topLeaderboard: List<RaceOutcomeModel>,
     val startPoint: TrackPointModel,
     val isVerified: Boolean,
     val numPositiveVotes: Int,
@@ -15,5 +17,6 @@ data class TrackModel(
     val numComments: Int,
     val canRace: Boolean,
     val canEdit: Boolean,
-    val canDelete: Boolean
+    val canDelete: Boolean,
+    val canComment: Boolean
 )

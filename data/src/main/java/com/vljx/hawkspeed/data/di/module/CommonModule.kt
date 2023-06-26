@@ -16,12 +16,17 @@ import javax.inject.Singleton
 class CommonModule {
     @Provides
     @Singleton
-    fun provideGson(): Gson =
+    fun provideGsonBuilder(): GsonBuilder =
         GsonBuilder()
             .setDateFormat("yyyy-MM-dd'T'HH:mm:ss")
             .enableComplexMapKeySerialization()
             .excludeFieldsWithoutExposeAnnotation()
             .registerTypeAdapter(LocalDate::class.java, LocalDateSerialiser())
             .registerTypeAdapter(LocalDate::class.java, LocalDateDeserialiser())
-            .create()
+
+    @Provides
+    @Singleton
+    fun provideGson(
+        gsonBuilder: GsonBuilder
+    ): Gson = gsonBuilder.create()
 }

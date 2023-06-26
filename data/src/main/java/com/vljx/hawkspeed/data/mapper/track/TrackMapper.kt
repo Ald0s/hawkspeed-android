@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.data.mapper.track
 
 import com.vljx.hawkspeed.data.mapper.Mapper
+import com.vljx.hawkspeed.data.mapper.race.RaceOutcomeMapper
 import com.vljx.hawkspeed.data.mapper.user.UserMapper
 import com.vljx.hawkspeed.data.models.track.TrackModel
 import com.vljx.hawkspeed.domain.models.track.Track
@@ -8,6 +9,7 @@ import javax.inject.Inject
 
 class TrackMapper @Inject constructor(
     private val trackPointMapper: TrackPointMapper,
+    private val raceOutcomeMapper: RaceOutcomeMapper,
     private val userMapper: UserMapper
 ): Mapper<TrackModel, Track> {
     override fun mapFromData(model: TrackModel): Track {
@@ -16,6 +18,7 @@ class TrackMapper @Inject constructor(
             model.name,
             model.description,
             userMapper.mapFromData(model.owner),
+            raceOutcomeMapper.mapFromDataList(model.topLeaderboard),
             trackPointMapper.mapFromData(model.startPoint),
             model.isVerified,
             model.numPositiveVotes,
@@ -24,7 +27,8 @@ class TrackMapper @Inject constructor(
             model.numComments,
             model.canRace,
             model.canEdit,
-            model.canDelete
+            model.canDelete,
+            model.canComment
         )
     }
 
@@ -34,6 +38,7 @@ class TrackMapper @Inject constructor(
             domain.name,
             domain.description,
             userMapper.mapToData(domain.owner),
+            raceOutcomeMapper.mapToDataList(domain.topLeaderboard),
             trackPointMapper.mapToData(domain.startPoint),
             domain.isVerified,
             domain.numPositiveVotes,
@@ -42,7 +47,8 @@ class TrackMapper @Inject constructor(
             domain.numComments,
             domain.canRace,
             domain.canEdit,
-            domain.canDelete
+            domain.canDelete,
+            domain.canComment
         )
     }
 }

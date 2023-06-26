@@ -4,7 +4,7 @@ import com.vljx.hawkspeed.data.database.dao.RaceDao
 import com.vljx.hawkspeed.data.database.entity.RaceEntity
 import com.vljx.hawkspeed.data.database.mapper.RaceEntityMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
-import com.vljx.hawkspeed.data.source.RaceLocalData
+import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

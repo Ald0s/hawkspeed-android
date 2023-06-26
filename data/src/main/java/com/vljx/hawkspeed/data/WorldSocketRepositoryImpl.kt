@@ -1,18 +1,21 @@
 package com.vljx.hawkspeed.data
 
+import com.vljx.hawkspeed.data.mapper.race.CancelRaceResultMapper
 import com.vljx.hawkspeed.data.mapper.world.PlayerUpdateResultMapper
 import com.vljx.hawkspeed.data.mapper.race.StartRaceResultMapper
 import com.vljx.hawkspeed.data.mapper.world.ViewportUpdateResultMapper
 import com.vljx.hawkspeed.data.socket.WorldSocketSession
-import com.vljx.hawkspeed.data.source.RaceLocalData
-import com.vljx.hawkspeed.data.source.TrackLocalData
+import com.vljx.hawkspeed.data.source.race.RaceLocalData
+import com.vljx.hawkspeed.data.source.track.TrackLocalData
+import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerUpdateResult
-import com.vljx.hawkspeed.domain.models.world.StartRaceResult
+import com.vljx.hawkspeed.domain.models.race.StartRaceResult
 import com.vljx.hawkspeed.domain.models.world.Viewport
 import com.vljx.hawkspeed.domain.models.world.ViewportUpdateResult
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
+import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
@@ -31,6 +34,7 @@ class WorldSocketRepositoryImpl @Inject constructor(
     private val raceLocalData: RaceLocalData,
 
     private val startRaceResultMapper: StartRaceResultMapper,
+    private val cancelRaceResultMapper: CancelRaceResultMapper,
     private val playerUpdateResultMapper: PlayerUpdateResultMapper,
     private val viewportUpdateResultMapper: ViewportUpdateResultMapper
 ): WorldSocketRepository {
@@ -64,6 +68,12 @@ class WorldSocketRepositoryImpl @Inject constructor(
         val startRaceResult = worldSocketSession.startRace(requestStartRace)
         // TODO: cache this.
         return startRaceResultMapper.mapFromData(startRaceResult)
+    }
+
+    override suspend fun cancelRace(requestCancelRace: RequestCancelRace): CancelRaceResult {
+        val cancelRaceResult = worldSocketSession.cancelRace(requestCancelRace)
+        // TOOD: cache this.
+        return cancelRaceResultMapper.mapFromData(cancelRaceResult)
     }
 
     override suspend fun sendPlayerUpdate(requestPlayerUpdate: RequestPlayerUpdate): PlayerUpdateResult {

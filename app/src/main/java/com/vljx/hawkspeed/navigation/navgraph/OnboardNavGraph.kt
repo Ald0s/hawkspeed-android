@@ -43,8 +43,9 @@ fun NavGraphBuilder.onboardNavGraph(
         ) { navBackStackEntry ->
             RegisterScreen(
                 onRegistered = { registration ->
+                    // Navigate back to the start of the onboarding route.
                     navHostController.navigate(
-                        RegisterDestination.route
+                        ONBOARD_GRAPH_ROUTE
                     ) {
                         launchSingleTop = true
                     }

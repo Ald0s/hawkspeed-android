@@ -1,10 +1,22 @@
 <resources>
     <string name="app_name">HawkSpeed</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+
     <string name="title_activity_main">MainActivity</string>
+
+    <string name="login_attempt_login">Login</string>
+    <string name="login_sign_up">Sign Up</string>
+
+    <string name="register_attempt_registration">Register</string>
+
+    <string name="setup_account_setup">Setup Account</string>
 
     <string name="world_map_loading">Loading world</string>
     <string name="world_map_loading_location">Waiting for first location</string>
     <string name="world_map_loading_connecting">Connecting to game</string>
+
+    <string name="track_about">About</string>
+    <string name="track_leaderboard">Leaderboard</string>
+    <string name="track_leaderboard_empty">There\'s no one on this leaderboard yet! Maybe you\'ll set the first time?</string>
+    <string name="track_preview_race">START RACE</string>
+    <string name="track_view_details">See More</string>
 </resources>

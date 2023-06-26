@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.socket.mapper.world
 
 import com.vljx.hawkspeed.data.models.world.PlayerUpdateResultModel
 import com.vljx.hawkspeed.data.socket.mapper.SocketDtoMapper
-import com.vljx.hawkspeed.data.socket.models.PlayerUpdateResponseDto
+import com.vljx.hawkspeed.data.socket.models.world.PlayerUpdateResponseDto
 import javax.inject.Inject
 
 class PlayerUpdateResultDtoMapper @Inject constructor(

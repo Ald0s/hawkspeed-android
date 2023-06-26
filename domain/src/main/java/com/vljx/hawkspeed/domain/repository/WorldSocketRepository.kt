@@ -1,11 +1,13 @@
 package com.vljx.hawkspeed.domain.repository
 
+import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerUpdateResult
-import com.vljx.hawkspeed.domain.models.world.StartRaceResult
+import com.vljx.hawkspeed.domain.models.race.StartRaceResult
 import com.vljx.hawkspeed.domain.models.world.Viewport
 import com.vljx.hawkspeed.domain.models.world.ViewportUpdateResult
+import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
@@ -57,6 +59,11 @@ interface WorldSocketRepository {
      * Send a request to start a new race.
      */
     suspend fun startRace(requestStartRace: RequestStartRace): StartRaceResult
+
+    /**
+     * Send a request to cancel the current race in progress. This will return a cancel race result.
+     */
+    suspend fun cancelRace(requestCancelRace: RequestCancelRace): CancelRaceResult
 
     /**
      * Send an update to the player's location.

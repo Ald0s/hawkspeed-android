@@ -3,7 +3,7 @@ package com.vljx.hawkspeed.data.socket.mapper.world
 import com.vljx.hawkspeed.data.models.world.ViewportUpdateResultModel
 import com.vljx.hawkspeed.data.network.mapper.track.TrackDtoMapper
 import com.vljx.hawkspeed.data.socket.mapper.SocketDtoMapper
-import com.vljx.hawkspeed.data.socket.models.ViewportUpdateResponseDto
+import com.vljx.hawkspeed.data.socket.models.world.ViewportUpdateResponseDto
 import javax.inject.Inject
 
 class ViewportUpdateResultDtoMapper @Inject constructor(

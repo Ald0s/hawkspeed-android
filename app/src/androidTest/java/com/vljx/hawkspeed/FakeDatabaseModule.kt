@@ -3,6 +3,7 @@ package com.vljx.hawkspeed
 import android.app.Application
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.database.dao.AccountDao
+import com.vljx.hawkspeed.data.database.dao.TrackCommentDao
 import com.vljx.hawkspeed.data.database.dao.RaceDao
 import com.vljx.hawkspeed.data.database.dao.RaceOutcomeDao
 import com.vljx.hawkspeed.data.database.dao.TrackDao
@@ -52,4 +53,8 @@ class FakeDatabaseModule {
     @Provides
     fun provideUserDao(appDatabase: AppDatabase): UserDao =
         appDatabase.userDao()
+
+    @Provides
+    fun provideTrackCommentDao(appDatabase: AppDatabase): TrackCommentDao =
+        appDatabase.trackCommentDao()
 }

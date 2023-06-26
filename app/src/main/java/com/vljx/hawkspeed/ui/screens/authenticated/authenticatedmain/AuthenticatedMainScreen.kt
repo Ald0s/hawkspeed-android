@@ -14,6 +14,7 @@ import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapScreen
 
 @Composable
 fun AuthenticatedMainScreen(
+    onAuthenticatedAndSetup: () -> Unit,
     onVerificationRequired: (String) -> Unit,
     onSetupRequired: (String) -> Unit,
     onLostAuthentication: () -> Unit,
@@ -26,10 +27,13 @@ fun AuthenticatedMainScreen(
 
     when(authenticatedMainUiState) {
         is AuthenticatedMainUiState.Authenticated -> {
-            // We are authenticated and there's no further work to do. We'll now setup the main screen properly.
-            AuthenticatedAndSetup(
-                authenticatedMainViewModel = authenticatedMainViewModel
-            )
+            // We are authenticated and there's no further work to do. We'll now navigate toward the world map screen.
+            LaunchedEffect(key1 = Unit, block = {
+                onAuthenticatedAndSetup()
+            })
+            //AuthenticatedAndSetup(
+            //    authenticatedMainViewModel = authenticatedMainViewModel
+            //)
         }
         is AuthenticatedMainUiState.AuthenticatedAccountNotVerified -> {
             // We must verify this account. Invoke callback in a launched side effect.
@@ -74,5 +78,5 @@ fun AuthenticatedAndSetup(
     })*/
 
     // This is where we'll load the world map.
-    WorldMapScreen()
+    //WorldMapScreen()
 }

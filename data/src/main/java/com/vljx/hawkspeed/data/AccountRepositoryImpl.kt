@@ -4,8 +4,8 @@ import com.vljx.hawkspeed.data.mapper.account.AccountMapper
 import com.vljx.hawkspeed.data.mapper.account.CheckNameMapper
 import com.vljx.hawkspeed.data.mapper.account.RegistrationMapper
 import com.vljx.hawkspeed.data.models.account.AccountModel
-import com.vljx.hawkspeed.data.source.AccountLocalData
-import com.vljx.hawkspeed.data.source.AccountRemoteData
+import com.vljx.hawkspeed.data.source.account.AccountLocalData
+import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.exc.AccountChangedException
