@@ -1,0 +1,114 @@
+{
+  "name": "Example1",
+  "description": "Example 1",
+  "segments": [
+    {
+      "points": [
+        {
+          "latitude": -37.843652,
+          "longitude": 145.03001
+        },
+        {
+          "latitude": -37.84354,
+          "longitude": 145.029053
+        },
+        {
+          "latitude": -37.843528,
+          "longitude": 145.028946
+        },
+        {
+          "latitude": -37.843473,
+          "longitude": 145.028619
+        },
+        {
+          "latitude": -37.843424,
+          "longitude": 145.028328
+        },
+        {
+          "latitude": -37.843342,
+          "longitude": 145.027607
+        },
+        {
+          "latitude": -37.843292,
+          "longitude": 145.027216
+        },
+        {
+          "latitude": -37.843265,
+          "longitude": 145.027013
+        },
+        {
+          "latitude": -37.843137,
+          "longitude": 145.026033
+        },
+        {
+          "latitude": -37.843047,
+          "longitude": 145.025338
+        },
+        {
+          "latitude": -37.842947,
+          "longitude": 145.02453
+        },
+        {
+          "latitude": -37.842943,
+          "longitude": 145.024506
+        },
+        {
+          "latitude": -37.842934,
+          "longitude": 145.024441
+        },
+        {
+          "latitude": -37.842744,
+          "longitude": 145.022952
+        },
+        {
+          "latitude": -37.842532,
+          "longitude": 145.021256
+        },
+        {
+          "latitude": -37.842522,
+          "longitude": 145.02118
+        },
+        {
+          "latitude": -37.842491,
+          "longitude": 145.020923
+        },
+        {
+          "latitude": -37.842392,
+          "longitude": 145.020069
+        },
+        {
+          "latitude": -37.842341,
+          "longitude": 145.019632
+        },
+        {
+          "latitude": -37.842207,
+          "longitude": 145.018471
+        },
+        {
+          "latitude": -37.842169,
+          "longitude": 145.018137
+        },
+        {
+          "latitude": -37.842086,
+          "longitude": 145.017432
+        },
+        {
+          "latitude": -37.841866,
+          "longitude": 145.015529
+        },
+        {
+          "latitude": -37.841858,
+          "longitude": 145.015461
+        },
+        {
+          "latitude": -37.841786,
+          "longitude": 145.014833
+        },
+        {
+          "latitude": -37.841715,
+          "longitude": 145.01422
+        }
+      ]
+    }
+  ]
+}

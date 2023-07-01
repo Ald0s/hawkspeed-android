@@ -5,10 +5,12 @@ import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.database.dao.AccountDao
 import com.vljx.hawkspeed.data.database.dao.TrackCommentDao
 import com.vljx.hawkspeed.data.database.dao.RaceDao
-import com.vljx.hawkspeed.data.database.dao.RaceOutcomeDao
+import com.vljx.hawkspeed.data.database.dao.RaceLeaderboardDao
 import com.vljx.hawkspeed.data.database.dao.TrackDao
+import com.vljx.hawkspeed.data.database.dao.TrackDraftDao
 import com.vljx.hawkspeed.data.database.dao.TrackPathDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDao
+import com.vljx.hawkspeed.data.database.dao.TrackPointDraftDao
 import com.vljx.hawkspeed.data.database.dao.UserDao
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import dagger.Module
@@ -43,11 +45,19 @@ class FakeDatabaseModule {
         appDatabase.trackPointDao()
 
     @Provides
+    fun provideTrackDraftDao(appDatabase: AppDatabase): TrackDraftDao =
+        appDatabase.trackDraftDao()
+
+    @Provides
+    fun provideTrackPointDraftDao(appDatabase: AppDatabase): TrackPointDraftDao =
+        appDatabase.trackPointDraftDao()
+
+    @Provides
     fun provideRaceDao(appDatabase: AppDatabase): RaceDao =
         appDatabase.raceDao()
 
     @Provides
-    fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceOutcomeDao =
+    fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceLeaderboardDao =
         appDatabase.raceOutComeDao()
 
     @Provides

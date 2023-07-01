@@ -1,10 +1,19 @@
 package com.vljx.hawkspeed.ui.screens.onboard.register
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -16,8 +25,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Registration
 import com.vljx.hawkspeed.ui.component.InputValidationResult
@@ -70,6 +83,9 @@ fun RegisterScreen(
     )
 }
 
+/**
+ * TODO: validation must still be applied to all form controls.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterFormUi(
@@ -89,29 +105,79 @@ fun RegisterFormUi(
 
     resourceError: ResourceError? = null
 ) {
-    Scaffold { paddingValues ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Scaffold(
+        modifier = Modifier
+            .fillMaxHeight()
+    ) { paddingValues ->
+        Row(
+            horizontalArrangement = Arrangement.Center,
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxWidth()
         ) {
-            OutlinedTextField(
-                value = emailAddress ?: "",
-                onValueChange = updateEmailAddress
-            )
-            OutlinedTextField(
-                value = password ?: "",
-                onValueChange = updatePassword
-            )
-            OutlinedTextField(
-                value = confirmPassword ?: "",
-                onValueChange = updateConfirmPassword
-            )
-            Button(
-                onClick = onAttemptRegistrationClicked
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.8f)
             ) {
-                Text(text = "Register")
+                Spacer(modifier = Modifier.height(56.dp))
+                OutlinedTextField(
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "email address"
+                        )
+                    },
+                    value = emailAddress ?: "",
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_email))
+                    },
+                    onValueChange = updateEmailAddress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "password"
+                        )
+                    },
+                    value = password ?: "",
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_password))
+                    },
+                    onValueChange = updatePassword,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "confirm password"
+                        )
+                    },
+                    value = confirmPassword ?: "",
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_confirm_password))
+                    },
+                    onValueChange = updateConfirmPassword,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onAttemptRegistrationClicked,
+                    shape = RectangleShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(text = stringResource(id = R.string.register_register).uppercase())
+                }
             }
         }
     }
@@ -125,13 +191,13 @@ fun PreviewRegisterFormUi(
     HawkSpeedTheme {
         RegisterFormUi(
             onAttemptRegistrationClicked = { /*TODO*/ },
-            emailAddress = "user1@mail.com",
+            emailAddress = "",
             validateEmailAddressResult = InputValidationResult(true),
             updateEmailAddress = { e -> },
-            password = "password",
+            password = "",
             validatePasswordResult = InputValidationResult(true),
             updatePassword = { e -> },
-            confirmPassword = "password",
+            confirmPassword = "",
             validateConfirmPasswordResult = InputValidationResult(true),
             updateConfirmPassword = { e -> }
         )

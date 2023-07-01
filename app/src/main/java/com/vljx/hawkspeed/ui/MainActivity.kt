@@ -15,6 +15,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import android.os.SystemClock
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -24,7 +27,10 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.SettingsClient
+import com.google.android.gms.maps.model.LatLng
+import com.vljx.hawkspeed.BuildConfig
 import com.vljx.hawkspeed.WorldService
+import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.navigation.SetupNavGraph
 import com.vljx.hawkspeed.ui.screens.authenticated.world.PermissionSettingsCallback
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
@@ -226,7 +232,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
     private val resolutionForResult = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { activityResult ->
-        if(activityResult.resultCode == Activity.RESULT_OK) {
+        if (activityResult.resultCode == Activity.RESULT_OK) {
             Timber.d("Successfully resolved location settings issues, ensuring settings are now appropriate.")
             // Now call ensure location settings compatible once more to double check.
             ensureLocationSettingsCompatible()

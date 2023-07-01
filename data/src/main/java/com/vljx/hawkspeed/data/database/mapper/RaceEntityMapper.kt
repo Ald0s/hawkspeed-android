@@ -1,6 +1,6 @@
 package com.vljx.hawkspeed.data.database.mapper
 
-import com.vljx.hawkspeed.data.database.entity.RaceEntity
+import com.vljx.hawkspeed.data.database.entity.race.RaceEntity
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import javax.inject.Inject
 

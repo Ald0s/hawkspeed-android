@@ -14,15 +14,12 @@ sealed class WorldActionState {
      * cause the drawing of race related user interfaces over the map.
      */
     data class RaceMode(
-        val trackUid: String,
-        val raceUid: String
+        val trackUid: String
     ): WorldActionState()
 
     /**
      * The track creation mode. The camera is locked to follow the Player from behind, only objects related to race recording are displayed. This should
      * cause the drawing of the race recording user interfaces over the map.
      */
-    data class RecordTrackMode(
-        val trackDraftId: Long
-    ): WorldActionState()
+    object RecordTrackMode: WorldActionState()
 }

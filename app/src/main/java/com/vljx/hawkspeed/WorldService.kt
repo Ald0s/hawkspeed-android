@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationManager
+import android.location.LocationManager.GPS_PROVIDER
 import android.os.*
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
@@ -29,9 +30,7 @@ import javax.inject.Inject
 /**
  * The world service component; maintains the responsibility of single source of truth for location updates. New locations and location availabilities will be passed
  * directly to the world socket session instance from here. Communication with this service should be avoided for HawkSpeed specific functionality. That should be done
- * via view models that communicate via repos to world socket session.
- *
- * TODO: should we instead employ use cases to communicate with world socket session?
+ * via view models that communicate via use cases to world socket session.
  */
 @AndroidEntryPoint
 class WorldService: Service() {
@@ -72,38 +71,11 @@ class WorldService: Service() {
     // Whether or not we are currently receiving updates.
     private var receivingLocationUpdates: Boolean = false
 
-    /**
-     * Set the current mocked location. This function will only run if build config is currently set to use mock locations.
-     */
-    @SuppressLint("MissingPermission")
-    fun mockLocation(location: Location) {
-        if(!BuildConfig.USE_MOCK_LOCATION) {
-            throw NotImplementedError()
-        }
-        location.accuracy = 3.0f
-        fusedLocationClient.setMockLocation(location)
-    }
-
     @SuppressLint("MissingPermission")
     override fun onCreate() {
         super.onCreate()
         // Setup location client.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        if(BuildConfig.USE_MOCK_LOCATION) {
-            // If we're mocking location, set mock mode to true.
-            fusedLocationClient.setMockMode(true)
-            // Now also set a mocked location.
-            mockLocation(
-                Location(LocationManager.GPS_PROVIDER).apply {
-                    latitude = -37.757557
-                    longitude = 144.958444
-                    speed = 0f
-                    bearing = 180f
-                    time = System.currentTimeMillis()
-                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                }
-            )
-        }
         // Get the notification manager.
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // Build a notification channel for the app.
@@ -276,20 +248,8 @@ class WorldService: Service() {
     private fun newLocationReceived(locationResult: LocationResult) {
         val latestLocation: Location
         try {
-            if(BuildConfig.USE_MOCK_LOCATION) {
-                latestLocation = Location(LocationManager.GPS_PROVIDER).apply {
-                    latitude = -37.757557
-                    longitude = 144.958444
-                    speed = 0f
-                    bearing = 180f
-                    time = System.currentTimeMillis()
-                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                }
-                mockLocation(latestLocation)
-            } else {
-                latestLocation = locationResult.lastLocation
-                    ?: throw NullPointerException()
-            }
+            latestLocation = locationResult.lastLocation
+                ?: throw NullPointerException()
             // Create a new player position from this.
             val playerPosition = PlayerPosition(latestLocation)
             // Whenever we get a new location from the service, pass it directly to the world socket session.
@@ -300,7 +260,7 @@ class WorldService: Service() {
                         RequestPlayerUpdate(playerPosition)
                     )
                 } catch (iee: NotImplementedError) {
-
+                    Timber.w(iee)
                 }
             }
         } catch(npe: NullPointerException) {

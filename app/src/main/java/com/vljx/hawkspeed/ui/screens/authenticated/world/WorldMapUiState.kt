@@ -11,8 +11,7 @@ sealed class WorldMapUiState {
     data class WorldMapLoadedRecordTrackMode(
         val playerUid: String,
         val gameSettings: GameSettings,
-        val location: PlayerPosition,
-        val trackDraftId: Long
+        val location: PlayerPosition
     ): WorldMapUiState()
 
     /**
@@ -22,8 +21,7 @@ sealed class WorldMapUiState {
         val playerUid: String,
         val gameSettings: GameSettings,
         val location: PlayerPosition,
-        val trackUid: String,
-        val raceUid: String
+        val trackUid: String
     ): WorldMapUiState()
 
     /**

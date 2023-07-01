@@ -1,7 +1,7 @@
 package com.vljx.hawkspeed.data.database
 
 import com.vljx.hawkspeed.data.database.dao.RaceDao
-import com.vljx.hawkspeed.data.database.entity.RaceEntity
+import com.vljx.hawkspeed.data.database.entity.race.RaceEntity
 import com.vljx.hawkspeed.data.database.mapper.RaceEntityMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
@@ -24,9 +24,9 @@ class RaceLocalDataImpl @Inject constructor(
         }
     }
 
-    override suspend fun upsertRace(raceModel: RaceModel) {
+    override suspend fun upsertRace(race: RaceModel) {
         // Map the race model to an entity.
-        val raceEntity: RaceEntity = raceEntityMapper.mapToEntity(raceModel)
+        val raceEntity: RaceEntity = raceEntityMapper.mapToEntity(race)
         // Upsert the race entity.
         raceDao.upsert(raceEntity)
     }

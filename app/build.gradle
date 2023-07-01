@@ -17,8 +17,8 @@ android {
         applicationId "com.vljx.hawkspeed"
         minSdk 29
         targetSdk 33
-        versionCode 11
-        versionName "1.10.05"
+        versionCode 12
+        versionName "1.10.06"
 
         testInstrumentationRunner = "com.vljx.hawkspeed.HawkSpeedJUnitRunner"
         vectorDrawables {
@@ -58,7 +58,7 @@ android {
             dimension "data_access"
             buildConfigField "boolean", "MOCKED_DATA_ACCESS", "false"
             buildConfigField "String", "SERVICE_URL", "\"http://192.168.0.44:5000/\""
-            buildConfigField "boolean", "USE_MOCK_LOCATION", "true"
+            buildConfigField "boolean", "USE_MOCK_LOCATION", "false"
         }
         real {
             dimension "data_access"
@@ -129,20 +129,31 @@ dependencies {
     // Picasso.
     implementation "com.squareup.picasso:picasso:$picassoVersion"
 
+    // Gson.
+    implementation "com.google.code.gson:gson:$gsonVersion"
+
     // Jetpack Compose.
     implementation platform("androidx.compose:compose-bom:$composeBomVersion")
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.ui:ui-graphics'
     implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation "androidx.compose.foundation:foundation:$composeFoundationVersion"
+    implementation "androidx.paging:paging-compose:$pagingComposeVersion"
     implementation 'androidx.compose.material3:material3'
     androidTestImplementation platform("androidx.compose:compose-bom:$composeBomVersion")
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
 
+    // Kotlin coroutines.
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlinXCoroutinesVersion"
+
     // JUnit & Espresso.
     testImplementation "junit:junit:$junitTestVersion"
     androidTestImplementation "androidx.test.ext:junit:$testExtJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$espressoCoreVersion"
     implementation "androidx.test.espresso:espresso-idling-resource:$espressoIdlingResourceVersion"
+
+    // Mockito.
+    testImplementation "org.mockito.kotlin:mockito-kotlin:$mockitoVersion"
 }

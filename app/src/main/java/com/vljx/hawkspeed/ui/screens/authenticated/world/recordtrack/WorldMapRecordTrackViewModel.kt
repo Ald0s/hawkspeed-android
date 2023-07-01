@@ -4,14 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
-import com.vljx.hawkspeed.domain.requestmodels.track.RequestSaveTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestTrackPointDraft
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
-import com.vljx.hawkspeed.domain.usecase.track.DeleteTrackDraftUseCase
-import com.vljx.hawkspeed.domain.usecase.track.GetTrackDraftUseCase
-import com.vljx.hawkspeed.domain.usecase.track.NewTrackDraftUseCase
-import com.vljx.hawkspeed.domain.usecase.track.ResetTrackDraftPointsUseCase
-import com.vljx.hawkspeed.domain.usecase.track.SaveTrackDraftUseCase
-import com.vljx.hawkspeed.domain.usecase.track.SaveTrackPointDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.DeleteTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.GetTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.NewTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.ResetTrackDraftPointsUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.SaveTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.AddTrackPointDraftUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -23,9 +24,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -43,17 +46,15 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     private val saveTrackDraftUseCase: SaveTrackDraftUseCase,
     private val deleteTrackDraftUseCase: DeleteTrackDraftUseCase,
 
-    private val saveTrackPointDraftUseCase: SaveTrackPointDraftUseCase,
+    private val addTrackPointDraftUseCase: AddTrackPointDraftUseCase,
     private val resetTrackDraftPointsUseCase: ResetTrackDraftPointsUseCase
 ): ViewModel() {
     /**
-     * The Id for the currently selected track draft. This is configured such that emitting a null value to this flow will create a new track draft and
-     * use that for any incoming recordings.
+     * A mutable shared flow for the required track draft state. Emit to this flow to control the track being edited/recorded.
      */
-    private val mutableSelectedTrackDraftId: MutableSharedFlow<Long?> = MutableSharedFlow(
-        replay = 0,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-        extraBufferCapacity = 1
+    private val mutableSelectedTrackDraft: MutableSharedFlow<SelectTrackDraftState> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
     /**
@@ -73,24 +74,30 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     /**
      * Get the current location from the world socket state. We'll use emissions from this flow to update our draft track.
      */
-    private val currentLocation: StateFlow<PlayerPosition?> =
+    private val innerCurrentLocation: StateFlow<PlayerPosition?> =
         getCurrentLocationUseCase(Unit)
 
     /**
-     * Flat map the latest selected track draft's Id and attempt to locate the associated track draft from cache, or, if null was emitted to selected track
-     * draft Id, create and use a brand new track draft.
+     *
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val trackDraftWithPoints: Flow<TrackDraftWithPoints> =
-        mutableSelectedTrackDraftId.flatMapLatest { selectedTrackDraftId ->
-            if(selectedTrackDraftId == null) {
-                newTrackDraftUseCase(Unit).map {
-                    // TODO: delete debug message here.
-                    Timber.d("Created new track with id: ${it.trackDraftId}")
-                    it
+        mutableSelectedTrackDraft.flatMapLatest { selectTrackDraftState ->
+            when(selectTrackDraftState) {
+                is SelectTrackDraftState.CreateTrackDraft -> {
+                    newTrackDraftUseCase(Unit).onEach {
+                        mutableSelectedTrackDraft.emit(SelectTrackDraftState.SelectTrackDraft(it.trackDraftId))
+                        mutableWorldMapRecordTrackUiState.emit(
+                            WorldMapRecordTrackUiState.NewTrack(it)
+                        )
+                    }
                 }
-            } else {
-                throw NotImplementedError("Editing a track is not yet supported.")
+                is SelectTrackDraftState.SelectTrackDraft -> {
+                    // TODO: properly handle this track and its points no longer existing. For now, we'll just filter not null.
+                    getTrackDraftUseCase(
+                        selectTrackDraftState.trackDraftId
+                    ).filterNotNull()
+                }
             }
         }
 
@@ -98,32 +105,34 @@ class WorldMapRecordTrackViewModel @Inject constructor(
      * A flow that will combine the track draft flow, 'is recording' state flow, and the current location state flow to save new points to the track
      * where appropriate and applicable. It's result is a flow of the latest track draft with the latest location added.
      */
-    private val latestTrackDraftWithPoints: Flow<TrackDraftWithPoints> =
+    private val trackDraftWithRecordedPoint: Flow<TrackDraftWithPoints> =
         combineTransform(
             mutableIsRecording,
-            currentLocation,
+            innerCurrentLocation,
             trackDraftWithPoints
         ) { isRecording, location, trackDraft ->
-            // If recording is false OR location is null, emit nothing, since nothing changed.
+            // If recording is false OR location is null, emit nothing as this flow is not required.
             if(!isRecording || location == null) {
-                // Emit nothing.
                 return@combineTransform
             }
             // Sure recording is true and location is not null. Determine if latest location is far enough away from last point. If not far away enough, emit
-            // nothing, since nothing changed.
+            // the existing track draft, to ensure we're in the Recording state.
             if(!trackDraft.shouldTakePosition(location)) {
-                // Emit nothing.
+                // Decided not to take this position, but we'll emit the existing track draft.
+                emit(trackDraft)
                 return@combineTransform
             }
             // Otherwise, we'll save the latest location to the track draft with points, receiving back the latest; which we'll return.
-            val latestTrackDraft = saveTrackPointDraftUseCase(
-                RequestSaveTrackPointDraft(
+            val latestTrackDraft = addTrackPointDraftUseCase(
+                RequestAddTrackPointDraft(
                     trackDraft.trackDraftId,
-                    location.latitude,
-                    location.longitude,
-                    location.loggedAt,
-                    location.speed,
-                    location.rotation
+                    RequestTrackPointDraft(
+                        location.latitude,
+                        location.longitude,
+                        location.loggedAt,
+                        location.speed,
+                        location.rotation
+                    )
                 )
             )
             // TODO: remove debug message.
@@ -138,7 +147,7 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     private val worldMapRecordTrackUiState: Flow<WorldMapRecordTrackUiState> =
         combine(
             mutableIsRecording,
-            latestTrackDraftWithPoints
+            trackDraftWithRecordedPoint
         ) { isRecording, latestTrackDraft ->
             // Now, return the most appropriate UI states.
             when(isRecording) {
@@ -153,8 +162,10 @@ class WorldMapRecordTrackViewModel @Inject constructor(
                  */
                 false -> {
                     if(latestTrackDraft.hasRecordedTrack) {
+                        Timber.d("Showing overview of track with ${latestTrackDraft.pointDrafts.size} recorded points.")
                         return@combine WorldMapRecordTrackUiState.RecordedTrackOverview(latestTrackDraft)
                     } else {
+                        Timber.d("Starting up a new track.")
                         return@combine WorldMapRecordTrackUiState.NewTrack(latestTrackDraft)
                     }
                 }
@@ -169,14 +180,26 @@ class WorldMapRecordTrackViewModel @Inject constructor(
         merge(
             worldMapRecordTrackUiState,
             mutableWorldMapRecordTrackUiState
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), WorldMapRecordTrackUiState.Loading)
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(
+            stopTimeoutMillis = 10000,
+            replayExpirationMillis = 10000
+        ), WorldMapRecordTrackUiState.Loading)
 
     /**
-     * Create a new Track. This will emit null to the selected track draft Id, to have that mapped to an actual blank track draft with points.
+     * Publicise the current location.
+     */
+    val currentLocation: StateFlow<PlayerPosition?> =
+        innerCurrentLocation
+
+    /**
+     * Create a new Track. This will call out to the new track use case, emitting the newly created track's id to the
+     * selected track id mutable shared flow.
      */
     fun newTrack() {
         viewModelScope.launch {
-            mutableSelectedTrackDraftId.emit(null)
+            mutableSelectedTrackDraft.emit(
+                SelectTrackDraftState.CreateTrackDraft
+            )
         }
     }
 
@@ -185,6 +208,70 @@ class WorldMapRecordTrackViewModel @Inject constructor(
      */
     fun editTrack(trackDraftId: Long) {
         throw NotImplementedError("Editing a track is not yet allowed on record track.")
+    }
+
+    /**
+     * Call when the User wishes to cancel the recording of this track. Optionally, the User can request to save their progress to the cache,
+     * or delete it.
+     */
+    fun cancelRecording(trackDraftWithPoints: TrackDraftWithPoints, saveTrack: Boolean) {
+        // Get the track draft with points.
+        viewModelScope.launch {
+            // Emit a loading state for the UI, to disable actions.
+            mutableWorldMapRecordTrackUiState.tryEmit(WorldMapRecordTrackUiState.Loading)
+            // On the view model scope, if User wants to save the track, invoke the save use case with the given track draft. Otherwise, invoke the
+            // delete track draft use case.
+            when(saveTrack) {
+                true -> saveTrackDraftUseCase(trackDraftWithPoints)
+                else -> deleteTrackDraftUseCase(trackDraftWithPoints.trackDraftId)
+            }
+            // Emit the cancelled state.
+            mutableWorldMapRecordTrackUiState.emit(
+                WorldMapRecordTrackUiState.RecordingCancelled(
+                    trackDraftWithPoints,
+                    saveTrack
+                )
+            )
+        }
+    }
+
+    /**
+     * Start the recording of the current track.
+     */
+    fun startRecording() {
+        // TODO: delete debug message.
+        Timber.d("Starting record of track now...")
+        mutableIsRecording.tryEmit(true)
+    }
+
+    /**
+     * Reset the currently recorded track. For this function to do anything, the current UI state must be in the recorded overview position.
+     */
+    fun resetTrack() {
+        if(recordTrackUiState.value !is WorldMapRecordTrackUiState.RecordedTrackOverview) {
+            // TODO: handle this properly.
+            throw NotImplementedError("Failed to reset track. UI state must be recorded track overview for this to be possible. Also, this is not handled.")
+        }
+        viewModelScope.launch {
+            // Now, call out to reset track draft points use case and instruct points for that track draft to be cleared. This should result in the latest track draft
+            // with points for this track draft to be emitted, updating UI state in any case, to new track.
+            val trackDraftWithPoints = resetTrackDraftPointsUseCase(
+                (recordTrackUiState.value as WorldMapRecordTrackUiState.RecordedTrackOverview).trackDraftWithPoints.trackDraftId
+            )
+            // Emit the received track draft with points, encapsulated in a new track state, to our mutable UI flow.
+            mutableWorldMapRecordTrackUiState.emit(
+                WorldMapRecordTrackUiState.NewTrack(trackDraftWithPoints)
+            )
+        }
+    }
+
+    /**
+     * Stop the recording.
+     */
+    fun stopRecording() {
+        // TODO: delete debug message.
+        Timber.d("Stopping record of track now.")
+        mutableIsRecording.tryEmit(false)
     }
 
     /**
@@ -211,47 +298,5 @@ class WorldMapRecordTrackViewModel @Inject constructor(
                 WorldMapRecordTrackUiState.RecordingComplete(savedTrackDraft)
             )
         }
-    }
-
-    /**
-     * Saves the track draft, as it is, to cache, then submits
-     */
-    /**
-     * Start the recording of the current track.
-     */
-    fun startRecording() {
-        // TODO: delete debug message.
-        Timber.d("Starting record of track now...")
-        mutableIsRecording.tryEmit(true)
-    }
-
-    /**
-     * Reset the currently recorded track. For this function to do anything, the current UI state must be in the recorded overview position.
-     */
-    fun resetTrack() {
-        if(recordTrackUiState.value !is WorldMapRecordTrackUiState.RecordedTrackOverview) {
-            // TODO: handle this properly.
-            throw NotImplementedError("Failed to reset track. UI state must be recorded track overview for this to be possible. Also, this is not handled.")
-        }
-        viewModelScope.launch {
-            // TODO: emitting loading has been removed since it would actually recompose the entire screen. Maybe we don't actually want this.
-            // Emit loading to the mutable shared flow.
-            //mutableWorldMapRecordTrackUiState.tryEmit(WorldMapRecordTrackUiState.Loading)
-
-            // Now, call out to reset track draft points use case and instruct points for that track draft to be cleared. This should result in the latest track draft
-            // with points for this track draft to be emitted, updating UI state in any case, to new track.
-            resetTrackDraftPointsUseCase(
-                (recordTrackUiState.value as WorldMapRecordTrackUiState.RecordedTrackOverview).trackDraftWithPoints.trackDraftId
-            )
-        }
-    }
-
-    /**
-     * Stop the recording.
-     */
-    fun stopRecording() {
-        // TODO: delete debug message.
-        Timber.d("Stopping record of track now.")
-        mutableIsRecording.tryEmit(false)
     }
 }

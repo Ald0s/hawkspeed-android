@@ -1,12 +1,26 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.setup
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -18,8 +32,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.account.Account
@@ -83,6 +102,9 @@ fun SetupAccountScreen(
     )
 }
 
+/**
+ * TODO: validation must still be applied to all form controls.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupAccountFormUi(
@@ -102,62 +124,140 @@ fun SetupAccountFormUi(
     updateVehicleInformation: (String) -> Unit,
     canSetupProfile: Boolean
 ) {
-    Scaffold { paddingValues ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Scaffold(
+        modifier = Modifier
+            .fillMaxHeight()
+    ) { paddingValues ->
+        Row(
+            horizontalArrangement = Arrangement.Center,
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxWidth()
         ) {
-            Row {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.8f)
+            ) {
+                Spacer(modifier = Modifier.height(56.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = username ?: "",
-                        onValueChange = updateUsername
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "username"
+                                )
+                            },
+                            value = username ?: "",
+                            placeholder = {
+                                Text(text = stringResource(id = R.string.placeholder_username))
+                            },
+                            onValueChange = updateUsername,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        )
+                    }
+                    UsernameAvailability(
+                        usernameStatusUi = usernameStatusUi,
+                        modifier = Modifier
+                            .weight(0.2f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = "vehicle information"
+                        )
+                    },
+                    value = vehicleInformation ?: "",
+                    onValueChange = updateVehicleInformation,
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_vehicle))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    singleLine = false,
+                    maxLines = 3,
+                    value = bio ?: "",
+                    onValueChange = updateBio,
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_bio))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onSetupProfileClicked,
+                    enabled = canSetupProfile,
+                    shape = RectangleShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(text = stringResource(id = R.string.setup_account_setup).uppercase())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UsernameAvailability(
+    usernameStatusUi: UsernameStatusUiState,
+    modifier: Modifier = Modifier
+) {
+    if(usernameStatusUi !is UsernameStatusUiState.Idle) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = modifier
+                .fillMaxWidth()
+        ) {
+            when (usernameStatusUi) {
+                is UsernameStatusUiState.QueryingStatus -> {
+                    // Display a small circular progress indicator.
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(32.dp)
                     )
                 }
 
-                Column (
-                    modifier = Modifier
-                        .weight(1f)
-                ){
-                    when(usernameStatusUi) {
-                        is UsernameStatusUiState.QueryingStatus -> {
-                            // Display a small circular progress indicator.
-                            CircularProgressIndicator()
-                        }
-                        is UsernameStatusUiState.UsernameAvailable -> {
-                            // Display its available.
-                            Text(text = "available")
-                        }
-                        is UsernameStatusUiState.UsernameTaken -> {
-                            // Display its taken.
-                            Text(text = "taken")
-                        }
-                        is UsernameStatusUiState.Idle -> {
-                            // Display nothing.
-                        }
-                    }
+                is UsernameStatusUiState.UsernameAvailable -> {
+                    // Display its available.
+                    Image(
+                        painter = painterResource(id = R.drawable.baseline_check_24),
+                        modifier = Modifier
+                            .size(32.dp),
+                        contentDescription = "available",
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                    )
                 }
-            }
 
-            OutlinedTextField(
-                value = bio ?: "",
-                onValueChange = updateBio
-            )
-            OutlinedTextField(
-                value = vehicleInformation ?: "",
-                onValueChange = updateVehicleInformation
-            )
+                is UsernameStatusUiState.UsernameTaken -> {
+                    // Display its taken.
+                    Image(
+                        painter = painterResource(id = R.drawable.baseline_close_24),
+                        modifier = Modifier
+                            .size(32.dp),
+                        contentDescription = "available",
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error)
+                    )
+                }
 
-            Button(
-                onClick = onSetupProfileClicked,
-                enabled = canSetupProfile
-            ) {
-                Text(text = stringResource(id = R.string.setup_account_setup))
+                else -> { }
             }
         }
     }
@@ -171,14 +271,14 @@ fun PreviewSetupAccountFrom(
     HawkSpeedTheme {
         SetupAccountFormUi(
             onSetupProfileClicked = { /*TODO*/ },
-            username = "User1",
+            username = "aldos",
             validateUsernameResult = InputValidationResult(true),
             updateUsername = { e -> },
-            usernameStatusUi = UsernameStatusUiState.UsernameAvailable("User1"),
-            bio = "This is a bio",
+            usernameStatusUi = UsernameStatusUiState.QueryingStatus,
+            bio = "",
             validateBioResult = InputValidationResult(true),
             updateBio = { e -> },
-            vehicleInformation = "1994 Toyota Supra",
+            vehicleInformation = "",
             validateVehicleInformationResult = InputValidationResult(true),
             updateVehicleInformation = { e -> },
             canSetupProfile = true

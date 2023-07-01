@@ -5,7 +5,13 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import kotlinx.coroutines.flow.Flow
 
 interface RaceLocalData {
+    /**
+     * Open a flow for the desired race.
+     */
     fun selectRace(requestGetRace: RequestGetRace): Flow<RaceModel?>
 
-    suspend fun upsertRace(raceModel: RaceModel)
+    /**
+     * Upsert the given race into cache.
+     */
+    suspend fun upsertRace(race: RaceModel)
 }

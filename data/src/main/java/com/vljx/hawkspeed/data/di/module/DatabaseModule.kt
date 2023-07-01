@@ -32,11 +32,19 @@ class DatabaseModule {
         appDatabase.trackPointDao()
 
     @Provides
+    fun provideTrackDraftDao(appDatabase: AppDatabase): TrackDraftDao =
+        appDatabase.trackDraftDao()
+
+    @Provides
+    fun provideTrackPointDraftDao(appDatabase: AppDatabase): TrackPointDraftDao =
+        appDatabase.trackPointDraftDao()
+
+    @Provides
     fun provideRaceDao(appDatabase: AppDatabase): RaceDao =
         appDatabase.raceDao()
 
     @Provides
-    fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceOutcomeDao =
+    fun provideRaceOutcomeDao(appDatabase: AppDatabase): RaceLeaderboardDao =
         appDatabase.raceOutComeDao()
 
     @Provides

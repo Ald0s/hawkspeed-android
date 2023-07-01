@@ -15,8 +15,8 @@ import com.vljx.hawkspeed.data.remotemediator.BaseRemoteMediator
 import com.vljx.hawkspeed.data.source.track.TrackCommentLocalData
 import com.vljx.hawkspeed.data.source.track.TrackCommentRemoteData
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.models.comment.Comment
-import com.vljx.hawkspeed.domain.models.trackcomment.TrackComments
+import com.vljx.hawkspeed.domain.models.track.TrackComment
+import com.vljx.hawkspeed.domain.models.track.TrackComments
 import com.vljx.hawkspeed.domain.repository.TrackCommentRepository
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageTrackComments
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestTrackLatestComments
@@ -36,7 +36,7 @@ class TrackCommentRepositoryImpl @Inject constructor(
     private val trackCommentMapper: TrackCommentMapper
 ): BaseRepository(), TrackCommentRepository {
     @ExperimentalPagingApi
-    override fun pageCommentsForTrack(requestPageTrackComments: RequestPageTrackComments): Flow<PagingData<Comment>> =
+    override fun pageCommentsForTrack(requestPageTrackComments: RequestPageTrackComments): Flow<PagingData<TrackComment>> =
         Pager(
             config = PagingConfig(pageSize = 20),
             remoteMediator = object: BaseRemoteMediator<TrackCommentEntity, TrackCommentsPageModel>(

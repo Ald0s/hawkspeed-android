@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
-import com.vljx.hawkspeed.domain.usecase.track.GetTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.GetTrackDraftUseCase
 import com.vljx.hawkspeed.ui.component.InputValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,18 +43,21 @@ class SetupTrackDetailViewModel @Inject constructor(
     /**
      * Setup the arguments we require for new tracks.
      */
-    // TODO track image(s) ??
     private val mutableTrackName: MutableStateFlow<String?> = MutableStateFlow(null)
     private val mutableTrackDescription: MutableStateFlow<String?> = MutableStateFlow(null)
+    private val mutableTrackType: MutableStateFlow<Int?> = MutableStateFlow(null)
 
     /**
-     * Publicise both arguments.
+     * Publicise all arguments.
      */
     val trackName: StateFlow<String?> =
         mutableTrackName
 
     val trackDescription: StateFlow<String?> =
         mutableTrackDescription
+
+    val trackType: StateFlow<Int?> =
+        mutableTrackType
 
     /**
      * A validator result for the track name.
@@ -70,6 +73,15 @@ class SetupTrackDetailViewModel @Inject constructor(
      */
     val validateTrackDescriptionResult: StateFlow<InputValidationResult> =
         mutableTrackDescription.map { description ->
+            // TODO: complete this validator. For now, will just return valid.
+            InputValidationResult(true)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
+
+    /**
+     * A validator result for the track type.
+     */
+    val validateTrackTypeResult: StateFlow<InputValidationResult> =
+        mutableTrackType.map { description ->
             // TODO: complete this validator. For now, will just return valid.
             InputValidationResult(true)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
@@ -93,9 +105,10 @@ class SetupTrackDetailViewModel @Inject constructor(
         combine(
             validateTrackNameResult,
             validateTrackDescriptionResult,
+            validateTrackTypeResult,
             selectedTrackDraft
-        ) { nameValid, descValid, trackDraft ->
-            nameValid.isValid && descValid.isValid && trackDraft != null
+        ) { nameValid, descValid, trackType, trackDraft ->
+            nameValid.isValid && descValid.isValid && trackType.isValid && trackDraft != null
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
 
     /**

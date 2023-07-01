@@ -19,3 +19,15 @@
 * Added socket type resource error,
 * Added race cancellation support,
 * Began implementing Track recording and creation screens & functionality.
+
+## Version 1.10.06
+* Implemented track draft local data source,
+* Settled on dark theme-only for HawkSpeed,
+* Implemented the track racing view model & all supporting functionality,
+* Wrote instrumented tests for track recording & track racing to prove the logic works,
+* Updated changelog to reflect latest details,
+* Added track types,
+* Added maps style,
+* Added various icons,
+* Progressed overall UI,
+* Updated README.

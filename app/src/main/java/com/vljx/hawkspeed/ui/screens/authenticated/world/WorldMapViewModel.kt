@@ -62,7 +62,7 @@ class WorldMapViewModel @Inject constructor(
     /**
      * Get the current location from world socket session.
      */
-    private val currentLocation: StateFlow<PlayerPosition?> =
+    private val innerCurrentLocation: StateFlow<PlayerPosition?> =
         getCurrentLocationUseCase(Unit)
 
     /**
@@ -96,7 +96,7 @@ class WorldMapViewModel @Inject constructor(
      * non-null location after a null location.
      */
     private val currentLocationDistinctOnNull: StateFlow<PlayerPosition?> =
-        currentLocation.distinctUntilChanged { old, new ->
+        innerCurrentLocation.distinctUntilChanged { old, new ->
             old != null
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
@@ -254,14 +254,19 @@ class WorldMapViewModel @Inject constructor(
                     WorldMapUiState.WorldMapLoadedRecordTrackMode(
                         (socketState as WorldSocketState.Connected).playerUid,
                         settings,
-                        location,
-                        worldAction.trackDraftId
+                        location
                     )
 
                 /**
                  * If world action is race mode, we'll emit the appropriate UI state, since we have all arguments satisfied.
                  */
-                worldAction is WorldActionState.RaceMode -> throw NotImplementedError("WorldAction RaceMode is not implemented!")
+                worldAction is WorldActionState.RaceMode ->
+                    WorldMapUiState.WorldMapLoadedRaceMode(
+                        (socketState as WorldSocketState.Connected).playerUid,
+                        settings,
+                        location,
+                        worldAction.trackUid
+                    )
 
                 /**
                  * The default case, unhandled for now.
@@ -270,6 +275,12 @@ class WorldMapViewModel @Inject constructor(
                 else -> throw NotImplementedError("Failed to emit proper action for worldMapUiState. A case was not handled.")
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), WorldMapUiState.Loading)
+
+    /**
+     * Publicise the current location state flow.
+     */
+    val currentLocation: StateFlow<PlayerPosition?> =
+        innerCurrentLocation
 
     /**
      * Ensure the socket client is connected to the server, given the game settings and location. If the server is already connected or connecting,
@@ -356,44 +367,38 @@ class WorldMapViewModel @Inject constructor(
     }
 
     /**
-     * Engage the world map in race mode. Given the result from actually starting a race on the game server, this function will update
-     * the world action state to reform the UI accordingly.
+     * Enter race mode for a particular track's UID.
      */
-    fun raceStarted() {
-
+    fun enterRaceMode(trackUid: String) {
+        mutableWorldActionState.tryEmit(
+            WorldActionState.RaceMode(trackUid)
+        )
     }
 
     /**
-     *
+     * Exit race mode.
      */
-    fun cancelRace() {
-
+    fun exitRaceMode() {
+        mutableWorldActionState.tryEmit(
+            WorldActionState.StandardMode
+        )
     }
 
     /**
      * Place the world map view in record track mode.
      */
-    fun startRecordTrack() {
-        viewModelScope.launch {
-            // TODO: get the new record's draft id by creating a new blank track.
-            val draftTrackId: Long = 0L
-            // Set the world action state to record track mode with the given Id. This should set the world map to the record UI.
-            mutableWorldActionState.value = WorldActionState.RecordTrackMode(draftTrackId)
-        }
+    fun enterRecordingTrackMode() {
+        mutableWorldActionState.tryEmit(
+            WorldActionState.RecordTrackMode
+        )
     }
 
     /**
-     * Release the world map view frm record track mode, back to standard mode, but before doing so, either saving or deleting the track draft to cache.
+     * Exit the track recording mode.
      */
-    fun stopRecordingTrack(draftTrackId: Long, shouldSaveDraft: Boolean) {
-        viewModelScope.launch {
-            if(shouldSaveDraft) {
-                // TODO: save draft to cache.
-            } else {
-                // TODO: delete draft.
-            }
-            // Simply emit standard map mode to action state.
-            mutableWorldActionState.value = WorldActionState.StandardMode
-        }
+    fun exitRecordingTrackMode() {
+        mutableWorldActionState.tryEmit(
+            WorldActionState.StandardMode
+        )
     }
 }

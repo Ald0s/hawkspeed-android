@@ -6,7 +6,7 @@ import javax.inject.Inject
 
 class TrackEntityMapper @Inject constructor(
     private val userEntityMapper: UserEntityMapper,
-    private val raceOutcomeEntityMapper: RaceOutcomeEntityMapper,
+    private val raceLeaderboardEntityMapper: RaceLeaderboardEntityMapper,
     private val trackPointEntityMapper: TrackPointEntityMapper
 ): EntityMapper<TrackEntity, TrackModel> {
     override fun mapFromEntity(entity: TrackEntity): TrackModel {
@@ -15,9 +15,10 @@ class TrackEntityMapper @Inject constructor(
             entity.name,
             entity.description,
             userEntityMapper.mapFromEntity(entity.owner),
-            raceOutcomeEntityMapper.mapFromEntityList(entity.topLeaderboard),
+            raceLeaderboardEntityMapper.mapFromEntityList(entity.topLeaderboard),
             trackPointEntityMapper.mapFromEntity(entity.startPoint),
             entity.isVerified,
+            entity.trackType,
             entity.numPositiveVotes,
             entity.numNegativeVotes,
             entity.yourRating,
@@ -35,9 +36,10 @@ class TrackEntityMapper @Inject constructor(
             model.name,
             model.description,
             userEntityMapper.mapToEntity(model.owner),
-            raceOutcomeEntityMapper.mapToEntityList(model.topLeaderboard),
+            raceLeaderboardEntityMapper.mapToEntityList(model.topLeaderboard),
             trackPointEntityMapper.mapToEntity(model.startPoint),
             model.isVerified,
+            model.trackType,
             model.numPositiveVotes,
             model.numNegativeVotes,
             model.yourRating,

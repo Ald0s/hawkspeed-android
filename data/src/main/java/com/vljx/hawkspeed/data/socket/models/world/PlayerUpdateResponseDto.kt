@@ -18,7 +18,7 @@ data class PlayerUpdateResponseDto(
 
     @Expose
     @SerializedName("rotation")
-    val rotation: Double,
+    val rotation: Float,
 
     @Expose
     @SerializedName("world_object_update")

@@ -21,6 +21,7 @@ class TrackDtoMapper @Inject constructor(
             raceOutcomeDtoMapper.mapFromDtoList(dto.topLeaderboard),
             trackPointDtoMapper.mapFromDto(dto.startPoint),
             dto.isVerified,
+            dto.trackType,
             dto.ratings.numPositiveVotes,
             dto.ratings.numNegativeVotes,
             dto.yourRating,

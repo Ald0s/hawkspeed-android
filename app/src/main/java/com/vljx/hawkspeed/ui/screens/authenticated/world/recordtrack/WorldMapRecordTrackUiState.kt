@@ -40,6 +40,14 @@ sealed class WorldMapRecordTrackUiState {
     object Loading: WorldMapRecordTrackUiState()
 
     /**
+     * A state that indicates the track draft has been saved or deleted. This should trigger an exit from the recording screen.
+     */
+    data class RecordingCancelled(
+        val trackDraftWithPoints: TrackDraftWithPoints,
+        val savedToCache: Boolean
+    ): WorldMapRecordTrackUiState()
+
+    /**
      * A state that indicates there is no track at all; not one being edited and not one freshly created. This state should look like a loading state,
      * but should cause the creation of a new track.
      */

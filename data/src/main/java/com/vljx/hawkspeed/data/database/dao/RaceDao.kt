@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import com.vljx.hawkspeed.data.database.entity.RaceEntity
+import com.vljx.hawkspeed.data.database.entity.race.RaceEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

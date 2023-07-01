@@ -2,17 +2,26 @@ package com.vljx.hawkspeed.ui.dialogs.trackpreview
 
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackRatingUiState
 
 sealed class TrackPreviewUiState {
-    // The loading state, which is the default state since the composable will launch without a suitable UID.
-    object Loading: TrackPreviewUiState()
-
-    // The success state, the latest track has arrived.
-    data class GotTrack(
-        val track: Track
+    /**
+     * A success state; the latest outcome of the track preview, exactly how it should be displayed.
+     */
+    data class TrackPreview(
+        val track: Track,
+        val raceModePromptUiState: RaceModePromptUiState,
+        val ratingUiState: TrackRatingUiState
     ): TrackPreviewUiState()
 
-    // The error state.
+    /**
+     * At the very least, the track is currently loading.
+     */
+    object Loading: TrackPreviewUiState()
+
+    /**
+     * An error state that indicates the loading of the track preview failed.
+     */
     data class Failed(
         val resourceError: ResourceError
     ): TrackPreviewUiState()

@@ -3,7 +3,7 @@ package com.vljx.hawkspeed.data.di.module
 import com.vljx.hawkspeed.data.WorldSocketRepositoryImpl
 import com.vljx.hawkspeed.data.database.*
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
-import com.vljx.hawkspeed.data.network.RaceOutcomeRemoteDataImpl
+import com.vljx.hawkspeed.data.network.RaceLeaderboardRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackCommentRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
@@ -12,10 +12,11 @@ import com.vljx.hawkspeed.data.source.*
 import com.vljx.hawkspeed.data.source.account.AccountLocalData
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
-import com.vljx.hawkspeed.data.source.race.RaceOutcomeLocalData
-import com.vljx.hawkspeed.data.source.race.RaceOutcomeRemoteData
+import com.vljx.hawkspeed.data.source.race.RaceLeaderboardLocalData
+import com.vljx.hawkspeed.data.source.race.RaceLeaderboardRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackCommentLocalData
 import com.vljx.hawkspeed.data.source.track.TrackCommentRemoteData
+import com.vljx.hawkspeed.data.source.track.TrackDraftLocalData
 import com.vljx.hawkspeed.data.source.track.TrackLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathRemoteData
@@ -49,13 +50,16 @@ interface DataModule {
     fun bindTrackPathRemoteData(trackPathRemoteDataImpl: TrackPathRemoteDataImpl): TrackPathRemoteData
 
     @Binds
+    fun bindTrackDraftLocalData(trackDraftLocalDataImpl: TrackDraftLocalDataImpl): TrackDraftLocalData
+
+    @Binds
     fun bindRaceLocalData(raceLocalDataImpl: RaceLocalDataImpl): RaceLocalData
 
     @Binds
-    fun bindRaceOutcomeLocalData(raceOutcomeLocalDataImpl: RaceOutcomeLocalDataImpl): RaceOutcomeLocalData
+    fun bindRaceOutcomeLocalData(raceOutcomeLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData
 
     @Binds
-    fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceOutcomeRemoteDataImpl): RaceOutcomeRemoteData
+    fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceLeaderboardRemoteDataImpl): RaceLeaderboardRemoteData
 
     @Binds
     fun bindUserLocalData(userLocalDataImpl: UserLocalDataImpl): UserLocalData

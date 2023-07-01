@@ -21,10 +21,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -59,69 +63,84 @@ class TrackPreviewViewModel @Inject constructor(
      * Get the current location as reported by our world socket state.
      */
     private val currentLocation: StateFlow<PlayerPosition?> =
-        getCurrentLocationUseCase(Unit)
+        getCurrentLocationUseCase(Unit).onEach {
+            Timber.d("New location: $it")
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
-     * Combine flows of track resource and current location to ultimately retrieve a race prompt ui state. This will show that the User can race only
-     * when, firstly, the track resource is in a state where it can provide information on the track, then, the player's location must be such that
-     * they are close enough to, and aligned with, the start point.
+     * Combine the track resource flow and the device's current location. Return equivalent states for resource loading and error, determine whether Player can enter
+     * race mode based on their most recent location. Finally, build a track rating state from the latest track resource. This is configured as a cold flow.
      */
-    val racePromptUiState: StateFlow<RacePromptUiState> =
+    private val innerTrackPreviewUiState: Flow<TrackPreviewUiState> =
         combine(
-            trackResource,
+            trackResource.distinctUntilChanged { old, new ->
+                old.data?.trackUid == new.data?.trackUid
+            },
             currentLocation
         ) { resource, location ->
-            // If resource is not success, data is null or location is null, just return cant race.
-            if(resource.status != Resource.Status.SUCCESS || resource.data == null || location == null) {
-                return@combine RacePromptUiState.CantRace
+            return@combine when(resource.status) {
+                Resource.Status.SUCCESS ->
+                    TrackPreviewUiState.TrackPreview(
+                        resource.data!!,
+                        // If location is null, return can't race, since its indeterminate. Otherwise, determine whether the player can enter race mode for this track.
+                        location?.let {
+                            // Now, get the track.
+                            val track: Track = resource.data!!
+                            // Get the distance to the start point here.
+                            val distanceToStart: Float = track.distanceToStartPointFor(location.latitude, location.longitude)
+                            // Determine whether orientation is correct.
+                            val isOrientationCorrect: Boolean = track.isOrientationCorrectFor(location.rotation)
+                            Timber.d("Checking location: distance: ${distanceToStart}m, orientation: $isOrientationCorrect")
+                            when {
+                                /**
+                                 * When we are within 30 meters of the start line, we will allow race mode.
+                                 */
+                                distanceToStart <= 30f ->
+                                    RaceModePromptUiState.CanEnterRaceMode(track.trackUid, location)
+                                /**
+                                 * Otherwise, we can't enter race mode.
+                                 */
+                                else -> RaceModePromptUiState.CantEnterRaceMode
+                            }
+                        } ?: RaceModePromptUiState.CantEnterRaceMode,
+                        // Transform the track into a track rating state here.
+                        resource.data!!.let { track ->
+                            TrackRatingUiState.GotTrackRating(
+                                track.trackUid,
+                                track.numPositiveVotes,
+                                track.numNegativeVotes,
+                                track.yourRating
+                            )
+                        }
+                    )
+
+                /**
+                 * When loading, simply return the equivalent loading state for preview.
+                 */
+                Resource.Status.LOADING ->
+                    TrackPreviewUiState.Loading
+
+                /**
+                 * If resource failed, return the equivalent error state for preview.
+                 */
+                Resource.Status.ERROR ->
+                    TrackPreviewUiState.Failed(
+                        resource.resourceError!!
+                    )
             }
-            // Now, we can get the track from resource, since we know it is not null.
-            val track: Track = resource.data!!
-            // Now, we know location is not null. We can question track as to whether it can be raced.
-            if(track.canBeRacedBy(location.latitude, location.longitude, location.rotation)) {
-                // We can race!
-                return@combine RacePromptUiState.CanRace(track.trackUid, location)
-            }
-            // Can't race.
-            return@combine RacePromptUiState.CantRace
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), RacePromptUiState.CantRace)
+        }
 
     /**
-     * Map the track resource to the most applicable track preview UI state for viewing and emit the UI state as a state flow.
+     * Publicise the track preview UI state and reconfigure it as a state flow.
      */
     val trackPreviewUiState: StateFlow<TrackPreviewUiState> =
-        trackResource.map { resource ->
-            when(resource.status) {
-                Resource.Status.SUCCESS -> TrackPreviewUiState.GotTrack(resource.data!!)
-                Resource.Status.LOADING -> TrackPreviewUiState.Loading
-                Resource.Status.ERROR -> TrackPreviewUiState.Failed(resource.resourceError!!)
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackPreviewUiState.Loading)
-
-    /**
-     * Map the track preview UI state, to determine the current state of the rating UI. If the track preview UI's state is anything but a success
-     * state, this should emit the loading state.
-     */
-    val trackRatingUiState: StateFlow<TrackRatingUiState> =
-        trackPreviewUiState.map { uiState ->
-            when(uiState) {
-                is TrackPreviewUiState.GotTrack -> {
-                    val track: Track = (uiState as TrackPreviewUiState.GotTrack).track
-                    TrackRatingUiState.GotTrackRating(
-                        track.trackUid,
-                        track.numPositiveVotes,
-                        track.numNegativeVotes,
-                        track.yourRating
-                    )
-                }
-                else -> TrackRatingUiState.Loading
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackRatingUiState.Loading)
+        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackPreviewUiState.Loading)
 
     /**
      * Set the selected track's UID. This will cause the targeted track to be queried.
      */
     fun selectTrack(trackUid: String) {
+        Timber.d("Selecting track: $trackUid")
         mutableSelectedTrackUid.tryEmit(trackUid)
     }
 
@@ -129,20 +148,29 @@ class TrackPreviewViewModel @Inject constructor(
      * Called when the upvote button is clicked.
      */
     fun upvoteTrack(trackUid: String) {
-
+        // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            upvoteTrackUseCase(trackUid)
+        }
     }
 
     /**
      * Called when the downvote button is clicked.
      */
     fun downvoteTrack(trackUid: String) {
-
+        // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            downvoteTrackUseCase(trackUid)
+        }
     }
 
     /**
      * Called when an already-selected rating state is clicked again. This will clear the rating.
      */
     fun clearTrackRating(trackUid: String) {
-
+        // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            clearTrackRatingUseCase(trackUid)
+        }
     }
 }

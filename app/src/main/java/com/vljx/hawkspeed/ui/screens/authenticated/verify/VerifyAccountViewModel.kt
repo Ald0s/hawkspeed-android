@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,6 +46,15 @@ class VerifyAccountViewModel @Inject constructor(
         mutableVerifyAccountUiState
 
     /**
+     * Publicise a state flow that will emit true when the User is able to request a new verification email be sent.
+     * TODO: finish implementing this. For now, just emits false.
+     */
+    val canResendVerificationEmail: StateFlow<Boolean> =
+        flow<Boolean> {
+            emit(false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
+
+    /**
      * Perform a query for the current User's account, and emit the result to our UI state.
      */
     suspend fun refreshAccount() {
@@ -63,6 +76,14 @@ class VerifyAccountViewModel @Inject constructor(
                 Resource.Status.ERROR -> VerifyAccountUiState.Failed(accountResource.resourceError!!)
             }
         )
+    }
+
+    /**
+     * Request a new verification email to be sent to the email address used during the setup of this account.
+     * TODO: implement this.
+     */
+    fun resendVerificationEmail() {
+        throw NotImplementedError()
     }
 
     companion object {

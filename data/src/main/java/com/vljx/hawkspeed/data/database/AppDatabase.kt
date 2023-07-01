@@ -8,14 +8,18 @@ import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.vljx.hawkspeed.data.database.dao.*
 import com.vljx.hawkspeed.data.database.entity.*
+import com.vljx.hawkspeed.data.database.entity.race.RaceEntity
+import com.vljx.hawkspeed.data.database.entity.race.RaceLeaderboardEntity
 import com.vljx.hawkspeed.data.database.entity.track.TrackCommentEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackDraftEntity
 import com.vljx.hawkspeed.data.database.entity.track.TrackEntity
 import com.vljx.hawkspeed.data.database.entity.track.TrackPathEntity
+import com.vljx.hawkspeed.data.database.entity.track.TrackPointDraftEntity
 import com.vljx.hawkspeed.data.database.entity.track.TrackPointEntity
 
 @Database(
-    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceOutcomeEntity::class, TrackCommentEntity::class],
-    version = 41
+    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceLeaderboardEntity::class, TrackCommentEntity::class, TrackDraftEntity::class, TrackPointDraftEntity::class],
+    version = 44
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {
@@ -23,8 +27,10 @@ abstract class AppDatabase: RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun trackPathDao(): TrackPathDao
     abstract fun trackPointDao(): TrackPointDao
+    abstract fun trackDraftDao(): TrackDraftDao
+    abstract fun trackPointDraftDao(): TrackPointDraftDao
     abstract fun raceDao(): RaceDao
-    abstract fun raceOutComeDao(): RaceOutcomeDao
+    abstract fun raceOutComeDao(): RaceLeaderboardDao
     abstract fun userDao(): UserDao
     abstract fun trackCommentDao(): TrackCommentDao
 

@@ -29,7 +29,6 @@ import javax.inject.Inject
 class WorldSocketRepositoryImpl @Inject constructor(
     private val worldSocketSession: WorldSocketSession,
 
-
     private val trackLocalData: TrackLocalData,
     private val raceLocalData: RaceLocalData,
 

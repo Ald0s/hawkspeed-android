@@ -10,6 +10,7 @@ import com.vljx.hawkspeed.navigation.AppDestination
 import com.vljx.hawkspeed.ui.screens.authenticated.authenticatedmain.AuthenticatedMainScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setup.SetupAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setuptrack.SetupTrackDetailScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.verify.VerifyAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapScreen
 
@@ -230,7 +231,7 @@ fun NavGraphBuilder.authenticatedNavGraph(
                         TrackDetailDestination.withArgs(track.trackUid, true, false)
                     )
                 },
-                onSetupTrackDetailsClicked = { trackDraftId ->
+                onSetupTrackDetails = { trackDraftId ->
                     // Navigate to setup track detail, with the given Id.
                     navHostController.navigate(
                         SetupTrackDetailDestination.withArgs(trackDraftId)
@@ -250,7 +251,8 @@ fun NavGraphBuilder.authenticatedNavGraph(
             route = TrackDetailDestination.routeWithArgs,
             arguments = TrackDetailDestination.arguments
         ) { navBackStackEntry ->
-            // TODO: show the track detail screen.
+            // Show the track detail screen.
+            TrackDetailScreen()
         }
 
         composable(

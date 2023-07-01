@@ -2,7 +2,8 @@ package com.vljx.hawkspeed.domain.models.track
 
 import android.location.Location
 import android.os.Parcelable
-import com.vljx.hawkspeed.domain.models.race.RaceOutcome
+import com.vljx.hawkspeed.domain.enums.TrackType
+import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.user.User
 import kotlinx.parcelize.Parcelize
 
@@ -12,9 +13,10 @@ data class Track(
     val name: String,
     val description: String,
     val owner: User,
-    val topLeaderboard: List<RaceOutcome>,
+    val topLeaderboard: List<RaceLeaderboard>,
     val startPoint: TrackPoint,
     val isVerified: Boolean,
+    val trackType: TrackType,
     val numPositiveVotes: Int,
     val numNegativeVotes: Int,
     val yourRating: Boolean?,
@@ -25,10 +27,9 @@ data class Track(
     val canComment: Boolean
 ): Parcelable {
     /**
-     * Determines whether the Player referred to by the latitude, longitude and the rotation is situated such that they can
-     * race this track.
+     * Returns the distance, in meters, between the given latitude and longitude, and the start poiint for this track.
      */
-    fun canBeRacedBy(latitude: Double, longitude: Double, rotation: Float): Boolean {
+    fun distanceToStartPointFor(latitude: Double, longitude: Double): Float {
         // Get the distance.
         val distanceResultArray = FloatArray(5)
         Location.distanceBetween(
@@ -38,12 +39,16 @@ data class Track(
             longitude,
             distanceResultArray
         )
-        // If the distance is equal to, less than 10, return the track.
+        return distanceResultArray[0]
+    }
+
+    /**
+     * Returns true if the rotation given means that the Player is oriented in the correct direction for this track.
+     * TODO: complete this, for now, it will always return true.
+     */
+    fun isOrientationCorrectFor(rotation: Float): Boolean {
         // TODO: check that bearing is appropriate. Player should be facing the same direction.
-        if(distanceResultArray[0] <= 10f) {
-            return true
-        }
-        return false
+        return true
     }
 
     override fun equals(other: Any?): Boolean {

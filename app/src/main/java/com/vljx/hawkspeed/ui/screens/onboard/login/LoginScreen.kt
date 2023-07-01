@@ -1,14 +1,26 @@
 package com.vljx.hawkspeed.ui.screens.onboard.login
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShapeDefaults
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -19,7 +31,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +91,9 @@ fun LoginScreen(
     )
 }
 
+/**
+ * TODO: validation must still be applied to all form controls.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginFormUi(
@@ -92,34 +110,88 @@ fun LoginFormUi(
 
     resourceError: ResourceError? = null
 ) {
-    Scaffold { paddingValues ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Scaffold(
+        modifier = Modifier
+            .fillMaxHeight()
+    ) { paddingValues ->
+        Row(
+            horizontalArrangement = Arrangement.Center,
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxWidth()
         ) {
-            OutlinedTextField(
-                value = emailAddress ?: "",
-                onValueChange = updateEmailAddress
-            )
-            OutlinedTextField(
-                value = password ?: "",
-                onValueChange = updatePassword
-            )
-            Button(
-                onClick = onAttemptLoginClicked
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.8f)
             ) {
-                Text(text = stringResource(id = R.string.login_attempt_login))
-            }
-            TextButton(
-                onClick = onRegisterClicked
-            ) {
-                Text(text = stringResource(id = R.string.login_sign_up))
+                Spacer(modifier = Modifier.height(128.dp))
+
+                Text(
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.displayMedium,
+                    text = stringResource(id = R.string.app_name).uppercase()
+                )
+
+                Spacer(modifier = Modifier.height(56.dp))
+
+                OutlinedTextField(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "email"
+                        )
+                    },
+                    value = emailAddress ?: "",
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_email))
+                    },
+                    onValueChange = updateEmailAddress
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "password"
+                        )
+                    },
+                    value = password ?: "",
+                    placeholder = {
+                        Text(text = stringResource(id = R.string.placeholder_password))
+                    },
+                    onValueChange = updatePassword
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onAttemptLoginClicked,
+                    shape = RectangleShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.login_attempt_login).uppercase()
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    onClick = onRegisterClicked
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.login_sign_up).uppercase()
+                    )
+                }
             }
         }
-    }
 
+    }
 }
 
 @Preview(showBackground = true)
@@ -131,10 +203,10 @@ fun PreviewLoginFormUi(
         LoginFormUi(
             onRegisterClicked = { /*TODO*/ },
             onAttemptLoginClicked = { /*TODO*/ },
-            emailAddress = "user1@mail.com",
+            emailAddress = "",
             validateEmailAddressResult = InputValidationResult(true),
             updateEmailAddress = { e -> },
-            password = "password",
+            password = "",
             validatePasswordResult = InputValidationResult(true),
             updatePassword = { e -> }
         )

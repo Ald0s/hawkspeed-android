@@ -1,7 +1,7 @@
 package com.vljx.hawkspeed.data.mapper.track
 
 import com.vljx.hawkspeed.data.mapper.Mapper
-import com.vljx.hawkspeed.data.mapper.race.RaceOutcomeMapper
+import com.vljx.hawkspeed.data.mapper.race.RaceLeaderboardMapper
 import com.vljx.hawkspeed.data.mapper.user.UserMapper
 import com.vljx.hawkspeed.data.models.track.TrackModel
 import com.vljx.hawkspeed.domain.models.track.Track
@@ -9,7 +9,7 @@ import javax.inject.Inject
 
 class TrackMapper @Inject constructor(
     private val trackPointMapper: TrackPointMapper,
-    private val raceOutcomeMapper: RaceOutcomeMapper,
+    private val raceLeaderboardMapper: RaceLeaderboardMapper,
     private val userMapper: UserMapper
 ): Mapper<TrackModel, Track> {
     override fun mapFromData(model: TrackModel): Track {
@@ -18,9 +18,10 @@ class TrackMapper @Inject constructor(
             model.name,
             model.description,
             userMapper.mapFromData(model.owner),
-            raceOutcomeMapper.mapFromDataList(model.topLeaderboard),
+            raceLeaderboardMapper.mapFromDataList(model.topLeaderboard),
             trackPointMapper.mapFromData(model.startPoint),
             model.isVerified,
+            model.trackType,
             model.numPositiveVotes,
             model.numNegativeVotes,
             model.yourRating,
@@ -38,9 +39,10 @@ class TrackMapper @Inject constructor(
             domain.name,
             domain.description,
             userMapper.mapToData(domain.owner),
-            raceOutcomeMapper.mapToDataList(domain.topLeaderboard),
+            raceLeaderboardMapper.mapToDataList(domain.topLeaderboard),
             trackPointMapper.mapToData(domain.startPoint),
             domain.isVerified,
+            domain.trackType,
             domain.numPositiveVotes,
             domain.numNegativeVotes,
             domain.yourRating,

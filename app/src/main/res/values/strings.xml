@@ -3,20 +3,52 @@
 
     <string name="title_activity_main">MainActivity</string>
 
+    <string name="loading">Loading…</string>
+
+    <string name="placeholder_email">Email address</string>
+    <string name="placeholder_password">Password</string>
+    <string name="placeholder_confirm_password">Confirm password</string>
+
     <string name="login_attempt_login">Login</string>
     <string name="login_sign_up">Sign Up</string>
 
+    <string name="register_register">Register</string>
     <string name="register_attempt_registration">Register</string>
 
+    <string name="verify_loading">Checking account is verified…</string>
+    <string name="verify_account_not_verified_title">Please verify your new account</string>
+    <string name="verify_account_not_verified_body">Thanks for joining up.\n\nBefore you can continue, you must verify your account. We should have sent an email to the email address you provided.\n\nIf you don\'t receive an email, tap the button below to retry.</string>
+    <string name="verify_account_verify_failed_title">We couldn\'t verification on your account…</string>
+    <string name="verify_account_verify_failed_body">We weren\'t able to check whether your account is verified at this time. Please try again a little later.</string>
+    <string name="verify_resend_email">Resend Email</string>
+
+    <string name="placeholder_username">Username</string>
+    <string name="placeholder_bio">Bio</string>
+    <string name="placeholder_vehicle">Your vehicle</string>
     <string name="setup_account_setup">Setup Account</string>
 
     <string name="world_map_loading">Loading world</string>
     <string name="world_map_loading_location">Waiting for first location</string>
     <string name="world_map_loading_connecting">Connecting to game</string>
 
+    <string name="track_description_title">Description</string>
+    <string name="track_author_title">Author</string>
+    <string name="track_detail_overview">Overview</string>
+    <string name="track_detail_leaderboard">Leaderboard</string>
+    <string name="track_detail_reviews">Reviews</string>
+    <string name="track_detail_no_leaderboard">There are currently no attempts recorded for this track! Perhaps you\'ll be the first?</string>
+    <string name="track_detail_no_comments">There are currently no comments added to this track.</string>
+
+    <string name="track_type_sprint">Sprint</string>
+    <string name="track_type_sprint_description">This type of track is a race from one point to another, without any laps or second chances; go big or go home.</string>
+
+    <string name="track_type_circuit">Circuit</string>
+    <string name="track_type_circuit_description">This type of track is a race around a closed track. A certain number of laps must be completed.</string>
+
     <string name="track_about">About</string>
     <string name="track_leaderboard">Leaderboard</string>
+    <string name="track_reviews">Reviews</string>
     <string name="track_leaderboard_empty">There\'s no one on this leaderboard yet! Maybe you\'ll set the first time?</string>
-    <string name="track_preview_race">START RACE</string>
+    <string name="track_preview_race">RACE MODE</string>
     <string name="track_view_details">See More</string>
 </resources>

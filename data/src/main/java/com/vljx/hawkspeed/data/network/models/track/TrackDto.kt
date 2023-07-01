@@ -4,6 +4,7 @@ import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.vljx.hawkspeed.data.network.models.race.RaceOutcomeDto
 import com.vljx.hawkspeed.data.network.models.user.UserDto
+import com.vljx.hawkspeed.domain.enums.TrackType
 
 data class TrackDto(
     @Expose
@@ -33,6 +34,10 @@ data class TrackDto(
     @Expose
     @SerializedName("is_verified")
     val isVerified: Boolean,
+
+    @Expose
+    @SerializedName("track_type")
+    val trackType: TrackType,
 
     @Expose
     @SerializedName("ratings")

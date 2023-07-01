@@ -1,16 +1,11 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.authenticatedmain
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapScreen
 
 @Composable
 fun AuthenticatedMainScreen(
@@ -31,9 +26,6 @@ fun AuthenticatedMainScreen(
             LaunchedEffect(key1 = Unit, block = {
                 onAuthenticatedAndSetup()
             })
-            //AuthenticatedAndSetup(
-            //    authenticatedMainViewModel = authenticatedMainViewModel
-            //)
         }
         is AuthenticatedMainUiState.AuthenticatedAccountNotVerified -> {
             // We must verify this account. Invoke callback in a launched side effect.
@@ -58,25 +50,4 @@ fun AuthenticatedMainScreen(
             // Nothing to do here, this just catches idle state.
         }
     }
-
-    // TODO: improve the UI here.
-}
-
-@Composable
-fun AuthenticatedAndSetup(
-    authenticatedMainViewModel: AuthenticatedMainViewModel
-) {
-    // Get the context we're attached to, and ensure it implements main app service.
-    /*val activityContext = LocalContext.current.getActivity()
-    if (activityContext !is MainAppService) {
-        throw IllegalStateException("Failed to get main activity as MainAppService in MainScreen.")
-    }
-
-    LaunchedEffect(key1 = Unit, block = {
-        // Send a start command to the app service.
-        activityContext.startAppService()
-    })*/
-
-    // This is where we'll load the world map.
-    //WorldMapScreen()
 }

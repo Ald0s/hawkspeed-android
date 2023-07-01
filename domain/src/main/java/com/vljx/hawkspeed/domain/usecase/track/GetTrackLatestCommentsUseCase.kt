@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.domain.usecase.track
 
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.di.Bridged
-import com.vljx.hawkspeed.domain.models.trackcomment.TrackComments
+import com.vljx.hawkspeed.domain.models.track.TrackComments
 import com.vljx.hawkspeed.domain.repository.TrackCommentRepository
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestTrackLatestComments
 import com.vljx.hawkspeed.domain.usecase.BaseUseCase

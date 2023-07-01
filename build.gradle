@@ -14,6 +14,7 @@ ext {
     lifecycleRuntimeKtxVersion = "2.3.1"
     activityComposeVersion = "1.5.1"
     composeBomVersion = "2022.10.00"
+    composeFoundationVersion = "1.4.3"
 
     gsonVersion = "2.9.1"
 
@@ -22,6 +23,7 @@ ext {
     navigationComposeVersion = "2.5.3"
 
     pagingKtxVersion = "3.1.1"
+    pagingComposeVersion = "3.2.0-rc01"
     timberVersion = "5.0.1"
 
     daggerHiltAndroidVersion = "2.45"
@@ -39,8 +41,12 @@ ext {
 
     picassoVersion = "2.8"
 
+    kotlinXCoroutinesVersion = "1.7.1"
+
     junitTestVersion = "4.13.2"
     testExtJunitVersion = "1.1.5"
     espressoCoreVersion = "3.5.1"
     espressoIdlingResourceVersion = "3.5.1"
+
+    mockitoVersion = "4.0.0"
 }

@@ -23,6 +23,9 @@ interface DomainModule {
     fun bindTrackCommentRepository(trackCommentRepositoryImpl: TrackCommentRepositoryImpl): TrackCommentRepository
 
     @Binds
+    fun bindTrackDraftRepository(trackDraftRepositoryImpl: TrackDraftRepositoryImpl): TrackDraftRepository
+
+    @Binds
     fun bindRaceRepository(raceRepositoryImpl: RaceRepositoryImpl): RaceRepository
 
     @Binds

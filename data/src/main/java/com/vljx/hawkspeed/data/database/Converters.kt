@@ -2,17 +2,29 @@ package com.vljx.hawkspeed.data.database
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.vljx.hawkspeed.data.database.entity.RaceOutcomeEntity
+import com.vljx.hawkspeed.data.database.entity.race.RaceLeaderboardEntity
+import com.vljx.hawkspeed.data.network.serialisation.LocalDateDeserialiser
+import com.vljx.hawkspeed.data.network.serialisation.LocalDateSerialiser
 import java.time.LocalDate
 import java.util.*
 import javax.inject.Inject
 
 class Converters {
-    @Inject
-    lateinit var gson: Gson
+    // TODO: we instantiate our gson here, since injecting doesn't currently work in tests. To fix...
+    //@Inject
+    //lateinit var gson: Gson
+    val gson: Gson =
+        GsonBuilder()
+            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+            .enableComplexMapKeySerialization()
+            .excludeFieldsWithoutExposeAnnotation()
+            .registerTypeAdapter(LocalDate::class.java, LocalDateSerialiser())
+            .registerTypeAdapter(LocalDate::class.java, LocalDateDeserialiser())
+            .create()
 
     @TypeConverter
     fun fromLocalDate(value: String?) : LocalDate? {
@@ -69,15 +81,15 @@ class Converters {
     }
 
     @TypeConverter
-    fun toTopLeaderboard(value: String?): List<RaceOutcomeEntity>? =
+    fun toTopLeaderboard(value: String?): List<RaceLeaderboardEntity>? =
         value?.let { jsonString ->
-            gson.fromJson(value, Array<RaceOutcomeEntity>::class.java).toList()
+            gson.fromJson(value, Array<RaceLeaderboardEntity>::class.java).toList()
         }
 
     @TypeConverter
-    fun fromTopLeaderboard(topLeaderboard: List<RaceOutcomeEntity>?): String? {
+    fun fromTopLeaderboard(topLeaderboard: List<RaceLeaderboardEntity>?): String? {
         return topLeaderboard?.let { value ->
-            gson.toJson(topLeaderboard.toTypedArray(), Array<RaceOutcomeEntity>::class.java)
+            gson.toJson(topLeaderboard.toTypedArray(), Array<RaceLeaderboardEntity>::class.java)
         }
     }
 }
