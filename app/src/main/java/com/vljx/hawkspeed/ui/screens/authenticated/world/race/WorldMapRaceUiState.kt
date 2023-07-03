@@ -4,6 +4,7 @@ import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 
 sealed class WorldMapRaceUiState {
@@ -24,14 +25,6 @@ sealed class WorldMapRaceUiState {
         val race: Race?,
         val track: Track,
         val trackPath: TrackPath
-    ): WorldMapRaceUiState()
-
-    /**
-     * The early disqualified state; there is no race instance just yet, the User received the disqualification during the countdown. For this reason, all fields in
-     * this state are nullable; because their non-existence can all be the reason for disqualification.
-     */
-    data class CountdownDisqualified(
-        val startLineState: StartLineState
     ): WorldMapRaceUiState()
 
     /**
@@ -76,6 +69,7 @@ sealed class WorldMapRaceUiState {
      * and its path, to show the user interface associated with beginning the race, or viewing history or the track's detail etc.
      */
     data class OnStartLine(
+        val yourVehicles: List<Vehicle>,
         val startLineState: StartLineState,
         val track: Track,
         val trackPath: TrackPath
@@ -90,7 +84,8 @@ sealed class WorldMapRaceUiState {
      * A state that communicates the race has failed to start.
      */
     data class RaceStartFailed(
-        val resourceError: ResourceError
+        val reasonCode: String,
+        val resourceError: ResourceError?
     ): WorldMapRaceUiState()
 
     /**

@@ -7,6 +7,7 @@ import com.vljx.hawkspeed.data.models.track.TrackPathWithPointsModel
 import com.vljx.hawkspeed.data.models.track.TrackPointModel
 import com.vljx.hawkspeed.data.models.track.TrackWithPathModel
 import com.vljx.hawkspeed.data.models.user.UserModel
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack.WorldMapRecordTrackUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -83,7 +84,7 @@ open class BaseTest {
             UserModel("USER01", "aldos", 0, false, true),
             listOf(),
             trackPathModel.points[0],
-            true,
+            true, TrackType.SPRINT,
             0, 0, null, 0, true, true, true, true
         )
 

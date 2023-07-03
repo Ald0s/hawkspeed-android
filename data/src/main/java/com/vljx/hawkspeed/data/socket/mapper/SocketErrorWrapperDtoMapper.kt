@@ -9,8 +9,8 @@ class SocketErrorWrapperDtoMapper @Inject constructor(
 ): SocketDtoMapper<SocketErrorWrapperDto, SocketErrorWrapperModel> {
     override suspend fun mapFromDto(dto: SocketErrorWrapperDto): SocketErrorWrapperModel {
         return SocketErrorWrapperModel(
-            dto.severity,
             dto.name,
+            dto.reason,
             dto.errorInformation
         )
     }

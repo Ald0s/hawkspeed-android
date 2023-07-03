@@ -34,12 +34,19 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
+import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
+import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel.Companion.CANCELLED_BY_USER
+import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel.Companion.CANCEL_FALSE_START
+import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel.Companion.CANCEL_RACE_REASON_NO_LOCATION
+import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel.Companion.CANCEL_RACE_SERVER_REFUSED
 import com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack.WorldMapRecordTrackUiState
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
@@ -67,6 +74,10 @@ fun WorldMapRaceMode(
         raceMode = raceMode,
         currentLocation = location,
         worldMapRaceUiState = worldMapRaceUiState,
+
+        onStartRaceClicked = worldMapRaceViewModel::startRace,
+        onCancelRaceClicked = worldMapRaceViewModel::cancelRace,
+
         componentActivity = LocalContext.current.getActivity()
     )
     // In a launched effect, set the targeted track UID.
@@ -81,6 +92,10 @@ fun RaceMode(
     raceMode: WorldMapUiState.WorldMapLoadedRaceMode,
     currentLocation: PlayerPosition?,
     worldMapRaceUiState: WorldMapRaceUiState,
+
+    onStartRaceClicked: ((Vehicle, Track, PlayerPosition) -> Unit)? = null,
+    onCancelRaceClicked: (() -> Unit)? = null,
+
     componentActivity: ComponentActivity? = null
 ) {
     // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
@@ -91,30 +106,16 @@ fun RaceMode(
     var track by remember { mutableStateOf<Track?>(null) }
     // Remember a state for a Track Path instance.
     var trackPath by remember { mutableStateOf<TrackPath?>(null) }
-    // Remember a camera position state to control the camera.
-    val cameraPositionState = rememberCameraPositionState {
-        // Center on the Player, with a close zoom such as 18f.
-        /*position = CameraPosition.fromLatLngZoom(
-            LatLng(lastLocation.latitude, lastLocation.longitude),
-            18f
-        )*/
-        position = CameraPosition.builder()
-            .target(LatLng(lastLocation.latitude, lastLocation.longitude))
-            .zoom(18f)
-            .tilt(0f)
-            .bearing(lastLocation.rotation)
-            .build()
-    }
     // Update last location to current location if current location is not null.
     if(currentLocation != null) {
-        // TODO: movement animation here for last location to current location.
+        // TODO: marker movement animation here for last location to current location.
         lastLocation = currentLocation
     }
     // Now, set our configuration from the current world map race UI state here.
     when(worldMapRaceUiState) {
         is WorldMapRaceUiState.Finished -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: other UIs should include; showing the race's outcome relative to the current leaderboard; time achieved, percentage of track completed, checkpoints missed
              * TODO: and functionality to exit race mode. Screen around dialog showing results should be greyed out, and dialog can't be exited by tapping.
              */
@@ -126,7 +127,7 @@ fun RaceMode(
         }
         is WorldMapRaceUiState.Cancelled -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: other UIs should include; showing the User they have cancelled the race. A button that will exit race mode. Screen around dialog should be greyed out,
              * TODO: and dialog can't be exited by tapping.
              */
@@ -138,7 +139,7 @@ fun RaceMode(
         }
         is WorldMapRaceUiState.Disqualified -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: other UIs should include; showing the reason for disqualification, functionality to exit race mode. Screen around dialog should be greyed out, and dialog
              * TODO: can't be exited by tapping.
              */
@@ -150,7 +151,7 @@ fun RaceMode(
         }
         is WorldMapRaceUiState.Racing -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: other UIs should include; the stopwatch, percentage of tracks left, number of checkpoints hit out of total required, function to cancel the race
              */
             // Save both the track and track path.
@@ -161,7 +162,7 @@ fun RaceMode(
         }
         is WorldMapRaceUiState.CountingDown -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: other UIs should include; show the current seconds to GO, allow the User to cancel the countdown and therefore the race. Show a blank stopwatch.
              */
             // Save both the track and track path.
@@ -172,7 +173,7 @@ fun RaceMode(
         }
         is WorldMapRaceUiState.OnStartLine -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device if our start line position is perfect, otherwise, camera should overview the track.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device if our start line position is perfect, otherwise, camera should overview the track.
              * TODO: other UIs should include; the button for starting the race, within a modal bottom sheet. Perhaps some brief info about the track. If start line state
              * TODO: moves to MovedAway, this should invoke an exit from the race screen.
              */
@@ -190,20 +191,25 @@ fun RaceMode(
                 is StartLineState.Standby -> false
             }
         }
-        is WorldMapRaceUiState.CountdownDisqualified -> {
-            // TODO
-        }
         is WorldMapRaceUiState.Loading -> {
             /**
-             * TODO: camera must be locked on device's location, 18f zoom, bearing following the device.
+             * TODO: camera must be locked on device's location, 20f zoom, bearing following the device.
              * TODO: show a loading indicator in the center.
              */
+            // We should be following the Player.
+            shouldFollowPlayer = true
         }
         is WorldMapRaceUiState.RaceStartFailed -> {
             /**
-             * TODO: properly implement race start failing.
+             * TODO: when a race fails to start, a dialog should be shown that notifies the user as to why, and presents a button that when clicked, will reset the
+             * TODO: new race intent back to idle in view model.
              */
-            throw NotImplementedError("WorldMapRaceScreen failed because race failed to start, and this is not handled!")
+            when(worldMapRaceUiState.reasonCode) {
+                CANCELLED_BY_USER -> throw NotImplementedError()
+                CANCEL_FALSE_START -> throw NotImplementedError()
+                CANCEL_RACE_SERVER_REFUSED -> throw NotImplementedError()
+                CANCEL_RACE_REASON_NO_LOCATION -> throw NotImplementedError()
+            }
         }
         is WorldMapRaceUiState.LoadFailed -> {
             /**
@@ -218,66 +224,126 @@ fun RaceMode(
         // TODO low budget bottom app bar alongside buttons.
         bottomBar = {
             BottomAppBar {
-
+                // TODO: we need total distance for the track.
+                if(worldMapRaceUiState is WorldMapRaceUiState.Racing) {
+                    Button(onClick = { onCancelRaceClicked?.invoke() }) {
+                        Text(text = "Cancel Race")
+                    }
+                } else if(worldMapRaceUiState is WorldMapRaceUiState.CountingDown) {
+                    Button(onClick = { onCancelRaceClicked?.invoke() }) {
+                        Text(text = "Cancel Race Start")
+                    }
+                    Text(text = "COUNTDOWN: ${worldMapRaceUiState.currentSecond}")
+                } else if(worldMapRaceUiState is WorldMapRaceUiState.OnStartLine) {
+                    if(worldMapRaceUiState.startLineState is StartLineState.Perfect) {
+                        Button(
+                            onClick = {
+                                // TODO: here we just select the very first vehicle, though we should actually be requesting it from the User.
+                                onStartRaceClicked?.invoke(
+                                    worldMapRaceUiState.yourVehicles.first(),
+                                    worldMapRaceUiState.track,
+                                    worldMapRaceUiState.startLineState.location
+                                )
+                            },
+                            enabled = true
+                        ) {
+                            Text(text = "Start Race")
+                        }
+                    } else if(worldMapRaceUiState.startLineState is StartLineState.Standby) {
+                        Button(
+                            onClick = { },
+                            enabled = false
+                        ) {
+                            Text(text = "Start Race")
+                        }
+                    }
+                }
             }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            // Setup a Google map with all options set such that the Player can't adjust anything.
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(
-                    minZoomPreference = 18f,
-                    maxZoomPreference = 18f,
+            var uiSettings by remember {
+                mutableStateOf(MapUiSettings(
+                    myLocationButtonEnabled = false,
+                    indoorLevelPickerEnabled = false,
+                    mapToolbarEnabled = false,
+                    rotationGesturesEnabled = false,
+                    scrollGesturesEnabled = false,
+                    tiltGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    zoomControlsEnabled = false
+                ))
+            }
+            var mapProperties by remember {
+                mutableStateOf(MapProperties(
+                    isBuildingEnabled = false,
+                    isIndoorEnabled = false,
+                    isMyLocationEnabled = false,
+                    minZoomPreference = 3.0f,
+                    maxZoomPreference = 21.0f,
                     mapStyleOptions = componentActivity?.let { activity ->
                         MapStyleOptions.loadRawResourceStyle(
                             activity,
                             R.raw.worldstyle
                         )
                     }
-                ),
-                uiSettings = MapUiSettings(
-                    rotationGesturesEnabled = false,
-                    scrollGesturesEnabled = false,
-                    tiltGesturesEnabled = false,
-                    zoomGesturesEnabled = false,
-                    zoomControlsEnabled = false
+                ))
+            }
+            // Remember a camera position state to control the camera.
+            val cameraPositionState = rememberCameraPositionState {
+                // Center on the Player, with a close zoom such as 20f, as a default location.
+                position = CameraPosition.fromLatLngZoom(
+                    LatLng(lastLocation.latitude, lastLocation.longitude),
+                    20f
                 )
+            }
+
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = mapProperties,
+                uiSettings = uiSettings
             ) {
-                // Handle the camera here.
-                if(shouldFollowPlayer) {
-                    // If we should be following the Player, simply animate move the camera with the latest location.
-                    // TODO: delete debug message.
-                    Timber.d("Following player... We are moving the camera now.")
-                    cameraPositionState.move(
-                        CameraUpdateFactory.newLatLng(
-                            LatLng(lastLocation.latitude, lastLocation.longitude)
-                        )
-                    )
-                } else if(track != null && trackPath != null) {
-                    Timber.d("Viewing track overview now...")
-                    // Get the path's bounding box.
-                    val trackBoundingBox = trackPath!!.getBoundingBox()
-                    // Otherwise, if we have both track and track path, animate camera to view the entire track.
-                    LaunchedEffect(key1 = track!!.trackUid, block = {
-                        // TODO: delete debug message.
-                        Timber.d("Moving camera to focus on track.")
-                        // Animate the camera
+                // Start a new launched effect here that keys off should follow player.
+                LaunchedEffect(key1 = shouldFollowPlayer, key2 = trackPath, block = {
+                    // If should follow player is false, animate camera position to overview the track. If should follow player is true, animate camera position
+                    // to follow the Player.
+                    if(shouldFollowPlayer) {
+                        // Animate camera to last location.
                         cameraPositionState.animate(
-                            CameraUpdateFactory.newLatLngBounds(
-                                LatLngBounds(
-                                    LatLng(trackBoundingBox.southWest.latitude, trackBoundingBox.southWest.longitude),
-                                    LatLng(trackBoundingBox.northEast.latitude, trackBoundingBox.northEast.longitude)
-                                ),
-                                25
-                            ),
-                            2500
+                            lastLocation.toFollowCameraUpdate(),
+                            500
                         )
-                    })
-                } else {
-                    // TODO: not following player and there is no track or no track path.
-                    throw NotImplementedError("Failed to view world map race screen; not following player and there's no track or no track path. This is not handled.")
+                        mapProperties = mapProperties.copy(
+                            minZoomPreference = 20f,
+                            maxZoomPreference = 20f
+                        )
+                    } else if(trackPath != null) {
+                        mapProperties = mapProperties.copy(
+                            minZoomPreference = 3.0f,
+                            maxZoomPreference = 21.0f
+                        )
+                        trackPath?.let {
+                            // Get bounding box for track.
+                            val trackBoundingBox = it.getBoundingBox()
+                            // Animate camera to overview the track's path.
+                            cameraPositionState.animate(
+                                trackBoundingBox.toOverviewCameraUpdate(),
+                                500
+                            )
+                        }
+                    } else {
+                        // TODO: not following player and there is no track or no track path.
+                        throw NotImplementedError("Failed to view world map race screen; not following player and there's no track or no track path. This is not handled.")
+                    }
+                })
+
+                // Now, we'll handle moving the camera if we're following the User.
+                if(shouldFollowPlayer) {
+                    // If we should be following the Player, set min and max zoom to 20f, tilt to 0, move camera over the Player and bearing to follow them.
+                    cameraPositionState.move(
+                        lastLocation.toFollowCameraUpdate()
+                    )
                 }
 
                 if(track != null && trackPath != null) {

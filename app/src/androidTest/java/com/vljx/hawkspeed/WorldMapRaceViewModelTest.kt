@@ -9,24 +9,30 @@ import com.vljx.hawkspeed.data.di.module.DomainModule
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendStartRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackWithPathUseCase
+import com.vljx.hawkspeed.domain.usecase.vehicle.CreateVehicleUseCase
+import com.vljx.hawkspeed.domain.usecase.vehicle.GetOurVehiclesUseCase
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.StartLineState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel
+import com.vljx.hawkspeed.util.ExampleData
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import junit.framework.Assert.assertEquals
 import junit.framework.Assert.assertNotNull
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -60,10 +66,14 @@ class WorldMapRaceViewModelTest: BaseTest() {
     @Inject
     lateinit var getTrackWithPathUseCase: GetTrackWithPathUseCase
     @Inject
+    lateinit var getOurVehiclesUseCase: GetOurVehiclesUseCase
+    @Inject
     lateinit var sendStartRaceRequestUseCase: SendStartRaceRequestUseCase
     @Inject
     lateinit var sendCancelRaceRequestUseCase: SendCancelRaceRequestUseCase
 
+    @Inject
+    lateinit var createVehicleUseCase: CreateVehicleUseCase
     @Inject
     lateinit var sendPlayerUpdateUseCase: SendPlayerUpdateUseCase
 
@@ -74,7 +84,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRaceViewModel = WorldMapRaceViewModel(
-            getRaceUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
+            getRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
         )
     }
 
@@ -84,7 +94,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    //@Test
+    @Test
     fun testMovePositionAndEnsureCountdownNotInterrupted() = runTest {
         // Import the example1 JSON.
         val example1Track = getTrackWithPathFromResource(R.raw.example1)
@@ -96,6 +106,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
         )
         // Insert this track into cache.
         trackWithPathLocalData.upsertTrackWithPath(example1Track)
+        // Insert a new vehicle, belonging to us.
+        createVehicleUseCase(RequestCreateVehicle("1994 Toyota Supra")).collect()
         // Setup a collection for the primary race UI state.
         val states = mutableListOf<WorldMapRaceUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -128,11 +140,13 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assert((states[3] as WorldMapRaceUiState.OnStartLine).startLineState is StartLineState.Perfect)
         // Now, start a race.
         val onStartLine = states[3] as WorldMapRaceUiState.OnStartLine
+        // Ensure on start line has one vehicle available for use.
+        assertEquals(1, onStartLine.yourVehicles.size)
         val perfect = onStartLine.startLineState as StartLineState.Perfect
         // Use the track and track path and location.
         worldMapRaceViewModel.startRace(
+            onStartLine.yourVehicles.first(),
             onStartLine.track,
-            onStartLine.trackPath,
             perfect.location
         )
         // Wait for states to grow to 7 in size, (0, 1, 2), then submit the third position as
@@ -153,7 +167,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    //@Test
+    @Test
     fun testMovePositionAndEnsureCountdownCanBeInterrupted() = runTest {
         // Import the example1 JSON.
         val example1Track = getTrackWithPathFromResource(R.raw.example1)
@@ -164,6 +178,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
         )
         // Insert this track into cache.
         trackWithPathLocalData.upsertTrackWithPath(example1Track)
+        // Insert a new vehicle, belonging to us.
+        createVehicleUseCase(RequestCreateVehicle("1994 Toyota Supra")).collect()
         // Setup a collection for the primary race UI state.
         val states = mutableListOf<WorldMapRaceUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -182,11 +198,13 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assert((states[1] as WorldMapRaceUiState.OnStartLine).startLineState is StartLineState.Perfect)
         // Now, start a race.
         val onStartLine = states[1] as WorldMapRaceUiState.OnStartLine
+        // Ensure on start line has one vehicle available for use.
+        assertEquals(1, onStartLine.yourVehicles.size)
         val perfect = onStartLine.startLineState as StartLineState.Perfect
         // Use the track and track path and location.
         worldMapRaceViewModel.startRace(
+            onStartLine.yourVehicles.first(),
             onStartLine.track,
-            onStartLine.trackPath,
             perfect.location
         )
         // Wait for states to grow to 5 in size, (0, 1, 2), then submit the second test position; this position is 12.6m away from the track's start line, which
@@ -197,7 +215,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         states.waitForSize(this, 7)
         assertEquals(7, states.size)
         assert(states[5] is WorldMapRaceUiState.Loading)
-        assert(states[6] is WorldMapRaceUiState.CountdownDisqualified)
+        assert(states[6] is WorldMapRaceUiState.RaceStartFailed)
         // Move back to a perfect position.
         sendPlayerUpdateUseCase(testPoints[0])
         // Now, reset disqualified track.
@@ -211,7 +229,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    //@Test
+    @Test
     fun testFinishRace() = runTest {
         // Import the example1 JSON.
         val example1Track = getTrackWithPathFromResource(R.raw.example1)
@@ -221,6 +239,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
         )
         // Insert this track into cache.
         trackWithPathLocalData.upsertTrackWithPath(example1Track)
+        // Insert a new vehicle, belonging to us.
+        createVehicleUseCase(RequestCreateVehicle("1994 Toyota Supra")).collect()
         // Setup a collection for the primary race UI state.
         val states = mutableListOf<WorldMapRaceUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -239,11 +259,13 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assert((states[1] as WorldMapRaceUiState.OnStartLine).startLineState is StartLineState.Perfect)
         // Now, start a race.
         val onStartLine = states[1] as WorldMapRaceUiState.OnStartLine
+        // Ensure on start line has one vehicle available for use.
+        assertEquals(1, onStartLine.yourVehicles.size)
         val perfect = onStartLine.startLineState as StartLineState.Perfect
         // Use the track and track path and location.
         worldMapRaceViewModel.startRace(
+            onStartLine.yourVehicles.first(),
             onStartLine.track,
-            onStartLine.trackPath,
             perfect.location
         )
         // Wait for states to grow to 8 in size, extra (0, 1, 2, 3, 4, RACING).
@@ -296,6 +318,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
         )
         // Insert this track into cache.
         trackWithPathLocalData.upsertTrackWithPath(example1Track)
+        // Insert a new vehicle, belonging to us.
+        createVehicleUseCase(RequestCreateVehicle("1994 Toyota Supra")).collect()
         // Setup a collection for the primary race UI state.
         val states = mutableListOf<WorldMapRaceUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -314,11 +338,13 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assert((states[1] as WorldMapRaceUiState.OnStartLine).startLineState is StartLineState.Perfect)
         // Now, start a race.
         val onStartLine = states[1] as WorldMapRaceUiState.OnStartLine
+        // Ensure on start line has one vehicle available for use.
+        assertEquals(1, onStartLine.yourVehicles.size)
         val perfect = onStartLine.startLineState as StartLineState.Perfect
         // Use the track and track path and location.
         worldMapRaceViewModel.startRace(
+            onStartLine.yourVehicles.first(),
             onStartLine.track,
-            onStartLine.trackPath,
             perfect.location
         )
         // Wait for states to grow to 4 in size, extra (0, 1).
@@ -326,7 +352,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assertEquals(4, states.size)
         // Cancel the race right now, mid countdown.
         // Now, call out to the view model to cancel the current race.
-        worldMapRaceViewModel.cancelOngoingRace()
+        worldMapRaceViewModel.cancelRace()
         // Now, wait for our states list to grow to 6 in size.
         states.waitForSize(this, 6)
         // Ensure index 4 is a loading state.
@@ -336,7 +362,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    //@Test
+    @Test
     fun testDisqualifyRace() = runTest {
         // Import the example1 JSON.
         val example1Track = getTrackWithPathFromResource(R.raw.example1)
@@ -346,6 +372,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
         )
         // Insert this track into cache.
         trackWithPathLocalData.upsertTrackWithPath(example1Track)
+        // Insert a new vehicle, belonging to us.
+        createVehicleUseCase(RequestCreateVehicle("1994 Toyota Supra")).collect()
         // Setup a collection for the primary race UI state.
         val states = mutableListOf<WorldMapRaceUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -364,11 +392,13 @@ class WorldMapRaceViewModelTest: BaseTest() {
         assert((states[1] as WorldMapRaceUiState.OnStartLine).startLineState is StartLineState.Perfect)
         // Now, start a race.
         val onStartLine = states[1] as WorldMapRaceUiState.OnStartLine
+        // Ensure on start line has one vehicle available for use.
+        assertEquals(1, onStartLine.yourVehicles.size)
         val perfect = onStartLine.startLineState as StartLineState.Perfect
         // Use the track and track path and location.
         worldMapRaceViewModel.startRace(
+            onStartLine.yourVehicles.first(),
             onStartLine.track,
-            onStartLine.trackPath,
             perfect.location
         )
         // Wait for states to grow to 8 in size, extra (0, 1, 2, 3, 4, RACING).

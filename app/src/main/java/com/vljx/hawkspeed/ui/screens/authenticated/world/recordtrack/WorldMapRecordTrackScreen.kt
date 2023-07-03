@@ -21,13 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
+import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.GameSettings
@@ -133,23 +137,9 @@ fun RecordTrack(
     var lastLocation: PlayerPosition by remember { mutableStateOf<PlayerPosition>(currentLocation ?: recordTrackMode.location) }
     // Remember a boolean - when this is true, the view will follow the User. Otherwise, the view will overview the recorded track. But if that
     // too is not valid (trackDraftWithPoints is null, or there are no points in the track) the loading composable will be overlayed.
-    var shouldFollowPlayer by remember { mutableStateOf<Boolean>(false) }
+    var shouldFollowPlayer by remember { mutableStateOf<Boolean>(true) }
     // Remember a track draft with points - the most up to date track and its draft points.
     var trackDraftWithPoints by remember { mutableStateOf<TrackDraftWithPoints?>(null) }
-    // Remember a camera position state for manipulating camera.
-    val cameraPositionState = rememberCameraPositionState {
-        // Center on the Player, with a close zoom such as 18f.
-        /*position = CameraPosition.fromLatLngZoom(
-            LatLng(currentLocation.latitude, currentLocation.longitude),
-            18f
-        )*/
-        position = CameraPosition.builder()
-            .target(LatLng(lastLocation.latitude, lastLocation.longitude))
-            .zoom(18f)
-            .tilt(0f)
-            .bearing(lastLocation.rotation)
-            .build()
-    }
     // Update last location to current location if current location is not null.
     if(currentLocation != null) {
         // TODO: movement animation here for last location to current location.
@@ -251,38 +241,79 @@ fun RecordTrack(
             modifier = Modifier
                 .padding(paddingValues)
         ) {
-            // Setup a Google map with all options set such that the Player can't adjust anything.
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(
+            var uiSettings by remember {
+                mutableStateOf(MapUiSettings(
+                    rotationGesturesEnabled = false,
+                    scrollGesturesEnabled = false,
+                    tiltGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    zoomControlsEnabled = false
+                ))
+            }
+            var mapProperties by remember {
+                mutableStateOf(MapProperties(
+                    minZoomPreference = 3.0f,
+                    maxZoomPreference = 21.0f,
+                    isBuildingEnabled = false,
+                    isIndoorEnabled = false,
+                    isMyLocationEnabled = false,
                     mapStyleOptions = componentActivity?.let { activity ->
                         MapStyleOptions.loadRawResourceStyle(
                             activity,
                             R.raw.worldstyle
                         )
                     }
-                ),
-                uiSettings = MapUiSettings(
-                    rotationGesturesEnabled = false,
-                    scrollGesturesEnabled = false,
-                    tiltGesturesEnabled = false,
-                    zoomGesturesEnabled = false,
-                    zoomControlsEnabled = false
-                ),
+                ))
+            }
+            // Remember a camera position state for manipulating camera.
+            val cameraPositionState = rememberCameraPositionState {
+                // Center on the Player, with a close zoom such as 20f, as a default location.
+                position = CameraPosition.fromLatLngZoom(
+                    LatLng(lastLocation.latitude, lastLocation.longitude),
+                    20f
+                )
+            }
+            // Setup a Google map with all options set such that the Player can't adjust anything.
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = mapProperties,
+                uiSettings = uiSettings,
                 onMapClick = { latLng ->
                     onMapClicked?.invoke(latLng)
                 }
             ) {
-                // Now, process the required position for the camera.
-                if(shouldFollowPlayer) {
-                    Timber.d("We should now be following the Player. Animate camera to current location, incl rotation.")
-                } else if(trackDraftWithPoints != null && trackDraftWithPoints?.hasRecordedTrack == true) {
-                    Timber.d("Not following Player. Instead, we should show recorded track overview.")
-                } else {
-                    // Some loading overlay.
-                    Timber.d("Not following player, and have no recorded track. Perhaps just follow player.")
-                }
+                // Start a new launched effect here that keys off should follow player.
+                LaunchedEffect(key1 = shouldFollowPlayer, key2 = trackDraftWithPoints, block = {
+                    if(shouldFollowPlayer || (trackDraftWithPoints?.hasRecordedTrack == false)) {
+                        // Animate camera to last location.
+                        cameraPositionState.animate(
+                            lastLocation.toFollowCameraUpdate(),
+                            500
+                        )
+                        mapProperties = mapProperties.copy(
+                            minZoomPreference = 20f,
+                            maxZoomPreference = 20f
+                        )
+                    } else if(trackDraftWithPoints != null) {
+                        mapProperties = mapProperties.copy(
+                            minZoomPreference = 3.0f,
+                            maxZoomPreference = 21.0f
+                        )
+                        trackDraftWithPoints?.let {
+                            // Get bounding box for track.
+                            val trackBoundingBox = it.getBoundingBox()
+                            // Animate camera to overview the track's path.
+                            cameraPositionState.animate(
+                                trackBoundingBox.toOverviewCameraUpdate(),
+                                500
+                            )
+                        }
+                    } else {
+                        // TODO: not following player and there is no track or no track path.
+                        throw NotImplementedError("Failed to view world map race screen; not following player and there's no track or no track path. This is not handled.")
+                    }
+                })
 
                 // If there is a track draft with points, draw it as a polyline to map.
                 if(trackDraftWithPoints != null) {
@@ -294,11 +325,6 @@ fun RecordTrack(
                         )
                     }
                 }
-                /**
-                 * TODO: when in the following modes; NewTrack, Recording; we must lock the view constantly following the Player.
-                 * TODO: when in the following modes; Loading; we must have the few grayed out in place, with a loading indicator.
-                 * TODO: when in the following modes; RecordedTrackOverview; we must have the view zoomed out, centered over the entire recorded track and locked there.
-                 */
             }
         }
     }

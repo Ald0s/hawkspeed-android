@@ -18,13 +18,13 @@ data class RequestSetupProfileDto(
     val bio: String?,
 
     @Expose
-    @SerializedName("vehicle_information")
-    val vehicleInformation: String
+    @SerializedName("vehicle")
+    val vehicle: RequestCreateVehicleDto
 ) {
     constructor(requestSetupProfile: RequestSetupProfile):
             this(
                 requestSetupProfile.userName,
                 requestSetupProfile.bio,
-                requestSetupProfile.vehicleInformation
+                RequestCreateVehicleDto(requestSetupProfile.requestCreateVehicle)
             )
 }

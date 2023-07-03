@@ -6,14 +6,14 @@ import com.vljx.hawkspeed.domain.base.SocketErrorWrapper
 
 data class SocketErrorWrapperDto(
     @Expose
-    @SerializedName("severity")
-    override val severity: String,
-
-    @Expose
     @SerializedName("name")
     override val name: String,
 
     @Expose
-    @SerializedName("error")
+    @SerializedName("reason")
+    override val reason: String,
+
+    @Expose
+    @SerializedName("error_dict")
     override val errorInformation: HashMap<String, String>
 ): SocketErrorWrapper

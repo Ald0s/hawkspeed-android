@@ -2,11 +2,13 @@ package com.vljx.hawkspeed.data.mapper.race
 
 import com.vljx.hawkspeed.data.mapper.Mapper
 import com.vljx.hawkspeed.data.mapper.user.UserMapper
+import com.vljx.hawkspeed.data.mapper.vehicle.VehicleMapper
 import com.vljx.hawkspeed.data.models.race.RaceLeaderboardModel
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import javax.inject.Inject
 
 class RaceLeaderboardMapper @Inject constructor(
+    private val vehicleMapper: VehicleMapper,
     private val userMapper: UserMapper
 ): Mapper<RaceLeaderboardModel, RaceLeaderboard> {
     override fun mapFromData(model: RaceLeaderboardModel): RaceLeaderboard {
@@ -17,6 +19,7 @@ class RaceLeaderboardMapper @Inject constructor(
             model.finished,
             model.stopwatch,
             userMapper.mapFromData(model.player),
+            vehicleMapper.mapFromData(model.vehicle),
             model.trackUid
         )
     }
@@ -29,6 +32,7 @@ class RaceLeaderboardMapper @Inject constructor(
             domain.finished,
             domain.stopwatch,
             userMapper.mapToData(domain.player),
+            vehicleMapper.mapToData(domain.vehicle),
             domain.trackUid
         )
     }

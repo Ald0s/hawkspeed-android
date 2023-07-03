@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.network.models.track
 
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
-import com.vljx.hawkspeed.data.network.models.race.RaceOutcomeDto
+import com.vljx.hawkspeed.data.network.models.race.RaceLeaderboardDto
 import com.vljx.hawkspeed.data.network.models.user.UserDto
 import com.vljx.hawkspeed.domain.enums.TrackType
 
@@ -25,7 +25,7 @@ data class TrackDto(
 
     @Expose
     @SerializedName("top_leaderboard")
-    val topLeaderboard: List<RaceOutcomeDto>,
+    val topLeaderboard: List<RaceLeaderboardDto>,
 
     @Expose
     @SerializedName("start_point")

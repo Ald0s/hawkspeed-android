@@ -51,7 +51,7 @@ sealed class ResourceError {
                     .setPrettyPrinting()
                     .create()
                 appendLine("Error name\t\t${socketErrorWrapper.name}")
-                appendLine("Error severity\t\t${socketErrorWrapper.severity}")
+                appendLine("Error reason\t\t${socketErrorWrapper.reason}")
                 appendLine("Error dict\n${prettyGson.toJson(socketErrorWrapper.errorInformation)}")
             }.toString()
     }

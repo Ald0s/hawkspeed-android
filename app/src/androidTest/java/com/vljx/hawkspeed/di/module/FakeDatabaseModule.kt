@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed
+package com.vljx.hawkspeed.di.module
 
 import android.app.Application
 import com.vljx.hawkspeed.data.database.AppDatabase
@@ -12,6 +12,7 @@ import com.vljx.hawkspeed.data.database.dao.TrackPathDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDraftDao
 import com.vljx.hawkspeed.data.database.dao.UserDao
+import com.vljx.hawkspeed.data.database.dao.VehicleDao
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import dagger.Module
 import dagger.Provides
@@ -63,6 +64,10 @@ class FakeDatabaseModule {
     @Provides
     fun provideUserDao(appDatabase: AppDatabase): UserDao =
         appDatabase.userDao()
+
+    @Provides
+    fun provideVehicleDao(appDatabase: AppDatabase): VehicleDao =
+        appDatabase.vehicleDao()
 
     @Provides
     fun provideTrackCommentDao(appDatabase: AppDatabase): TrackCommentDao =

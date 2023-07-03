@@ -4,7 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * An entity for storing the state of a specific race attempt/instance. There are no conditions on what type of races can be stored in this entity.
+ * An entity for storing the state of a specific race attempt/instance.
+ * There are no conditions on what type of races can be stored in this entity.
  */
 @Entity(tableName = "race")
 data class RaceEntity(

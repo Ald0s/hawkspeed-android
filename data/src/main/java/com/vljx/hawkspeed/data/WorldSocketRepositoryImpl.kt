@@ -65,20 +65,31 @@ class WorldSocketRepositoryImpl @Inject constructor(
 
     override suspend fun startRace(requestStartRace: RequestStartRace): StartRaceResult {
         val startRaceResult = worldSocketSession.startRace(requestStartRace)
-        // TODO: cache this.
+        // If race start was successful, and we received the race itself, cache it.
+        if(startRaceResult.isStarted && startRaceResult.race != null) {
+            raceLocalData.upsertRace(
+                startRaceResult.race
+            )
+        }
         return startRaceResultMapper.mapFromData(startRaceResult)
     }
 
     override suspend fun cancelRace(requestCancelRace: RequestCancelRace): CancelRaceResult {
         val cancelRaceResult = worldSocketSession.cancelRace(requestCancelRace)
-        // TOOD: cache this.
+        // If we have a race instance given, cache it.
+        if(cancelRaceResult.race != null) {
+            raceLocalData.upsertRace(
+                cancelRaceResult.race
+            )
+        }
         return cancelRaceResultMapper.mapFromData(cancelRaceResult)
     }
 
     override suspend fun sendPlayerUpdate(requestPlayerUpdate: RequestPlayerUpdate): PlayerUpdateResult {
         val playerUpdateResult = worldSocketSession.sendPlayerUpdate(requestPlayerUpdate)
-        // TODO: cache this.
+        // Check if we have been sent any objects in proximity to us.
         playerUpdateResult.worldObjectUpdateResult?.let { worldObjectUpdate ->
+            // Upsert all tracks we've been sent.
             trackLocalData.upsertTracks(worldObjectUpdate.tracks)
         }
         return playerUpdateResultMapper.mapFromData(playerUpdateResult)

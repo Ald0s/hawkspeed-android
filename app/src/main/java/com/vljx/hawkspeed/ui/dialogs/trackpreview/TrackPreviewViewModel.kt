@@ -49,8 +49,8 @@ class TrackPreviewViewModel @Inject constructor(
     )
 
     /**
-     * A flow for the track's resource, flat mapping the latest selected track UID. We'll share this in the view model scope, but we want to map this
-     * multiple times and want to avoid duplicate calls to get track.
+     * A flow for the track's resource, flat mapping the latest selected track UID. We'll share this in the view model scope, because not doing so will result in
+     * a new flow for each collection started by any dependant.
      */
     private val trackResource: SharedFlow<Resource<Track>> =
         mutableSelectedTrackUid.flatMapLatest { trackUid ->
@@ -63,9 +63,7 @@ class TrackPreviewViewModel @Inject constructor(
      * Get the current location as reported by our world socket state.
      */
     private val currentLocation: StateFlow<PlayerPosition?> =
-        getCurrentLocationUseCase(Unit).onEach {
-            Timber.d("New location: $it")
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        getCurrentLocationUseCase(Unit)
 
     /**
      * Combine the track resource flow and the device's current location. Return equivalent states for resource loading and error, determine whether Player can enter

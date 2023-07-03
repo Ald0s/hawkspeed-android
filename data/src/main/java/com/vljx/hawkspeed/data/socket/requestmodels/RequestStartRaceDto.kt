@@ -10,6 +10,10 @@ data class RequestStartRaceDto(
     val trackUid: String,
 
     @Expose
+    @SerializedName("vehicle_uid")
+    val vehicleUid: String?,
+
+    @Expose
     @SerializedName("started_position")
     val startedPosition: RequestPlayerLocationDto,
 
@@ -19,6 +23,7 @@ data class RequestStartRaceDto(
 ) {
     constructor(requestStartRace: RequestStartRace) : this(
         requestStartRace.trackUid,
+        requestStartRace.vehicleUid,
         RequestPlayerLocationDto(requestStartRace.startedPosition),
         RequestPlayerLocationDto(requestStartRace.countdownPosition)
     )

@@ -11,7 +11,7 @@ class CancelRaceResponseDtoMapper @Inject constructor(
     override suspend fun mapFromDto(dto: CancelRaceResponseDto): CancelRaceResultModel {
         return CancelRaceResultModel(
             dto.race?.let { raceUpdateDtoMapper.mapFromDto(it) },
-            dto.reasonCode
+            dto.cancellationReason
         )
     }
 }

@@ -35,5 +35,8 @@ interface DomainModule {
     fun bindUserRepository(userRepositoryImpl: UserRepositoryImpl): UserRepository
 
     @Binds
+    fun bindVehicleRepository(vehicleRepositoryImpl: VehicleRepositoryImpl): VehicleRepository
+
+    @Binds
     fun bindWorldRepository(worldRepositoryImpl: WorldRepositoryImpl): WorldRepository
 }

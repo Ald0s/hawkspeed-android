@@ -52,6 +52,10 @@ class DatabaseModule {
         appDatabase.userDao()
 
     @Provides
+    fun provideVehicleDao(appDatabase: AppDatabase): VehicleDao =
+        appDatabase.vehicleDao()
+
+    @Provides
     fun provideTrackCommentDao(appDatabase: AppDatabase): TrackCommentDao =
         appDatabase.trackCommentDao()
 }

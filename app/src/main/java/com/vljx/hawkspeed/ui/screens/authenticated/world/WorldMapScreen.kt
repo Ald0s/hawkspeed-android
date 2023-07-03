@@ -96,7 +96,7 @@ fun WorldMapScreen(
 
                 },
 
-                componentActivity = LocalContext.current.getActivity()
+                componentActivity = activityContext
             )
         }
         is WorldMapUiState.WorldMapLoadedRaceMode -> {
@@ -176,6 +176,10 @@ fun WorldMapScreen(
             )
         }
         is WorldMapUiState.ConnectionFailure -> {
+            /**
+             * TODO: connection has failed for some reason. This could either be the server outright refusing our join, or it could be that we ran into some network
+             * TODO: trouble or something.
+             */
             throw NotImplementedError("WorldMapUiState.ConnectionFailure having a non-null resource error is not yet handled.")
         }
     }

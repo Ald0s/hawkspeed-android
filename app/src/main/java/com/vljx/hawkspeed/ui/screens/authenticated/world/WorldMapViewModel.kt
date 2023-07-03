@@ -164,10 +164,6 @@ class WorldMapViewModel @Inject constructor(
      * TODO: be performed much sooner, such as disabling related buttons that trigger race mode/record track mode for approximate only states. But its also a good idea to
      * TODO: support a mini check thereof in this flow; perhaps like an Error state that displays a dialog with grayed boundaries, that lets the Player know this action is
      * TODO: not supported until fine location access given, and with a dialog button that emits standard mode to be used on click.
-     *
-     * TODO: changed to make space for allowing action type state. simply change location access states to:
-     * locationPermissionState.distinctUntilChanged(),
-     * locationSettingsState.distinctUntilChanged(),
      */
     val worldMapUiState: StateFlow<WorldMapUiState> =
         combine(
@@ -202,21 +198,22 @@ class WorldMapViewModel @Inject constructor(
                     WorldMapUiState.NoLocation(null)
 
                 /**
-                 * Fail with world socket state disconnected if the game client can be connected, but currently is not. This will prompt a request for joining the world
-                 * to be made to world socket session.
+                 * If socket state is disconnected and resource error is not null, or socket state is connection refused, emit a connection failure error which will deal
+                 * with whatever the problem was.
                  */
-                socketState is WorldSocketState.Disconnected -> {
-                    if(socketState.resourceError != null) {
-                        // This is a connection error.
-                        WorldMapUiState.ConnectionFailure(socketState.resourceError)
-                    } else {
-                        // Simply not connected.
-                        WorldMapUiState.NotConnected(
-                            settings,
-                            location
-                        )
-                    }
-                }
+                socketState is WorldSocketState.Disconnected && socketState.resourceError != null ->
+                    WorldMapUiState.ConnectionFailure(socketState.resourceError)
+                socketState is WorldSocketState.ConnectionRefused ->
+                    WorldMapUiState.ConnectionFailure(socketState.resourceError)
+
+                /**
+                 * Otherwise, if socket state is disconnected, we're simply not yet connected.
+                 */
+                socketState is WorldSocketState.Disconnected ->
+                    WorldMapUiState.NotConnected(
+                        settings,
+                        location
+                    )
 
                 /**
                  * Emit the loading state if we are currently connecting to the server.

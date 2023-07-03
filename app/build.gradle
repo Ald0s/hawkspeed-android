@@ -17,8 +17,8 @@ android {
         applicationId "com.vljx.hawkspeed"
         minSdk 29
         targetSdk 33
-        versionCode 12
-        versionName "1.10.06"
+        versionCode 13
+        versionName "1.10.10"
 
         testInstrumentationRunner = "com.vljx.hawkspeed.HawkSpeedJUnitRunner"
         vectorDrawables {

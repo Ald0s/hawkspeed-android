@@ -12,7 +12,7 @@ data class RaceLeaderboardPageDto(
 
     @Expose
     @SerializedName("items")
-    val raceOutcomes: List<RaceOutcomeDto>,
+    val raceOutcomes: List<RaceLeaderboardDto>,
 
     @Expose
     @SerializedName("this_page")

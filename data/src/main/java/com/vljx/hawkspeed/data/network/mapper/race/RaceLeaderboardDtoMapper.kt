@@ -3,13 +3,15 @@ package com.vljx.hawkspeed.data.network.mapper.race
 import com.vljx.hawkspeed.data.models.race.RaceLeaderboardModel
 import com.vljx.hawkspeed.data.network.mapper.DtoMapper
 import com.vljx.hawkspeed.data.network.mapper.user.UserDtoMapper
-import com.vljx.hawkspeed.data.network.models.race.RaceOutcomeDto
+import com.vljx.hawkspeed.data.network.mapper.vehicle.VehicleDtoMapper
+import com.vljx.hawkspeed.data.network.models.race.RaceLeaderboardDto
 import javax.inject.Inject
 
-class RaceOutcomeDtoMapper @Inject constructor(
+class RaceLeaderboardDtoMapper @Inject constructor(
+    private val vehicleDtoMapper: VehicleDtoMapper,
     private val userDtoMapper: UserDtoMapper
-): DtoMapper<RaceOutcomeDto, RaceLeaderboardModel> {
-    override fun mapFromDto(dto: RaceOutcomeDto): RaceLeaderboardModel {
+): DtoMapper<RaceLeaderboardDto, RaceLeaderboardModel> {
+    override fun mapFromDto(dto: RaceLeaderboardDto): RaceLeaderboardModel {
         return RaceLeaderboardModel(
             dto.raceUid,
             dto.finishingPlace,
@@ -17,6 +19,7 @@ class RaceOutcomeDtoMapper @Inject constructor(
             dto.finished,
             dto.stopwatch,
             userDtoMapper.mapFromDto(dto.player),
+            vehicleDtoMapper.mapFromDto(dto.vehicle),
             dto.trackUid
         )
     }

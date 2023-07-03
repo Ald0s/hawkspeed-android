@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed
+package com.vljx.hawkspeed.di.module
 
 import com.vljx.hawkspeed.data.database.AccountLocalDataImpl
 import com.vljx.hawkspeed.data.database.RaceLocalDataImpl
@@ -8,6 +8,7 @@ import com.vljx.hawkspeed.data.database.TrackDraftLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackPathLocalDataImpl
 import com.vljx.hawkspeed.data.database.UserLocalDataImpl
+import com.vljx.hawkspeed.data.database.VehicleLocalDataImpl
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
 import com.vljx.hawkspeed.data.network.RaceLeaderboardRemoteDataImpl
@@ -15,6 +16,7 @@ import com.vljx.hawkspeed.data.network.TrackCommentRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
 import com.vljx.hawkspeed.data.network.UserRemoteDataImpl
+import com.vljx.hawkspeed.data.network.VehicleRemoteDataImpl
 import com.vljx.hawkspeed.data.source.*
 import com.vljx.hawkspeed.data.source.account.AccountLocalData
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
@@ -29,6 +31,8 @@ import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackRemoteData
 import com.vljx.hawkspeed.data.source.user.UserLocalData
+import com.vljx.hawkspeed.data.source.vehicle.VehicleLocalData
+import com.vljx.hawkspeed.data.source.vehicle.VehicleRemoteData
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.repository.FakeWorldSocketRepositoryImpl
 import dagger.Binds
@@ -77,6 +81,12 @@ interface FakeDataModule {
 
     @Binds
     fun bindUserRemoteData(userRemoteDataImpl: UserRemoteDataImpl): UserRemoteData
+
+    @Binds
+    fun bindVehicleLocalData(vehicleLocalDataImpl: VehicleLocalDataImpl): VehicleLocalData
+
+    @Binds
+    fun bindVehicleRemoteData(vehicleRemoteDataImpl: VehicleRemoteDataImpl): VehicleRemoteData
 
     @Binds
     fun bindTrackCommentLocalData(trackCommentLocalDataImpl: TrackCommentLocalDataImpl): TrackCommentLocalData

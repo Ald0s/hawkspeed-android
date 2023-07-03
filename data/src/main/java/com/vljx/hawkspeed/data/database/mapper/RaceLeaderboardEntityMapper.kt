@@ -5,6 +5,7 @@ import com.vljx.hawkspeed.data.models.race.RaceLeaderboardModel
 import javax.inject.Inject
 
 class RaceLeaderboardEntityMapper @Inject constructor(
+    private val vehicleEntityMapper: VehicleEntityMapper,
     private val userEntityMapper: UserEntityMapper
 ): EntityMapper<RaceLeaderboardEntity, RaceLeaderboardModel> {
     override fun mapFromEntity(entity: RaceLeaderboardEntity): RaceLeaderboardModel {
@@ -15,6 +16,7 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             entity.finished,
             entity.stopwatch,
             userEntityMapper.mapFromEntity(entity.player),
+            vehicleEntityMapper.mapFromEntity(entity.vehicle),
             entity.trackUid
         )
     }
@@ -27,6 +29,7 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             model.finished,
             model.stopwatch,
             userEntityMapper.mapToEntity(model.player),
+            vehicleEntityMapper.mapToEntity(model.vehicle),
             model.trackUid
         )
     }

@@ -8,12 +8,12 @@ import javax.inject.Inject
 
 class RaceLeaderboardPageDtoMapper @Inject constructor(
     private val trackDtoMapper: TrackDtoMapper,
-    private val raceOutcomeDtoMapper: RaceOutcomeDtoMapper
+    private val raceLeaderboardDtoMapper: RaceLeaderboardDtoMapper
 ): DtoMapper<RaceLeaderboardPageDto, RaceLeaderboardPageModel> {
     override fun mapFromDto(dto: RaceLeaderboardPageDto): RaceLeaderboardPageModel {
         return RaceLeaderboardPageModel(
             trackDtoMapper.mapFromDto(dto.trackDto),
-            raceOutcomeDtoMapper.mapFromDtoList(dto.raceOutcomes),
+            raceLeaderboardDtoMapper.mapFromDtoList(dto.raceOutcomes),
             dto.thisPage,
             dto.nextPage
         )

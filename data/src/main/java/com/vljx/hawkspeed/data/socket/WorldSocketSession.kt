@@ -54,6 +54,7 @@ import okhttp3.internal.cookieToString
 import org.json.JSONObject
 import timber.log.Timber
 import java.net.URI
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -85,8 +86,7 @@ class WorldSocketSession @Inject constructor(
     /**
      * A mutable state flow for the current state of the connection to the game server.
      */
-    private val mutableWorldSocketState: MutableStateFlow<WorldSocketState> = MutableStateFlow(
-        WorldSocketState.Disconnected())
+    private val mutableWorldSocketState: MutableStateFlow<WorldSocketState> = MutableStateFlow(WorldSocketState.Disconnected())
 
     /**
      * A state flow for the mechanical gatekeeper to game server connection. This boolean should be used to carefully control when, though all arguments are
@@ -157,9 +157,15 @@ class WorldSocketSession @Inject constructor(
                 if(!settings.canConnectGame || !settings.isServerAvailable) {
                     WorldSocketIntentState.CantJoinWorld
                 }
+                /**
+                 * TODO: we require a device identifier to be passed here. Depending on how firebase fits in, we may be able to retrieve the installation ID from a view
+                 * TODO: model, and pass it all the way up here through GameSettings. For now, we'll just use a random UUID.
+                 */
+                val deviceIdentifier = UUID.randomUUID().toString()
                 // TODO: we can place a validator on age of location here.
                 // Otherwise, emit intent to join server.
                 WorldSocketIntentState.CanJoinWorld(
+                    deviceIdentifier,
                     settings.entryToken!!,
                     settings.gameServerInfo!!,
                     location
@@ -257,6 +263,7 @@ class WorldSocketSession @Inject constructor(
         val dtoAsJsonString = JSONObject(
             gson.toJson(
                 RequestConnectAuthenticationDto(
+                    canJoinWorld.deviceIdentifier,
                     canJoinWorld.location.latitude,
                     canJoinWorld.location.longitude,
                     canJoinWorld.location.rotation,
@@ -275,8 +282,8 @@ class WorldSocketSession @Inject constructor(
             // Register all handlers for the basic connection.
             attachConnectionHandlers(this)
             // Register handlers for welcoming Player to world, and when Player is kicked.
-            on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it!!) }
-            on<SocketErrorWrapperDto>("kicked") { handleKicked(it!!) }
+            on<ConnectAuthenticationResponseDto>("welcome") { handleWelcomeToWorld(it) }
+            on<SocketErrorWrapperDto>("kicked") { handleKicked(it) }
             // Register all race handlers.
             attachRaceHandlers(this)
         }?.connect()
@@ -309,7 +316,7 @@ class WorldSocketSession @Inject constructor(
         // Build a DTO for our request to cancel a race.
         val requestCancelRaceDto = RequestCancelRaceDto(requestCancelRace)
         // Use send message to send this request and receive back the result.
-        val cancelRaceResponseDto: CancelRaceResponseDto = socket!!.sendMessage("cancel-race", requestCancelRaceDto)
+        val cancelRaceResponseDto: CancelRaceResponseDto = socket!!.sendMessage("cancel_race", requestCancelRaceDto)
         // Finally, map this to model and return.
         return cancelRaceResponseDtoMapper.mapFromDto(cancelRaceResponseDto)
     }
@@ -392,44 +399,46 @@ class WorldSocketSession @Inject constructor(
              * Called when socket successfully connects to the server.
              */
             on("connect") {
-                Timber.w("Connected to the desired SocketIO server, successfully!")
+                Timber.d("Connected to the desired SocketIO server, successfully!")
             }
             /**
              * Called when the socket has failed to connect to the server, response could contain almost anything, but we must be sure to check for instances of socket
              * error wrappers being sent, which indicate a refusal by the server.
              */
             on<SocketErrorWrapperDto>("connect_error", { socketErrorWrapperDto ->
-                // Successfully read a socket error from the response, which means we were rejected from the server for a HawkSpeed reason. Build a socket resource error.
-                val socketError = ResourceError.SocketError(socketErrorWrapperDto)
-                Timber.w("We failed to connect to game server!\n${socketError.errorSummary}")
-                // TODO: do something with socket error.
-                // TODO: set state to disconnected.
-                throw NotImplementedError()
+                // Successfully read a socket error from the response, which means we were rejected from the server for a HawkSpeed reason.
+                Timber.e("Failed to connect to the world because the game server actively refused our join attempt.")
+                /**
+                 * TODO: when we get a connect error, we should analyse the cause in an effort to determine exactly why the join failed, then we should inform
+                 * TODO: the user of the reason and some corrective action.
+                 */
+                // We will create a socket type resource error from the wrapper dto, then pass this to a connection refused state.
+                mutableWorldSocketState.tryEmit(WorldSocketState.ConnectionRefused(ResourceError.SocketError(socketErrorWrapperDto)))
             }, { response ->
-                Timber.d("Failed to connect to SocketIO server, for a non-hawkspeed reason.")
+                Timber.e("Failed to connect to the world for a non-HawkSpeed reason.")
+                /**
+                 * TODO: connect failed for some other reason; perhaps internet dropping, permission revoked, server dying... etc
+                 */
                 // For now, just print out all errors in response.
                 response.forEach {
-                    Timber.d("Connerror: $it")
+                    Timber.e("Non-HawkSpeed world join error: $it")
                 }
-                // TODO: we can add more information to the connection error event.
-                throw NotImplementedError("Please implement handleConnectionError, we need to pass a ResourceError to Disconnected")
-                //mutableWorldSocketState.tryEmit(
-                //    WorldSocketState.Disconnected
-                //)
+                // Simply pass a disconnected state here for now.
+                mutableWorldSocketState.tryEmit(WorldSocketState.Disconnected())
             })
             /**
              * Called when the socket has been disconnected.
              */
             on("disconnect") { response ->
                 Timber.d("Disconnected from SocketIO server.")
+                /**
+                 * TODO: disconnected from the server, this is not necessarily an issue, we just need to collect cases for this.
+                 */
                 response.forEach {
-                    Timber.d("Error: $it")
+                    Timber.e("Disconnect response line: $it")
                 }
-                // TODO: we can add more information to the disconnection event.
-                throw NotImplementedError("Please implement handleDisconnection, we need to pass a ResourceError to Disconnected")
-                //mutableWorldSocketState.tryEmit(
-                //    WorldSocketState.Disconnected()
-                //)
+                // For now, all we'll do is put our socket state into disconnected mode.
+                mutableWorldSocketState.tryEmit(WorldSocketState.Disconnected())
             }
         }
     }
@@ -490,19 +499,19 @@ class WorldSocketSession @Inject constructor(
              * Event will be invoked when the server determines the client has successfully reached the end of a race track.
              */
             on<RaceFinishedDto>("race-finished") { raceFinished ->
-
+                Timber.e("Handling a race-finished message is not yet implemented.")
             }
             /**
              * Event will be invoked each time the Player has an ongoing race, and submits a location update.
              */
             on<RaceProgressDto>("race-progress") { raceProgress ->
-
+                Timber.e("Handling a race-progress message is not yet implemented.")
             }
             /**
              * Event will be invoked if the server determines the race should be disqualified.
              */
             on<RaceDisqualifiedDto>("race-disqualified") { raceDisqualified ->
-
+                Timber.e("Handling a race-disqualified message is not yet implemented.")
             }
         }
     }

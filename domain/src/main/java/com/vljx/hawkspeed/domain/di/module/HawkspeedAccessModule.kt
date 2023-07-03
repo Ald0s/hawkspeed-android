@@ -20,6 +20,7 @@ interface AuthenticationEntryPoint {
     fun trackCommentRepository(): TrackCommentRepository
     fun trackDraftRepository(): TrackDraftRepository
     fun userRepository(): UserRepository
+    fun vehicleRepository(): VehicleRepository
     fun raceRepository(): RaceRepository
     fun raceOutcomeRepository(): LeaderboardRepository
     fun worldRepository(): WorldRepository
@@ -81,6 +82,15 @@ class AuthenticationAccessModule {
         EntryPoints
             .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
             .userRepository()
+
+    @Bridged
+    @Provides
+    fun provideVehicleRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): VehicleRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .vehicleRepository()
 
     @Bridged
     @Provides

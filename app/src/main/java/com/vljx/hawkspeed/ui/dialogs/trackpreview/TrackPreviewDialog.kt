@@ -47,6 +47,7 @@ import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackRatingUiState
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
@@ -515,9 +516,9 @@ fun PreviewTrackLeaderboardPreview(
     HawkSpeedTheme {
         TrackLeaderboardPreview(
             topLeaderboard = listOf(
-                RaceLeaderboard("RACE01", finishingPlace = 1, 26450, 100, 26450, User("USER01", "aldos", 0, false, true), "TRACK01"),
-                RaceLeaderboard("RACE01", finishingPlace = 2, 54210, 100, 54210, User("USER02", "user1", 0, false, false), "TRACK01"),
-                RaceLeaderboard("RACE01", finishingPlace = 3, 125134, 100, 125134, User("USER03", "user2", 0, false, false), "TRACK01")
+                RaceLeaderboard("RACE01", finishingPlace = 1, 26450, 100, 26450, User("USER01", "aldos", 0, false, true), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "TRACK01"),
+                RaceLeaderboard("RACE01", finishingPlace = 2, 54210, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false),"TRACK01"),
+                RaceLeaderboard("RACE01", finishingPlace = 3, 125134, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false),"TRACK01")
             ),
             modifier = Modifier
                 .padding(16.dp)

@@ -3,12 +3,15 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world.race
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vljx.hawkspeed.domain.Resource
+import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.exc.race.NoLocationException
 import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
+import com.vljx.hawkspeed.domain.models.vehicle.OurVehicles
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
@@ -20,10 +23,7 @@ import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendStartRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackWithPathUseCase
-import com.vljx.hawkspeed.ui.screens.authenticated.world.race.NewRaceIntentState.CancelRace.Companion.CANCELLED_BY_USER
-import com.vljx.hawkspeed.ui.screens.authenticated.world.race.NewRaceIntentState.CancelRace.Companion.CANCEL_FALSE_START
-import com.vljx.hawkspeed.ui.screens.authenticated.world.race.NewRaceIntentState.CancelRace.Companion.CANCEL_RACE_REASON_NO_LOCATION
-import com.vljx.hawkspeed.ui.screens.authenticated.world.race.NewRaceIntentState.CancelRace.Companion.CANCEL_RACE_SERVER_REFUSED
+import com.vljx.hawkspeed.domain.usecase.vehicle.GetOurVehiclesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,6 +54,7 @@ import javax.inject.Inject
 @HiltViewModel
 class WorldMapRaceViewModel @Inject constructor(
     private val getRaceUseCase: GetRaceUseCase,
+    private val getOurVehiclesUseCase: GetOurVehiclesUseCase,
     private val getTrackWithPathUseCase: GetTrackWithPathUseCase,
 
     private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
@@ -80,6 +82,12 @@ class WorldMapRaceViewModel @Inject constructor(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
         extraBufferCapacity = 1
     )
+
+    /**
+     * Get the current User's full list of Vehicles.
+     */
+    private val ourVehicles: Flow<Resource<OurVehicles>> =
+        getOurVehiclesUseCase(Unit)
 
     /**
      * A mutable state flow for an intent to start a new race. Setting this to NewCountdown will immediately begin a new race,
@@ -128,15 +136,21 @@ class WorldMapRaceViewModel @Inject constructor(
             flow {
                 when(newRaceIntent) {
                     is NewRaceIntentState.NewCountdown -> {
-                        // Loop four times, each time emitting a new countdown state for the counter given.
-                        for(i in 0 until 4) {
-                            Timber.d("Emitting new countdown second: $i")
-                            emit(RaceState.StartingRace(i, newRaceIntent.countdownLocation))
+                        // Loop from 4 down to 1, then 1 and 0 will actually be handled in UI state.
+                        for(countdownSecond in 4 downTo 1) {
+                            Timber.d("Emitting new countdown second: $countdownSecond")
+                            emit(
+                                RaceState.StartingRace(
+                                    newRaceIntent.trackUid,
+                                    newRaceIntent.vehicleUid,
+                                    countdownSecond,
+                                    newRaceIntent.countdownLocation
+                                )
+                            )
                             delay(1000)
                         }
                     }
-                    is NewRaceIntentState.CancelRace -> {
-                        // TODO: proper reason string/value here.
+                    is NewRaceIntentState.CancelRaceStart -> {
                         emit(RaceState.FailedStart(newRaceIntent.reason, newRaceIntent.resourceError))
                     }
                     else -> emit(RaceState.NoRace)
@@ -163,8 +177,10 @@ class WorldMapRaceViewModel @Inject constructor(
         }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
 
     /**
-     * Map the current location and the resource for a track and its path to a boolean indicating whether or not the Player can start the race. This
-     * refers specifically to the Player's orientation and position.
+     * Map the current location and the resource for a track and its path to the most applicable start line state. This state communicates how appropriate the User's
+     * current location is with respect to starting a new race on this track. There are three overall states; Perfect, the User is in a position to start the race;
+     * Standby, the User has moved slightly away from the appropriate position to start racing, do not allow the race but do not leave race mode. MovedAway; the
+     * Player has deviated sufficiently such that even being in race mode is no longer possible. Exit race mode.
      */
     private val startLineState: StateFlow<StartLineState> =
         combine(
@@ -208,8 +224,6 @@ class WorldMapRaceViewModel @Inject constructor(
 
     /**
      * A merged flow of both the race state as taken from cache and a race state as taken from mutable intent to begin a new race.
-     *
-     * TODO: trialling this as a state flow.
      */
     private val raceState: StateFlow<RaceState> =
         merge(
@@ -218,14 +232,16 @@ class WorldMapRaceViewModel @Inject constructor(
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), RaceState.NoRace)
 
     /**
-     * Now, combine the race state, current location and the track path with resource to map this all to the most appropriate UI state.
+     * Now, combine the race state, track+path, the start line indicator and the user's current vehicles to a single flow that indicates the state
+     * of the world map race.
      */
     private val innerWorldMapRaceUiState: SharedFlow<WorldMapRaceUiState> =
         combineTransform(
             raceState,
             trackWithPathResource,
-            startLineState
-        ) { race, resource, startLine ->
+            startLineState,
+            ourVehicles
+        ) { race, resource, startLine, vehiclesResource ->
             when {
                 /**
                  * Consider new race intent immediately. If it is in start countdown, but the User no longer qualifies for a new race, emit an early disqualification to
@@ -235,15 +251,16 @@ class WorldMapRaceViewModel @Inject constructor(
                     Timber.d("Cancelling countdown!")
                     emit(WorldMapRaceUiState.Loading)
                     // Disqualify the User by emitting an early disqualification state to our new race intent, which should cause the EarlyDisqualification branch to be triggered.
-                    mutableNewRaceIntentState.value = NewRaceIntentState.CancelRace(
+                    mutableNewRaceIntentState.value = NewRaceIntentState.CancelRaceStart(
                         CANCEL_FALSE_START
                     )
                 }
 
                 /**
-                 * If start line state is inconclusive, or track resource is loading, emit loading state.
+                 * If start line state is inconclusive, or either track/our vehicles resources are loading, or vehicles have loaded but there are 0 in the list, emit loading state.
                  */
-                startLine is StartLineState.Inconclusive || resource.status == Resource.Status.LOADING ->
+                startLine is StartLineState.Inconclusive || resource.status == Resource.Status.LOADING || vehiclesResource.status == Resource.Status.LOADING ||
+                        (vehiclesResource.status == Resource.Status.SUCCESS && vehiclesResource.data!!.vehicles.isEmpty())->
                     emit(WorldMapRaceUiState.Loading)
 
                 /**
@@ -251,6 +268,12 @@ class WorldMapRaceViewModel @Inject constructor(
                  */
                 resource.status == Resource.Status.ERROR ->
                     emit(WorldMapRaceUiState.LoadFailed(resource.resourceError!!))
+
+                /**
+                 * If vehicles resource has failed, and has an ERROR status, we'll emit the load failed state.
+                 */
+                resource.status == Resource.Status.ERROR ->
+                    emit(WorldMapRaceUiState.LoadFailed(vehiclesResource.resourceError!!))
 
                 /**
                  * If resource has a null path, emit an error that communicates this track does not have a path.
@@ -263,74 +286,43 @@ class WorldMapRaceViewModel @Inject constructor(
                  * If new race intent is early disqualification, emit a disqualification UI state.
                  */
                 race is RaceState.FailedStart -> {
-                    // Race failed to start, determine why based on the reason code.
-                    when(race.reasonString) {
-                        /**
-                         * If cancelled by User, be sure to transform the UI state outcome to the Cancelled state.
-                         */
-                        CANCELLED_BY_USER ->
-                            emit(
-                                WorldMapRaceUiState.Cancelled(
-                                    null,
-                                    resource.data!!.track,
-                                    resource.data!!.path!!
-                                )
-                            )
-
-                        /**
-                         * If server refused, this means there could be a resource error to pass along, too.
-                         * TODO: implement this.
-                         */
-                        CANCEL_RACE_SERVER_REFUSED ->
-                            throw NotImplementedError("Failed to start a race. Server has refused the new race, but this is not yet handled in worldMapRaceViewModel.")
-
-                        /**
-                         * If we lost location, just as we finished countdown and moved into starting the race, fail for that reason.
-                         * TODO: implement this.
-                         */
-                        CANCEL_RACE_REASON_NO_LOCATION ->
-                            throw NotImplementedError("Failed to start a race. We lost location just as we received approval to start racing. Also, this is not handled in worldMapRaceViewModel.")
-
-                        /**
-                         * By default, it is disqualified.
-                         */
-                        else -> emit(WorldMapRaceUiState.CountdownDisqualified(startLine))
-                    }
+                    emit(
+                        WorldMapRaceUiState.RaceStartFailed(
+                            race.reasonString,
+                            race.resourceError
+                        )
+                    )
                 }
 
                 /**
-                 * If we are starting a race, simply emit all other second counts before 4. At second three, we want to create the race on the server, receiving back
-                 * a response. If the response is successful, we'll then emit second 4 from here and immediately try emit the selected race. At this point, the User can actually move without being disqualified.
+                 * If we are starting a race, all emissions before 1 will just be emitted as normal countdowns. At second count 1, we want to create the race on the server, receiving back
+                 * a response and emitting the second 1. If the response is successful, we'll then emit second 4 (display second GO) from here and immediately try emit the selected race.
+                 * At this point, the User can actually move without being disqualified.
                  */
                 race is RaceState.StartingRace -> {
                     try {
-                        if(race.currentSecond == 3) {
+                        if(race.currentSecond == 1) {
                             // We require a current location to continue. Disqualify the countdown if this does not exist.
                             val location: PlayerPosition = currentLocation.value
                                 ?: throw NoLocationException()
-                            // Current second is 3, just before GO. This is where we'll send for a new race and emit the result to the  mutable state flow for ongoing race UID.
+                            // Current second is 1, just before GO. This is where we'll send for a new race and emit the result to the mutable state flow for ongoing race UID.
                             Timber.d("Requesting to begin the new race NOW!")
-                            // TODO: request start a new race with location above as startLocation and countdownLocation as given by the starting race object.
-                            // TODO: do this async so as to not block our countdown logic.
-                            // Create a new request to start a race.
+                            // Create a new request to start a race, with the desired track and vehicle.
                             val requestStartRace = RequestStartRace(
-                                resource.data!!.track.trackUid,
+                                race.trackUid,
+                                race.vehicleUid,
                                 RequestPlayerUpdate(location),
                                 RequestPlayerUpdate(race.countdownLocation)
                             )
                             // Now execute the actual request in a separate coroutine.
-                            // TODO: execute in separate coroutine, for now, we'll just run it here.
-                            val startRaceResult = sendStartRaceRequestUseCase(
-                                requestStartRace
-                            )
-                            // TODO: handle race result letting us know server failed to start a race for us.
+                            val startRaceResult = sendStartRaceRequestUseCase(requestStartRace)
                             if(!startRaceResult.isStarted) {
-                                throw NotImplementedError("WorldMapRaceViewModel failed to start race with server, and this is not handled.")
+                                throw StartRaceFailedException(startRaceResult.socketError!!)
                             }
-                            // Now, immediately emit second 3.
+                            // Now, immediately emit second 1.
                             emit(
                                 WorldMapRaceUiState.CountingDown(
-                                    3,
+                                    1,
                                     race.countdownLocation,
                                     resource.data!!.track,
                                     resource.data!!.path!!
@@ -338,16 +330,16 @@ class WorldMapRaceViewModel @Inject constructor(
                             )
                             // Delay for 1000 ms.
                             delay(1000)
-                            // Now, emit second 4 and the race UID at the same time.
+                            // Now, emit second 0 (display second GO) and the race UID at the same time.
                             emit(
                                 WorldMapRaceUiState.CountingDown(
-                                    4,
+                                    0,
                                     race.countdownLocation,
                                     resource.data!!.track,
                                     resource.data!!.path!!
                                 )
                             )
-                            // Now try emit the ongoing race's UID.
+                            // Now try emit the ongoing race's UID, this will cause the race UID to be mapped to the actual Race instance.
                             mutableOngoingRaceUid.tryEmit(startRaceResult.race!!.raceUid)
                         } else {
                             // Always emit the current second as a countdown update.
@@ -364,28 +356,32 @@ class WorldMapRaceViewModel @Inject constructor(
                         Timber.d("Cancelling countdown because no current location when race being created!")
                         emit(WorldMapRaceUiState.Loading)
                         // Emit a cancel race state to our mutable new race intent with reason no location.
-                        mutableNewRaceIntentState.value = NewRaceIntentState.CancelRace(
-                            NewRaceIntentState.CancelRace.CANCEL_RACE_REASON_NO_LOCATION
+                        mutableNewRaceIntentState.value = NewRaceIntentState.CancelRaceStart(
+                            CANCEL_RACE_REASON_NO_LOCATION
                         )
                     } catch(srfe: StartRaceFailedException) {
                         Timber.d("Cancelling countdown server informed us race could not be started!")
                         emit(WorldMapRaceUiState.Loading)
                         // Emit a cancel race state to our mutable new race intent with reason server refused and pass the resource error along.
-                        // TODO: modify both server and client to support the returning of an actual resource error, for now, we'll raise not implemented.
-                        mutableNewRaceIntentState.value = NewRaceIntentState.CancelRace(
-                            CANCEL_RACE_SERVER_REFUSED
+                        mutableNewRaceIntentState.value = NewRaceIntentState.CancelRaceStart(
+                            CANCEL_RACE_SERVER_REFUSED,
+                            srfe.socketError
                         )
                     } catch(e: Exception) {
                         Timber.e(e)
+                        // TODO: For all other exceptions, throw not impl
+                        throw NotImplementedError()
                     }
                 }
 
                 /**
-                 * There is no race ongoing or starting. Simply present the start line state.
+                 * There is no race ongoing or starting. Simply present the start line state. This is how we will also request that the User select a vehicle to use
+                 * from the given vehicles list.
                  */
                 race is RaceState.NoRace ->
                     emit(
                         WorldMapRaceUiState.OnStartLine(
+                            vehiclesResource.data!!.vehicles,
                             startLine,
                             resource.data!!.track,
                             resource.data!!.path!!
@@ -454,14 +450,16 @@ class WorldMapRaceViewModel @Inject constructor(
      * delays each lasting one second will execute. Between each, a new counting down state will be emitted.
      */
     fun startRace(
+        chosenVehicle: Vehicle,
         track: Track,
-        trackPath: TrackPath,
         countdownPosition: PlayerPosition
     ) {
         viewModelScope.launch {
             // Emit a new countdown state to the mutable start countdown flow.
             mutableNewRaceIntentState.emit(
                 NewRaceIntentState.NewCountdown(
+                    track.trackUid,
+                    chosenVehicle.vehicleUid,
                     countdownPosition
                 )
             )
@@ -471,7 +469,7 @@ class WorldMapRaceViewModel @Inject constructor(
     /**
      * Cancel the ongoing race. If the countdown has only started, this will simply abort the countdown. Otherwise, this will cancel the race with the server.
      */
-    fun cancelOngoingRace() {
+    fun cancelRace() {
         viewModelScope.launch {
             // Emit a loading state to close down the UI.
             mutableWorldMapRaceUiState.emit(WorldMapRaceUiState.Loading)
@@ -489,7 +487,7 @@ class WorldMapRaceViewModel @Inject constructor(
                  * If we are currently starting a race, simply emit a cancel state to the mutable race intent.
                  */
                 is RaceState.StartingRace ->
-                    mutableNewRaceIntentState.value = NewRaceIntentState.CancelRace(
+                    mutableNewRaceIntentState.value = NewRaceIntentState.CancelRaceStart(
                         CANCELLED_BY_USER
                     )
 
@@ -511,5 +509,12 @@ class WorldMapRaceViewModel @Inject constructor(
         mutableNewRaceIntentState.tryEmit(
             NewRaceIntentState.Idle
         )
+    }
+
+    companion object {
+        const val CANCEL_RACE_REASON_NO_LOCATION = "no-location"
+        const val CANCEL_RACE_SERVER_REFUSED = "server-refused"
+        const val CANCEL_FALSE_START = "start-point-not-perfect"
+        const val CANCELLED_BY_USER = "cancelled-by-user"
     }
 }

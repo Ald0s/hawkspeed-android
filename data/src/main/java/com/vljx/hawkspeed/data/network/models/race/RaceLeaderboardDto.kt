@@ -3,8 +3,9 @@ package com.vljx.hawkspeed.data.network.models.race
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.vljx.hawkspeed.data.network.models.user.UserDto
+import com.vljx.hawkspeed.data.network.models.vehicle.VehicleDto
 
-data class RaceOutcomeDto(
+data class RaceLeaderboardDto(
     @Expose
     @SerializedName("race_uid")
     val raceUid: String,
@@ -28,6 +29,10 @@ data class RaceOutcomeDto(
     @Expose
     @SerializedName("player")
     val player: UserDto,
+
+    @Expose
+    @SerializedName("vehicle")
+    val vehicle: VehicleDto,
 
     @Expose
     @SerializedName("track_uid")

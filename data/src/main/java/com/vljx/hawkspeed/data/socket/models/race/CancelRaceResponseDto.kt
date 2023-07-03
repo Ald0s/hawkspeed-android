@@ -9,6 +9,6 @@ data class CancelRaceResponseDto(
     val race: RaceUpdateDto?,
 
     @Expose
-    @SerializedName("reason_code")
-    val reasonCode: String?
+    @SerializedName("cancellation_reason")
+    val cancellationReason: String?
 )

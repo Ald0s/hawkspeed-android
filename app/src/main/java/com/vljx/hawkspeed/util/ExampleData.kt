@@ -7,6 +7,7 @@ import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.track.TrackPoint
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 
 /**
  * TODO: exclude this entire file from production code.
@@ -44,6 +45,17 @@ object ExampleData {
             privilege,
             isBot,
             isYou
+        )
+
+    fun getExampleVehicle(
+        vehicleUid: String = "VEHICLE01",
+        text: String = "1994 Toyota Supra",
+        belongsToYou: Boolean = true
+    ): Vehicle =
+        Vehicle(
+            vehicleUid,
+            text,
+            belongsToYou
         )
 
     fun getExampleTrack(
@@ -99,8 +111,8 @@ object ExampleData {
 
     ): List<RaceLeaderboard> =
         listOf(
-            RaceLeaderboard("RACE01", finishingPlace = 1, 1000, 100, 26450, User("USER01", "aldos", 0, false, true), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE01", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE01", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), "YARRABOULEVARD")
+            RaceLeaderboard("RACE01", finishingPlace = 1, 1000, 100, 26450, User("USER01", "aldos", 0, false, true), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE01", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE01", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD")
         )
 }

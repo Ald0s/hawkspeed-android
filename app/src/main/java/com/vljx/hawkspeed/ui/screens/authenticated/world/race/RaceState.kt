@@ -19,6 +19,8 @@ sealed class RaceState {
      * A state that communicates the progress of a start race attempt.
      */
     data class StartingRace(
+        val trackUid: String,
+        val vehicleUid: String,
         val currentSecond: Int,
         val countdownLocation: PlayerPosition
     ): RaceState()

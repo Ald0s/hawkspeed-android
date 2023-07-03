@@ -36,6 +36,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
@@ -45,6 +46,7 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.ui.dialogs.trackpreview.TrackPreviewDialog
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldObjectsUiState
+import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ThirdParty
@@ -75,16 +77,11 @@ fun WorldMapStandardMode(
     var lastLocation: PlayerPosition by remember { mutableStateOf<PlayerPosition>(currentLocation ?: standardMode.location) }
     // Remember a mutable state for the track UID of the track we wish to preview. Default null meaning nothing to preview.
     var previewingTrackUid: String? by remember { mutableStateOf(null) }
-    val cameraPositionState = rememberCameraPositionState {
-        // Center the camera initially over our first location, which is provided by the standard mode state.
-        position = CameraPosition.fromLatLngZoom(
-            LatLng(standardMode.location.latitude, standardMode.location.longitude),
-            15f
-        )
-    }
+    // Remember a TrackWithPath for the track to preview.
+    var previewingTrack: TrackWithPath? by remember { mutableStateOf(null) }
     // Update last location to current location if current location is not null.
     if(currentLocation != null) {
-        // TODO: movement animation here for last location to current location.
+        // TODO: movement animation here for the marker when the Player has moved.
         lastLocation = currentLocation
     }
     Scaffold(
@@ -108,20 +105,40 @@ fun WorldMapStandardMode(
             modifier = Modifier
                 .padding(paddingValues)
         ) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(
+            val uiSettings by remember {
+                mutableStateOf(MapUiSettings(
+                    myLocationButtonEnabled = false,
+                    indoorLevelPickerEnabled = false,
+                    mapToolbarEnabled = false,
+                    zoomControlsEnabled = false
+                ))
+            }
+            val mapProperties by remember {
+                mutableStateOf(MapProperties(
+                    isBuildingEnabled = false,
+                    isIndoorEnabled = false,
+                    isMyLocationEnabled = false,
                     mapStyleOptions = componentActivity?.let { activity ->
                         MapStyleOptions.loadRawResourceStyle(
                             activity,
                             R.raw.worldstyle
                         )
                     }
-                ),
-                uiSettings = MapUiSettings(
-                    zoomControlsEnabled = false
-                ),
+                ))
+            }
+            val cameraPositionState = rememberCameraPositionState {
+                // Center the camera initially over our first location, which is provided by the standard mode state.
+                position = CameraPosition.fromLatLngZoom(
+                    LatLng(standardMode.location.latitude, standardMode.location.longitude),
+                    15f
+                )
+            }
+
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = mapProperties,
+                uiSettings = uiSettings,
                 onMapClick = { latLng ->
                     onMapClicked?.invoke(latLng)
                 }
@@ -137,15 +154,17 @@ fun WorldMapStandardMode(
                         onBoundingBoxChanged?.let { it(visibleRegion, cameraPositionState.position.zoom) }
                     }
                 }
-                // Now, move the camera to follow the Player, but only if should follow player is true, and previewing track UID is null.
+                // Draw the current User to the map, we will use the last location here.
+                DrawCurrentPlayer(playerPosition = lastLocation)
+                // Now, move the camera to follow the Player, but only if should follow player is true and we aren't previewing a track.
                 if(shouldFollowPlayer && previewingTrackUid == null) {
                     cameraPositionState.move(
-                        CameraUpdateFactory.newLatLngZoom(
-                            LatLng(lastLocation.latitude, lastLocation.longitude),
-                            15f
+                        lastLocation.toFollowCameraUpdate(
+                            zoom = 18f
                         )
                     )
-                } else if(previewingTrackUid != null) {
+                } else if(previewingTrack != null) {
+                    // We have a previewing track, which means animation is complete. So show the dialog.
                     TrackPreviewDialog(
                         previewingTrackUid!!,
                         onRaceModeClicked = { onRaceModeClicked?.invoke(it) },
@@ -155,20 +174,11 @@ fun WorldMapStandardMode(
                         onDismiss = {
                             // When dismiss clicked, we'll set previewing track to null.
                             previewingTrackUid = null
+                            previewingTrack = null
                         }
                     )
                 }
-                // Draw the current User to the map, we will use the last location here.
-                Marker(
-                    state = MarkerState(
-                        position = LatLng(
-                            lastLocation.latitude,
-                            lastLocation.longitude
-                        )
-                    ),
-                    rotation = lastLocation.rotation,
-                    icon = ThirdParty.vectorToBitmap(LocalContext.current, R.drawable.ic_car_side, MaterialTheme.colorScheme.primary)
-                )
+                // Now, draw world objects to the map based on world objects state.
                 when(worldObjectsUi) {
                     is WorldObjectsUiState.GotWorldObjects -> {
                         // Draw world objects to the map.
@@ -207,12 +217,10 @@ fun WorldMapStandardMode(
                                 // Now, check the identity of the Track being viewed, if that is not null and is equal to this track with path, we will animate the camera
                                 // to center around the entire track.
                                 if(previewingTrackUid == trackWithPath.track.trackUid) {
-                                    // Get the path's bounding box.
-                                    val trackBoundingBox = trackPath.getBoundingBox()
                                     // Open a new launched effect here that will key off the track UID being previewed.
                                     LaunchedEffect(key1 = previewingTrackUid, block = {
-                                        // TODO: delete debug message.
-                                        Timber.d("Moving camera to focus on track.")
+                                        // Get the path's bounding box.
+                                        val trackBoundingBox = trackPath.getBoundingBox()
                                         // Animate the camera
                                         cameraPositionState.animate(
                                             CameraUpdateFactory.newLatLngBounds(
@@ -222,8 +230,10 @@ fun WorldMapStandardMode(
                                                 ),
                                                 25
                                             ),
-                                            2500
+                                            500
                                         )
+                                        // After animating, set the previewed track.
+                                        previewingTrack = trackWithPath
                                     })
                                 }
                             }

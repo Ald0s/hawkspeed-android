@@ -6,19 +6,19 @@ import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
 import javax.inject.Inject
 
 class CancelRaceResultMapper @Inject constructor(
-    private val raceUpdateMapper: RaceUpdateMapper
+    private val raceMapper: RaceMapper
 ): Mapper<CancelRaceResultModel, CancelRaceResult> {
     override fun mapFromData(model: CancelRaceResultModel): CancelRaceResult {
         return CancelRaceResult(
-            model.race?.let { raceUpdateMapper.mapFromData(it) },
-            model.reasonCode
+            model.race?.let { raceMapper.mapFromData(it) },
+            model.cancellationReason
         )
     }
 
     override fun mapToData(domain: CancelRaceResult): CancelRaceResultModel {
         return CancelRaceResultModel(
-            domain.race?.let { raceUpdateMapper.mapToData(it) },
-            domain.reasonCode
+            domain.race?.let { raceMapper.mapToData(it) },
+            domain.cancellationReason
         )
     }
 }

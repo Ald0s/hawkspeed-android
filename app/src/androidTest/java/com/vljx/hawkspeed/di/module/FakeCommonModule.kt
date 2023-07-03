@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed
+package com.vljx.hawkspeed.di.module
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder

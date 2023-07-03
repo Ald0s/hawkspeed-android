@@ -1,5 +1,7 @@
 package com.vljx.hawkspeed.domain.models.race
 
+// TODO: deprecate this?
+@Deprecated("Please use Race domain model instead.")
 data class RaceUpdate(
     val raceUid: String,
     val trackUid: String,

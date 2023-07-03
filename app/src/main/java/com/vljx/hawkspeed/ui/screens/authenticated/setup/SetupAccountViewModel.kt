@@ -7,6 +7,7 @@ import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.account.CheckName
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestSetupProfile
+import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
 import com.vljx.hawkspeed.domain.usecase.account.CheckNameUseCase
 import com.vljx.hawkspeed.domain.usecase.account.SetupAccountProfileUseCase
 import com.vljx.hawkspeed.ui.component.InputValidationResult
@@ -176,7 +177,7 @@ class SetupAccountViewModel @Inject constructor(
             // Now, perform the creation request, emitting all results to our mutable shared state.
             mutableSetupAccountUiState.emitAll(
                 setupAccountProfileUseCase(
-                    RequestSetupProfile(username, vehicleInformation, bio)
+                    RequestSetupProfile(username, RequestCreateVehicle(vehicleInformation), bio)
                 ).map { accountResource ->
                     when(accountResource.status) {
                         Resource.Status.SUCCESS -> SetupAccountUiState.AccountSetup(accountResource.data!!)

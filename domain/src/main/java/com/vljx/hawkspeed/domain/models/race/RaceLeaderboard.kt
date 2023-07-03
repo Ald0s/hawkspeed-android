@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.domain.models.race
 
 import android.os.Parcelable
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 
@@ -13,6 +14,7 @@ data class RaceLeaderboard(
     val finished: Long,
     val stopwatch: Int,
     val player: User,
+    val vehicle: Vehicle,
     val trackUid: String
 ): Parcelable {
     // TODO: finish pretty time.

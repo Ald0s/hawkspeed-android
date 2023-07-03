@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 
 @Composable
 fun AuthenticatedMainScreen(
@@ -50,4 +51,6 @@ fun AuthenticatedMainScreen(
             // Nothing to do here, this just catches idle state.
         }
     }
+    // Call the loading composable here.
+    LoadingScreen()
 }

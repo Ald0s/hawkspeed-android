@@ -1,3 +1,7 @@
 package com.vljx.hawkspeed.domain.exc.race
 
-class StartRaceFailedException: Exception()
+import com.vljx.hawkspeed.domain.ResourceError
+
+class StartRaceFailedException(
+    val socketError: ResourceError.SocketError?
+): Exception()

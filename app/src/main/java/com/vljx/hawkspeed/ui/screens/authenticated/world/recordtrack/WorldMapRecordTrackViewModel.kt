@@ -52,7 +52,7 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     /**
      * A mutable shared flow for the required track draft state. Emit to this flow to control the track being edited/recorded.
      */
-    private val mutableSelectedTrackDraft: MutableSharedFlow<SelectTrackDraftState> = MutableSharedFlow(
+    private val mutableSelectedTrackDraftState: MutableSharedFlow<SelectTrackDraftState> = MutableSharedFlow(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
@@ -78,15 +78,17 @@ class WorldMapRecordTrackViewModel @Inject constructor(
         getCurrentLocationUseCase(Unit)
 
     /**
-     *
+     * Flat map the latest emissions from our selected track draft flow. If the selected state is an intent to create a track draft, return a flow for a new track draft
+     * with points, and emit this as a NewTrack intent state to the selected track draft state. Otherwise, simply emit a flow to query whichever track draft is selected
+     * from cache.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val trackDraftWithPoints: Flow<TrackDraftWithPoints> =
-        mutableSelectedTrackDraft.flatMapLatest { selectTrackDraftState ->
+        mutableSelectedTrackDraftState.flatMapLatest { selectTrackDraftState ->
             when(selectTrackDraftState) {
                 is SelectTrackDraftState.CreateTrackDraft -> {
                     newTrackDraftUseCase(Unit).onEach {
-                        mutableSelectedTrackDraft.emit(SelectTrackDraftState.SelectTrackDraft(it.trackDraftId))
+                        mutableSelectedTrackDraftState.emit(SelectTrackDraftState.SelectTrackDraft(it.trackDraftId))
                         mutableWorldMapRecordTrackUiState.emit(
                             WorldMapRecordTrackUiState.NewTrack(it)
                         )
@@ -135,14 +137,11 @@ class WorldMapRecordTrackViewModel @Inject constructor(
                     )
                 )
             )
-            // TODO: remove debug message.
-            Timber.d("Saved point to track draft Id ${latestTrackDraft.trackDraftId}, now contains ${latestTrackDraft.pointDrafts.size} points.")
             emit(latestTrackDraft)
         }
 
     /**
-     * The UI state for the track recording. This is a combination of the track draft, recording indicator and the current location. This flow will combine
-     * the is recording flow, the latest track draft with points flow.
+     * A flow for the UI state of the track recorder. This will combine the 'is recording' flow and the track draft with the latest recorded point.
      */
     private val worldMapRecordTrackUiState: Flow<WorldMapRecordTrackUiState> =
         combine(
@@ -197,7 +196,7 @@ class WorldMapRecordTrackViewModel @Inject constructor(
      */
     fun newTrack() {
         viewModelScope.launch {
-            mutableSelectedTrackDraft.emit(
+            mutableSelectedTrackDraftState.emit(
                 SelectTrackDraftState.CreateTrackDraft
             )
         }

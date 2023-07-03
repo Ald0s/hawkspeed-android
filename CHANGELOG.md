@@ -31,3 +31,13 @@
 * Added various icons,
 * Progressed overall UI,
 * Updated README.
+
+## Version 1.10.10
+* Added Vehicle model and inserted where applicable in race leaderboard results,
+* Added Vehicle repository and data sources,
+* Added vehicle selection availability to race view model, and as requirement for requesting a new race,
+* Handled various race start fail cases,
+* Improved world map UIs,
+* Added support for installation-unique identifier when requesting join to world,
+* Began implementing error management in world socket state,
+* Pruned comments.

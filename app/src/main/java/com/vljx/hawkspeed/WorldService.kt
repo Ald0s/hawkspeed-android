@@ -352,6 +352,7 @@ class WorldService: Service() {
     companion object {
         fun newLocationRequest(): LocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateIntervalMillis(5000)
+            .setMinUpdateDistanceMeters(5f)
             .build()
 
         const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"

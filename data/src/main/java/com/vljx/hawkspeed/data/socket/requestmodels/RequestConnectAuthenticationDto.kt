@@ -5,6 +5,10 @@ import com.google.gson.annotations.SerializedName
 
 data class RequestConnectAuthenticationDto(
     @Expose
+    @SerializedName("device_fid")
+    val deviceIdentifier: String,
+
+    @Expose
     @SerializedName("latitude")
     val latitude: Double,
 
