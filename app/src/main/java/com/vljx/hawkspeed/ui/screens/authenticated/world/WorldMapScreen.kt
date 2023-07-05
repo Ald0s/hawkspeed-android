@@ -2,12 +2,15 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world
 
 import android.content.Intent
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,8 +37,6 @@ fun WorldMapScreen(
     onViewCurrentProfileClicked: (String) -> Unit,
     onViewUserDetail: (User) -> Unit,
     onViewTrackDetail: (Track) -> Unit,
-    onViewTrackComments: (Track, Boolean) -> Unit,
-    onViewTrackLeaderboard: (Track) -> Unit,
     onSetupTrackDetails: (TrackDraftWithPoints) -> Unit,
 
     worldMapViewModel: WorldMapViewModel = hiltViewModel(),
@@ -83,11 +84,7 @@ fun WorldMapScreen(
                 },
                 onViewUserDetail = onViewUserDetail,
                 onViewTrackDetail = onViewTrackDetail,
-                onViewTrackComments = onViewTrackComments,
-                onViewTrackLeaderboard = onViewTrackLeaderboard,
-                onBoundingBoxChanged = { boundingBox, zoom ->
-                    worldMapViewModel.updateViewport(boundingBox, zoom)
-                },
+                onBoundingBoxChanged = worldMapViewModel::updateViewport,
                 onTrackMarkerClicked = { marker, track ->
                     // When a track marker has been clicked, use the world map view model to download the desired track's full path.
                     worldMapViewModel.downloadTrack(track)
@@ -130,7 +127,29 @@ fun WorldMapScreen(
         }
         is WorldMapUiState.Loading -> {
             // Setup the loading composable.
-            Loading()
+            LoadingScreen()
+        }
+        is WorldMapUiState.NoLocation -> {
+            // Setup the loading composable.
+            LoadingScreen(R.string.world_map_loading_location)
+            // Permission and settings are both OK, but we have received location failure because current location (state flow) has emitted null. This
+            // potentially means world service requires a (re)start.
+            // TODO: should I use a launched effect? If we get spammed with below timber message, yes.
+            Timber.d("Requesting (RE)START of World Service via start command.")
+            // Build an intent for world service using above activity context, then start service foreground.
+            val worldServiceIntent = Intent(activityContext, WorldService::class.java)
+            activityContext.startForegroundService(worldServiceIntent)
+        }
+        is WorldMapUiState.NotConnected -> {
+            // Setup the loading composable.
+            LoadingScreen(R.string.world_map_loading_connecting)
+            // When we're not connected, this can be an indication or an error; differentiated by whether the resource error is null or not.
+            val notConnected: WorldMapUiState.NotConnected = worldMapUiState as WorldMapUiState.NotConnected
+            // We're not connected to server, but can be. Use the provided location to join the world.
+            worldMapViewModel.joinWorld(
+                notConnected.gameSettings,
+                notConnected.location
+            )
         }
         is WorldMapUiState.PermissionOrSettingsFailure -> {
             // Could not load map due to permissions or settings, call that composable.
@@ -151,28 +170,6 @@ fun WorldMapScreen(
             val gameSettingsFailure = worldMapUiState as WorldMapUiState.GameSettingsFailure
             GameSettingsIssue(
                 gameSettings = gameSettingsFailure.gameSettings
-            )
-        }
-        is WorldMapUiState.NoLocation -> {
-            // Setup the loading composable.
-            Loading(R.string.world_map_loading_location)
-            // Permission and settings are both OK, but we have received location failure because current location (state flow) has emitted null. This
-            // potentially means world service requires a (re)start.
-            // TODO: should I use a launched effect? If we get spammed with below timber message, yes.
-            Timber.d("Requesting (RE)START of World Service via start command.")
-            // Build an intent for world service using above activity context, then start service foreground.
-            val worldServiceIntent = Intent(activityContext, WorldService::class.java)
-            activityContext.startForegroundService(worldServiceIntent)
-        }
-        is WorldMapUiState.NotConnected -> {
-            // Setup the loading composable.
-            Loading(R.string.world_map_loading_connecting)
-            // When we're not connected, this can be an indication or an error; differentiated by whether the resource error is null or not.
-            val notConnected: WorldMapUiState.NotConnected = worldMapUiState as WorldMapUiState.NotConnected
-            // We're not connected to server, but can be. Use the provided location to join the world.
-            worldMapViewModel.joinWorld(
-                notConnected.gameSettings,
-                notConnected.location
             )
         }
         is WorldMapUiState.ConnectionFailure -> {
@@ -210,15 +207,6 @@ fun WorldMapScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     })
-}
-
-@Composable
-fun Loading(
-    @StringRes loadingStringResId: Int = R.string.world_map_loading
-) {
-    LoadingScreen(
-        loadingResId = loadingStringResId
-    )
 }
 
 @Composable

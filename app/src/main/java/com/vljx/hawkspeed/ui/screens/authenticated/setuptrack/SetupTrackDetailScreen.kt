@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 
@@ -38,4 +39,19 @@ fun SetupTrackDetailScreen(
         }
     }
     // TODO: create a form composable for this screen.
+}
+
+@Composable
+fun SetupTrackDetail(
+
+) {
+
+}
+
+@Preview
+@Composable
+fun PreviewSetupTrackDetail(
+
+) {
+
 }

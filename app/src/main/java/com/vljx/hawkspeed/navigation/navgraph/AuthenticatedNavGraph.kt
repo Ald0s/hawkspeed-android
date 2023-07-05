@@ -85,21 +85,11 @@ object UserDetailDestination: AppDestination("user_detail_destination") {
  */
 object TrackDetailDestination: AppDestination("track_detail_destination") {
     const val trackUidArg = "trackUid"
-    const val viewLeaderboard = "shouldViewLeaderboard"
-    const val wantsToComment = "wantsToComment"
-    val routeWithArgs = "$route/{${trackUidArg}}/{${viewLeaderboard}}/{${wantsToComment}}"
+    val routeWithArgs = "$route/{${trackUidArg}}"
 
     val arguments = listOf(
         navArgument(trackUidArg) {
             type = NavType.StringType
-            nullable = false
-        },
-        navArgument(viewLeaderboard) {
-            type = NavType.BoolType
-            nullable = false
-        },
-        navArgument(wantsToComment) {
-            type = NavType.BoolType
             nullable = false
         }
     )
@@ -217,18 +207,6 @@ fun NavGraphBuilder.authenticatedNavGraph(
                     // Navigate to track detail, with the given track's UID, and false for both viewing leaderboard and wanting to comment.
                     navHostController.navigate(
                         TrackDetailDestination.withArgs(track.trackUid, false, false)
-                    )
-                },
-                onViewTrackComments = { track, wantsToComment ->
-                    // Navigate to track detail, with the given track's UID, false for viewing leaderboard but wantsToComment for wanting to comment.
-                    navHostController.navigate(
-                        TrackDetailDestination.withArgs(track.trackUid, false, wantsToComment)
-                    )
-                },
-                onViewTrackLeaderboard = { track ->
-                    // Navigate to track detail, with the given track's UID, true for viewing leaderboard and false for wants to comment.
-                    navHostController.navigate(
-                        TrackDetailDestination.withArgs(track.trackUid, true, false)
                     )
                 },
                 onSetupTrackDetails = { trackDraftId ->

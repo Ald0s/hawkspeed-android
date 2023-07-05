@@ -3,6 +3,9 @@ package com.vljx.hawkspeed.ui.screens.authenticated.trackdetail
 import androidx.activity.ComponentActivity
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.scrollable
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items as arrItems
 import androidx.compose.foundation.pager.HorizontalPager
@@ -29,6 +33,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CardElevation
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -220,6 +225,7 @@ fun TrackPathOverview(
             15f
         )
     }
+    var isMapLoaded by remember { mutableStateOf<Boolean>(false) }
 
     Card(
         elevation = CardDefaults.cardElevation(
@@ -230,46 +236,67 @@ fun TrackPathOverview(
             .fillMaxWidth(0.6f)
             .padding(bottom = 24.dp)
     ) {
-        // We will draw a Google Map composable, with position locked on the track's path above. And some padding, too.
-        GoogleMap(
+        Column(
             modifier = Modifier
-                .fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(
-                mapStyleOptions = componentActivity?.let { activity ->
-                    MapStyleOptions.loadRawResourceStyle(
-                        activity,
-                        R.raw.worldstyle
+                .fillMaxSize()
+        ) {
+            // We will draw a Google Map composable, with position locked on the track's path above. And some padding, too.
+            GoogleMap(
+                modifier = Modifier
+                    .fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = MapProperties(
+                    mapStyleOptions = componentActivity?.let { activity ->
+                        MapStyleOptions.loadRawResourceStyle(
+                            activity,
+                            R.raw.worldstyle
+                        )
+                    }
+                ),
+                uiSettings = MapUiSettings(
+                    rotationGesturesEnabled = false,
+                    scrollGesturesEnabled = false,
+                    tiltGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    zoomControlsEnabled = false
+                ),
+                onMapLoaded = {
+                    // When map is loaded, cause a change to the camera such that we move to the track path's bounds.
+                    val boundingBox: BoundingBox = trackPath.getBoundingBox()
+                    cameraPositionState.move(
+                        CameraUpdateFactory.newLatLngBounds(
+                            LatLngBounds(
+                                LatLng(boundingBox.southWest.latitude, boundingBox.southWest.longitude),
+                                LatLng(boundingBox.northEast.latitude, boundingBox.northEast.longitude)
+                            ),
+                            25
+                        )
                     )
+                    isMapLoaded = true
                 }
-            ),
-            uiSettings = MapUiSettings(
-                rotationGesturesEnabled = false,
-                scrollGesturesEnabled = false,
-                tiltGesturesEnabled = false,
-                zoomGesturesEnabled = false,
-                zoomControlsEnabled = false
-            ),
-            onMapLoaded = {
-                // When map is loaded, cause a change to the camera such that we move to the track path's bounds.
-                val boundingBox: BoundingBox = trackPath.getBoundingBox()
-                cameraPositionState.move(
-                    CameraUpdateFactory.newLatLngBounds(
-                        LatLngBounds(
-                            LatLng(boundingBox.southWest.latitude, boundingBox.southWest.longitude),
-                            LatLng(boundingBox.northEast.latitude, boundingBox.northEast.longitude)
-                        ),
-                        25
-                    )
+            ) {
+                // Draw the race track.
+                DrawRaceTrack(
+                    track = track,
+                    trackPath = trackPath
                 )
             }
-        ) {
-            // Draw the race track.
-            DrawRaceTrack(
-                points = trackPath.points.map {
-                    LatLng(it.latitude, it.longitude)
+            // If map is not yet loaded, overlay an animated visibility over the top.
+            if(!isMapLoaded) {
+                AnimatedVisibility(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    visible = true,
+                    enter = EnterTransition.None,
+                    exit = fadeOut()
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.background)
+                            .wrapContentSize()
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -541,7 +568,7 @@ fun TrackDetailPaginationPlaceholder(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackDetail(
 
@@ -560,7 +587,7 @@ fun PreviewTrackDetail(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackTabHost(
 
@@ -576,7 +603,7 @@ fun PreviewTrackTabHost(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackOverview(
 
@@ -584,7 +611,7 @@ fun PreviewTrackOverview(
 
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackLeaderboard(
 
@@ -604,7 +631,7 @@ fun PreviewTrackLeaderboard(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewRaceLeaderboardItem(
     
@@ -616,7 +643,7 @@ fun PreviewRaceLeaderboardItem(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackReviews(
 
@@ -624,7 +651,7 @@ fun PreviewTrackReviews(
 
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewTrackDetailPaginationPlaceholder(
 

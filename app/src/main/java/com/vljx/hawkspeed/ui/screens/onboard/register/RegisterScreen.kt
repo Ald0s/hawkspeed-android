@@ -183,7 +183,7 @@ fun RegisterFormUi(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewRegisterFormUi(
 

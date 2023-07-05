@@ -12,16 +12,22 @@ import com.vljx.hawkspeed.util.ThirdParty
 
 @Composable
 fun DrawCurrentPlayer(
-    playerPosition: PlayerPosition
+    newPlayerPosition: PlayerPosition,
+    oldPlayerPosition: PlayerPosition?,
+    isFollowing: Boolean = false
 ) {
+    /**
+     * TODO: if new player position and old player position are both given, and are different, animate a change between old player
+     * TODO position and new player position.
+     */
     Marker(
         state = MarkerState(
             position = LatLng(
-                playerPosition.latitude,
-                playerPosition.longitude
+                newPlayerPosition.latitude,
+                newPlayerPosition.longitude
             )
         ),
-        rotation = playerPosition.rotation,
+        rotation = newPlayerPosition.rotation,
         icon = ThirdParty.vectorToBitmap(LocalContext.current, R.drawable.ic_car_side, MaterialTheme.colorScheme.primary)
     )
 }

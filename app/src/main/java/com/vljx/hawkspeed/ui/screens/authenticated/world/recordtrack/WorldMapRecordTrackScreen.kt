@@ -1,15 +1,26 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -17,9 +28,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -30,6 +48,7 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.FOLLOW_PLAYER_ZOOM
 import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
@@ -37,16 +56,15 @@ import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
+import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
+import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrackDraft
+import com.vljx.hawkspeed.ui.screens.common.SheetControls
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.Extension.getActivity
+import kotlinx.coroutines.CoroutineScope
 import timber.log.Timber
 
-/**
- * TODO: world map is engaged in record track mode. Call a composable that will set the world up to focus in on the player's current location, lock the camera
- * TODO to follow the User, and show related overlay UI that allows User to record, pause, stop, reset the recording - and allows the User to finalise and submit
- * TODO: the new track.
- */
 @Composable
 fun WorldMapRecordTrackMode(
     recordTrackMode: WorldMapUiState.WorldMapLoadedRecordTrackMode,
@@ -140,11 +158,6 @@ fun RecordTrack(
     var shouldFollowPlayer by remember { mutableStateOf<Boolean>(true) }
     // Remember a track draft with points - the most up to date track and its draft points.
     var trackDraftWithPoints by remember { mutableStateOf<TrackDraftWithPoints?>(null) }
-    // Update last location to current location if current location is not null.
-    if(currentLocation != null) {
-        // TODO: movement animation here for last location to current location.
-        lastLocation = currentLocation
-    }
 
     when(worldMapRecordTrackUiState) {
         is WorldMapRecordTrackUiState.Recording -> {
@@ -192,49 +205,25 @@ fun RecordTrack(
         }
     }
 
-    Scaffold(
-        // TODO: in this scaffold, we should have a modal-type bottom dialog fragment with controls on it. For now, we'll test with a
-        // TODO low budget bottom app bar alongside buttons.
-        bottomBar = {
-            BottomAppBar {
-                // TODO: we need total distance for the track.
-                if(worldMapRecordTrackUiState is WorldMapRecordTrackUiState.Recording) {
-                    Button(onClick = { onStopRecordingClicked?.invoke() }) {
-                        Text(text = "Stop Recording")
-                    }
+    val sheetPeekHeight = 128
+    val sheetContentPadding = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
+    val scope = rememberCoroutineScope()
+    val scaffoldState = rememberBottomSheetScaffoldState(
+        bottomSheetState = SheetState(
+            skipPartiallyExpanded = false,
+            initialValue = SheetValue.PartiallyExpanded
+        )
+    )
 
-                    Button(onClick = { onCancelRecordingClicked?.invoke() }) {
-                        Text(text = "Cancel")
-                    }
-                } else if(worldMapRecordTrackUiState is WorldMapRecordTrackUiState.RecordedTrackOverview) {
-                    Button(
-                        onClick = {
-                            // Invoke on use track callback, which will cause recorded track to be used.
-                            onUseTrackClicked?.let {
-                                it(worldMapRecordTrackUiState.trackDraftWithPoints)
-                            }
-                        }
-                    ) {
-                        Text(text = "Use Track")
-                    }
-
-                    Button(onClick = { onResetTrackClicked?.invoke() }) {
-                        Text(text = "Reset Track")
-                    }
-
-                    Button(onClick = { onCancelRecordingClicked?.invoke() }) {
-                        Text(text = "Cancel")
-                    }
-                } else if(worldMapRecordTrackUiState is WorldMapRecordTrackUiState.NewTrack) {
-                    Button(onClick = { onStartRecordingClicked?.invoke() }) {
-                        Text(text = "Start Recording")
-                    }
-
-                    Button(onClick = { onCancelRecordingClicked?.invoke() }) {
-                        Text(text = "Cancel")
-                    }
-                }
-            }
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = (sheetPeekHeight + sheetContentPadding.calculateBottomPadding().value).dp,
+        sheetShadowElevation = 42.dp,
+        sheetDragHandle = { /* No drag handle. */ },
+        sheetSwipeEnabled = false,
+        sheetContent = {
+            // Call the most applicable content composable here for UI state.
+            // TODO
         }
     ) { paddingValues ->
         Box(
@@ -243,6 +232,10 @@ fun RecordTrack(
         ) {
             var uiSettings by remember {
                 mutableStateOf(MapUiSettings(
+                    compassEnabled = false,
+                    myLocationButtonEnabled = false,
+                    indoorLevelPickerEnabled = false,
+                    mapToolbarEnabled = false,
                     rotationGesturesEnabled = false,
                     scrollGesturesEnabled = false,
                     tiltGesturesEnabled = false,
@@ -267,10 +260,10 @@ fun RecordTrack(
             }
             // Remember a camera position state for manipulating camera.
             val cameraPositionState = rememberCameraPositionState {
-                // Center on the Player, with a close zoom such as 20f, as a default location.
+                // Center on the Player, with a close zoom such as FOLLOW_PLAYER_ZOOM, as a default location.
                 position = CameraPosition.fromLatLngZoom(
                     LatLng(lastLocation.latitude, lastLocation.longitude),
-                    20f
+                    FOLLOW_PLAYER_ZOOM
                 )
             }
             // Setup a Google map with all options set such that the Player can't adjust anything.
@@ -283,6 +276,15 @@ fun RecordTrack(
                     onMapClicked?.invoke(latLng)
                 }
             ) {
+                if(currentLocation != null) {
+                    // Draw the current Player to the map.
+                    DrawCurrentPlayer(
+                        newPlayerPosition = currentLocation,
+                        oldPlayerPosition = lastLocation,
+                        isFollowing = shouldFollowPlayer
+                    )
+                    lastLocation = currentLocation
+                }
                 // Start a new launched effect here that keys off should follow player.
                 LaunchedEffect(key1 = shouldFollowPlayer, key2 = trackDraftWithPoints, block = {
                     if(shouldFollowPlayer || (trackDraftWithPoints?.hasRecordedTrack == false)) {
@@ -292,8 +294,8 @@ fun RecordTrack(
                             500
                         )
                         mapProperties = mapProperties.copy(
-                            minZoomPreference = 20f,
-                            maxZoomPreference = 20f
+                            minZoomPreference = FOLLOW_PLAYER_ZOOM,
+                            maxZoomPreference = FOLLOW_PLAYER_ZOOM
                         )
                     } else if(trackDraftWithPoints != null) {
                         mapProperties = mapProperties.copy(
@@ -314,20 +316,75 @@ fun RecordTrack(
                         throw NotImplementedError("Failed to view world map race screen; not following player and there's no track or no track path. This is not handled.")
                     }
                 })
-
-                // If there is a track draft with points, draw it as a polyline to map.
-                if(trackDraftWithPoints != null) {
-                    trackDraftWithPoints?.apply {
-                        DrawRaceTrack(
-                            points = pointDrafts.map { trackPointDraft ->
-                                LatLng(trackPointDraft.latitude, trackPointDraft.longitude)
-                            }
-                        )
-                    }
+                trackDraftWithPoints?.let {
+                    DrawRaceTrackDraft(trackDraftWithPoints = it)
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordedTrackOverviewControls(
+    recordedTrackOverview: WorldMapRecordTrackUiState.RecordedTrackOverview,
+
+    onUseTrackClicked: ((TrackDraftWithPoints) -> Unit)? = null,
+    onResetTrackClicked: (() -> Unit)? = null,
+    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
+    scope: CoroutineScope = rememberCoroutineScope()
+) {
+    /**
+     * TODO: recorded track overview should be a partially expanded controls sheet, with buttons 'Use Track' and 'Reset Track', also some summary information about
+     * TODO: the new track like; num points, length etc?
+     */
+    SheetControls(
+        peekContent = {
+
+        },
+        expandedContent = { }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordingControls(
+    recording: WorldMapRecordTrackUiState.Recording,
+
+    onStopRecordingClicked: (() -> Unit)? = null,
+    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
+    scope: CoroutineScope = rememberCoroutineScope()
+) {
+    /**
+     * TODO: recording controls should be a partially expanded controls sheet, with buttons 'Stop Recording'. Also some ongoing summary info about the track being
+     * TODO: recorded.
+     */
+    SheetControls(
+        peekContent = {
+
+        },
+        expandedContent = { }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewTrackControls(
+    newTrack: WorldMapRecordTrackUiState.NewTrack,
+
+    onStartRecordingClicked: (() -> Unit)? = null,
+    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
+    scope: CoroutineScope = rememberCoroutineScope()
+) {
+    /**
+     * TODO: new track controls should be a partially expanded controls sheet, with buttons 'Start Recording'.
+     */
+    SheetControls(
+        peekContent = {
+
+        },
+        expandedContent = { }
+    )
 }
 
 @Composable
@@ -340,7 +397,7 @@ fun Loading(
     CircularProgressIndicator()
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewWorldMapRecordTrack(
 
@@ -364,4 +421,28 @@ fun PreviewWorldMapRecordTrack(
             )
         )
     }
+}
+
+@Preview
+@Composable
+fun PreviewRecordedTrackOverviewControls(
+
+) {
+
+}
+
+@Preview
+@Composable
+fun PreviewRecordingControls(
+
+) {
+
+}
+
+@Preview
+@Composable
+fun PreviewNewTrackControls(
+
+) {
+
 }

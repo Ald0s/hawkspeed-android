@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed.ui.dialogs.trackpreview
+package com.vljx.hawkspeed.ui.screens.dialogs.trackpreview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -85,9 +85,11 @@ class TrackPreviewViewModel @Inject constructor(
                             // Now, get the track.
                             val track: Track = resource.data!!
                             // Get the distance to the start point here.
-                            val distanceToStart: Float = track.distanceToStartPointFor(location.latitude, location.longitude)
+                            val distanceToStart: Float =
+                                track.distanceToStartPointFor(location.latitude, location.longitude)
                             // Determine whether orientation is correct.
-                            val isOrientationCorrect: Boolean = track.isOrientationCorrectFor(location.rotation)
+                            val isOrientationCorrect: Boolean =
+                                track.isOrientationCorrectFor(location.rotation)
                             Timber.d("Checking location: distance: ${distanceToStart}m, orientation: $isOrientationCorrect")
                             when {
                                 /**
@@ -132,7 +134,9 @@ class TrackPreviewViewModel @Inject constructor(
      * Publicise the track preview UI state and reconfigure it as a state flow.
      */
     val trackPreviewUiState: StateFlow<TrackPreviewUiState> =
-        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackPreviewUiState.Loading)
+        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(),
+            TrackPreviewUiState.Loading
+        )
 
     /**
      * Set the selected track's UID. This will cause the targeted track to be queried.

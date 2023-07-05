@@ -41,3 +41,12 @@
 * Added support for installation-unique identifier when requesting join to world,
 * Began implementing error management in world socket state,
 * Pruned comments.
+
+## Version 1.10.11
+* Collapsed multiple types of viewing race tracks into a composable,
+* Abstract-friendly way of previewing world objects,
+* Changed race+record camera to utilise a 'chase' mode instead of straight down,
+* Touched up various animations between camera modes,
+* Changed world map standard mode's UI to show world object previews in a modalbottomsheet instead of a modal dialog,
+* Changed race & record mode's UI to show their controls in a bottom sheet w/ bottomsheetscaffold,
+* Implemented basic controls on both race and record mode.

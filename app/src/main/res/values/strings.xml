@@ -49,6 +49,13 @@
     <string name="track_leaderboard">Leaderboard</string>
     <string name="track_reviews">Reviews</string>
     <string name="track_leaderboard_empty">There\'s no one on this leaderboard yet! Maybe you\'ll set the first time?</string>
-    <string name="track_preview_race">RACE MODE</string>
+    <string name="track_preview_race">Race Mode</string>
     <string name="track_view_details">See More</string>
+
+    <string name="race_start">Start</string>
+    <string name="race_countdown_cancel">Cancel</string>
+    <string name="race_cancel">Cancel</string>
+    <string name="race_get_ready">Get Ready!</string>
+    <string name="race_go">Go!</string>
+    <string name="race_zero_time">00:00:000</string>
 </resources>

@@ -194,7 +194,7 @@ fun LoginFormUi(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewLoginFormUi(
 

@@ -15,8 +15,8 @@ import com.vljx.hawkspeed.domain.usecase.track.DownvoteTrackUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackLatestCommentsUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackUseCase
 import com.vljx.hawkspeed.domain.usecase.track.UpvoteTrackUseCase
-import com.vljx.hawkspeed.ui.dialogs.trackpreview.TrackPreviewUiState
-import com.vljx.hawkspeed.ui.dialogs.trackpreview.TrackPreviewViewModel
+import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewUiState
+import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewViewModel
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules

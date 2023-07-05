@@ -7,12 +7,15 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 object Extension {
     const val TRACK_OVERVIEW_PADDING = 25
 
     const val FOLLOW_PLAYER_ZOOM = 20f
-    const val FOLLOW_PLAYER_TILT = 45f
+    const val FOLLOW_PLAYER_TILT = 75f
 
     /**
      * An extension function that will generate a target repositioning of the map's camera such that the subject player position is being followed.
@@ -42,5 +45,18 @@ object Extension {
                 LatLng(northEast.latitude, northEast.longitude)
             ),
             padding
+        )
+
+    /**
+     * An extension function that will generate a camera update based on the subject camera position, but with no tilt.
+     */
+    fun CameraPosition.noTilt(): CameraUpdate =
+        CameraUpdateFactory.newCameraPosition(
+            CameraPosition(
+                this.target,
+                this.zoom,
+                0f,
+                this.bearing
+            )
         )
 }

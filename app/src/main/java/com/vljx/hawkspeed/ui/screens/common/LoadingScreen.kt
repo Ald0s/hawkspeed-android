@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,42 +24,67 @@ import androidx.compose.ui.unit.dp
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoadingScreen(
-    @StringRes loadingResId: Int = R.string.loading
+    @StringRes loadingStringResId: Int = R.string.loading
 ) {
     Scaffold { paddingValues ->
-        Box(
-            contentAlignment = Alignment.Center,
+        Loading(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            loadingResId = loadingStringResId
+        )
+    }
+}
+
+@Composable
+fun Loading(
+    modifier: Modifier = Modifier,
+    @StringRes loadingResId: Int = R.string.loading
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .fillMaxSize()
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(72.dp)
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    style = MaterialTheme.typography.headlineMedium,
-                    text = stringResource(id = R.string.loading)
-                )
-            }
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(72.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                style = MaterialTheme.typography.headlineMedium,
+                text = stringResource(id = loadingResId)
+            )
         }
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewLoadingScreen(
 
 ) {
     HawkSpeedTheme {
         LoadingScreen()
+    }
+}
+
+@Preview
+@Composable
+fun PreviewLoading(
+
+) {
+    HawkSpeedTheme {
+        Scaffold { paddingValues ->
+            Loading(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+        }
     }
 }

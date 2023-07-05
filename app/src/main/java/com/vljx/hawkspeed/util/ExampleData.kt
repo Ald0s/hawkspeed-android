@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.util
 
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.account.Account
+import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
@@ -115,4 +116,48 @@ object ExampleData {
             RaceLeaderboard("RACE01", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
             RaceLeaderboard("RACE01", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD")
         )
+
+    fun getExampleRacingRace(
+        raceUid: String = "RACE01",
+        trackUid: String = "YARRABOULEVARD",
+        started: Long = System.currentTimeMillis() - (2 * 1000),
+        finished: Long? = null,
+        isDisqualified: Boolean = false,
+        disqualificationReason: String? = null,
+        isCancelled: Boolean = false
+    ): Race =
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+
+    fun getExampleFinishedRace(
+        raceUid: String = "RACE01",
+        trackUid: String = "YARRABOULEVARD",
+        started: Long = System.currentTimeMillis() - (4 * 1000),
+        finished: Long? = System.currentTimeMillis() - 1000,
+        isDisqualified: Boolean = false,
+        disqualificationReason: String? = null,
+        isCancelled: Boolean = false
+    ): Race =
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+
+    fun getExampleCancelledRace(
+        raceUid: String = "RACE01",
+        trackUid: String = "YARRABOULEVARD",
+        started: Long = System.currentTimeMillis() - (2 * 1000),
+        finished: Long? = null,
+        isDisqualified: Boolean = false,
+        disqualificationReason: String? = null,
+        isCancelled: Boolean = true
+    ): Race =
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+
+    fun getExampleDisqualifiedRace(
+        raceUid: String = "RACE01",
+        trackUid: String = "YARRABOULEVARD",
+        started: Long = System.currentTimeMillis() - (2 * 1000),
+        finished: Long? = null,
+        isDisqualified: Boolean = true,
+        disqualificationReason: String? = "left-track",
+        isCancelled: Boolean = false
+    ): Race =
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
 }

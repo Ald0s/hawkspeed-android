@@ -8,4 +8,10 @@ data class Vehicle(
     val vehicleUid: String,
     val text: String,
     val belongsToYou: Boolean
-): Parcelable
+): Parcelable {
+    /**
+     * The vehicle's title. Eventually, this should be a separate attribute, not a property.
+     */
+    val title: String
+        get() = text
+}

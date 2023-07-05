@@ -24,9 +24,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -46,6 +48,16 @@ class TrackDetailViewModel @Inject constructor(
     private val mutableSelectedTrackUid: MutableStateFlow<String> = MutableStateFlow(checkNotNull(savedStateHandle[ARG_TRACK_UID]))
 
     /**
+     * A mutable state flow for filtering the leaderboard entries being paged.
+     */
+    private val selectedLeaderboardFilter: MutableStateFlow<LeaderboardFilter> = MutableStateFlow(LeaderboardFilter.Default)
+
+    /**
+     * A mutable state flow for filtering the comments being paged.
+     */
+    private val selectedTrackCommentsFilter: MutableStateFlow<TrackCommentFilter> = MutableStateFlow(TrackCommentFilter.Default)
+
+    /**
      * Flat map the latest selected track UID to a query for the Track, with its path, as a resource.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -59,9 +71,8 @@ class TrackDetailViewModel @Inject constructor(
     /**
      * Flat map the latest selected track UID to a pagination of leaderboard entries for the track.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     val leaderboard: Flow<PagingData<RaceLeaderboard>> =
-        mutableSelectedTrackUid.flatMapLatest { trackUid ->
+        combineTransform<String, LeaderboardFilter, PagingData<RaceLeaderboard>>(mutableSelectedTrackUid, selectedLeaderboardFilter) { trackUid, filter ->
             pageTrackLeaderboardUseCase(
                 RequestPageTrackLeaderboard(trackUid)
             )
@@ -70,9 +81,8 @@ class TrackDetailViewModel @Inject constructor(
     /**
      * Flat map the latest selected track UID to a pagination of comments entries for the track.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     val comments: Flow<PagingData<TrackComment>> =
-        mutableSelectedTrackUid.flatMapLatest { trackUid ->
+        combineTransform<String, TrackCommentFilter, PagingData<TrackComment>>(mutableSelectedTrackUid, selectedTrackCommentsFilter) { trackUid, commentsFilter ->
             pageTrackCommentsUseCase(
                 RequestPageTrackComments(trackUid)
             )
@@ -99,6 +109,36 @@ class TrackDetailViewModel @Inject constructor(
                 Resource.Status.ERROR -> TrackDetailUiState.Failed(resource.resourceError!!)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackDetailUiState.Loading)
+
+    /**
+     * Called when the upvote button is clicked.
+     */
+    fun upvoteTrack(trackUid: String) {
+        // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            upvoteTrackUseCase(trackUid)
+        }
+    }
+
+    /**
+     * Called when the downvote button is clicked.
+     */
+    fun downvoteTrack(trackUid: String) {
+        // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            downvoteTrackUseCase(trackUid)
+        }
+    }
+
+    /**
+     * Called when an already-selected rating state is clicked again. This will clear the rating.
+     */
+    fun clearTrackRating(trackUid: String) {
+        // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
+        viewModelScope.launch {
+            clearTrackRatingUseCase(trackUid)
+        }
+    }
 
     companion object {
         const val ARG_TRACK_UID = "trackUid"

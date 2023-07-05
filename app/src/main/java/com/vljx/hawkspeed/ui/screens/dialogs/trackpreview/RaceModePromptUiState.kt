@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed.ui.dialogs.trackpreview
+package com.vljx.hawkspeed.ui.screens.dialogs.trackpreview
 
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 

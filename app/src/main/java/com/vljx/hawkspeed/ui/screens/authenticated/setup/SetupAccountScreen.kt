@@ -263,7 +263,7 @@ fun UsernameAvailability(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun PreviewSetupAccountFrom(
 

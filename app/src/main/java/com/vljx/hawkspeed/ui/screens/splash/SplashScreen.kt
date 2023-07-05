@@ -59,27 +59,5 @@ fun SplashScreen(
             })
         }
     }
-    SplashForm(
-        splashUiState = splashUiState
-    )
-}
-
-@Composable
-fun SplashForm(
-    splashUiState: SplashUiState,
-    @StringRes loadingResId: Int = R.string.loading
-) {
-    LoadingScreen(
-        loadingResId = loadingResId
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewSplashForm(
-
-) {
-    HawkSpeedTheme {
-        SplashForm(splashUiState = SplashUiState.Loading)
-    }
+    LoadingScreen()
 }
