@@ -4,6 +4,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.VisibleRegion
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import com.vljx.hawkspeed.domain.models.world.GameSettings
@@ -21,7 +22,9 @@ import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendViewportUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackWithPathUseCase
 import com.vljx.hawkspeed.domain.usecase.world.GetWorldObjectsUseCase
+import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState.NonStandardModeFailure.Companion.MISSING_PRECISE_LOCATION_PERMISSION
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -49,7 +53,10 @@ class WorldMapViewModel @Inject constructor(
 
     private val requestJoinWorldUseCase: RequestJoinWorldUseCase,
     private val requestLeaveWorldUseCase: RequestLeaveWorldUseCase,
-    private val sendViewportUpdateUseCase: SendViewportUpdateUseCase
+    private val sendViewportUpdateUseCase: SendViewportUpdateUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * A data class for collapsing the Android location related states into a single entity.
@@ -238,11 +245,10 @@ class WorldMapViewModel @Inject constructor(
                  * full access is required to perform this action.
                  */
                 (permissionState is LocationPermissionState.OnlyCoarseGranted) && (worldAction is WorldActionState.RecordTrackMode || worldAction is WorldActionState.RaceMode) ->
-                    throw NotImplementedError("only coarse granted, world action requires full permission is NOT HANDLED. Return Non standard mode failure") // TODO: implement this please.
-                    /*WorldMapUiState.NonStandardModeFailure(
+                    WorldMapUiState.NonStandardModeFailure(
                         worldAction,
-                        "UNKOWN"
-                    )*/
+                        MISSING_PRECISE_LOCATION_PERMISSION
+                    )
 
                 /**
                  * If world action is record track mode, we'll emit the appropriate UI state, since we have all arguments satisfied.
@@ -303,7 +309,7 @@ class WorldMapViewModel @Inject constructor(
      * Update the viewport for the device.
      */
     fun updateViewport(visibleRegion: VisibleRegion, zoom: Float) {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             sendViewportUpdateUseCase(
                 RequestViewportUpdate(
                     visibleRegion.latLngBounds.southwest.longitude,
@@ -356,10 +362,10 @@ class WorldMapViewModel @Inject constructor(
      * For that reason, this function will simply collect the flow right here on the view model scope.
      */
     fun downloadTrack(track: Track) {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             getTrackWithPathUseCase(
                 RequestGetTrackWithPath(track.trackUid)
-            ).collect()
+            ).flowOn(ioDispatcher).collect()
         }
     }
 

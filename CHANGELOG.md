@@ -50,3 +50,11 @@
 * Changed world map standard mode's UI to show world object previews in a modalbottomsheet instead of a modal dialog,
 * Changed race & record mode's UI to show their controls in a bottom sheet w/ bottomsheetscaffold,
 * Implemented basic controls on both race and record mode.
+
+## Version 1.10.12
+* Added support for storing race percent complete, laps complete, average speed,
+* Made track type required for creating new track draft, since we want to support multiple track types at some point,
+* Creating a new track can now possibly return its path, if server does not need long running verification. Therefore, also moved submitNewTrack from TrackRepository to TrackPathRepository,
+* Changed minSdk to 28 due to lack of a newer physical device,
+* Started rolling out new workflow for two way screens where forms are involved - attempting to always combine into a single outgoing state,
+* Changed all flows & async work to run on IO dispatcher where network/IO is used, added qualifier for providing IO dispatcher from common module.

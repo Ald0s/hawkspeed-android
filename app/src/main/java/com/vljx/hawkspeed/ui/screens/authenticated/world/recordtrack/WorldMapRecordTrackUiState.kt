@@ -8,7 +8,8 @@ sealed class WorldMapRecordTrackUiState {
      * This state will be updated with the latest track with points, after the latest point is inserted.
      */
     data class Recording(
-        val trackDraftWithPoints: TrackDraftWithPoints
+        val trackDraftWithPoints: TrackDraftWithPoints,
+        val totalLength: String
     ): WorldMapRecordTrackUiState()
 
     /**
@@ -24,7 +25,8 @@ sealed class WorldMapRecordTrackUiState {
      * the recording of the track.
      */
     data class RecordedTrackOverview(
-        val trackDraftWithPoints: TrackDraftWithPoints
+        val trackDraftWithPoints: TrackDraftWithPoints,
+        val totalLength: String
     ): WorldMapRecordTrackUiState()
 
     /**
@@ -46,10 +48,4 @@ sealed class WorldMapRecordTrackUiState {
         val trackDraftWithPoints: TrackDraftWithPoints,
         val savedToCache: Boolean
     ): WorldMapRecordTrackUiState()
-
-    /**
-     * A state that indicates there is no track at all; not one being edited and not one freshly created. This state should look like a loading state,
-     * but should cause the creation of a new track.
-     */
-    object NoSelectedTrackDraft: WorldMapRecordTrackUiState()
 }

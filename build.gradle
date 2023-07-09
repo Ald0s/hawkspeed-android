@@ -17,6 +17,8 @@ ext {
     composeFoundationVersion = "1.4.3"
     material3Version = "1.1.1"
 
+    mapsUtilsVersion = "3.4.0"
+
     gsonVersion = "2.9.1"
 
     hiltNavigationComposeVersion = "1.0.0"

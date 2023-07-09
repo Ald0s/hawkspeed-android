@@ -32,5 +32,17 @@ data class RaceUpdateDto(
 
     @Expose
     @SerializedName("cancelled")
-    val isCancelled: Boolean
+    val isCancelled: Boolean,
+
+    @Expose
+    @SerializedName("average_speed")
+    val averageSpeed: Int?,
+
+    @Expose
+    @SerializedName("num_laps_complete")
+    val numLapsComplete: Int?,
+
+    @Expose
+    @SerializedName("percent_complete")
+    val percentComplete: Int?
 )

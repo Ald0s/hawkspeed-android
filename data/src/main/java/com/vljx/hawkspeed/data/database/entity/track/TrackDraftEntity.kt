@@ -8,7 +8,7 @@ import com.vljx.hawkspeed.domain.enums.TrackType
 data class TrackDraftEntity(
     @PrimaryKey
     var trackDraftId: Long?,
+    val trackType: TrackType,
     var name: String?,
-    var description: String?,
-    val trackType: TrackType?
+    var description: String?
 )

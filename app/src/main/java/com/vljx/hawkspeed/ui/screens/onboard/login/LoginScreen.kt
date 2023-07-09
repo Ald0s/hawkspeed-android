@@ -25,10 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -42,6 +46,7 @@ import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.ui.component.InputValidationResult
+import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import timber.log.Timber
 
@@ -51,65 +56,71 @@ fun LoginScreen(
     onRegisterLocalAccountClicked: () -> Unit,
     loginViewModel: LoginViewModel = hiltViewModel()
 ) {
-    // Collect the login ui state here, idle state as initial.
-    val loginUiState: LoginUiState by loginViewModel.loginUiState.collectAsState(initial = LoginUiState.Idle)
-
+    val loginUiState: LoginUiState by loginViewModel.loginUiState.collectAsState()
     when(loginUiState) {
         is LoginUiState.SuccessfulLogin -> {
             // Login was successful, invoke success callback on launched side effect.
             LaunchedEffect(key1 = Unit, block = {
                 onLoginSuccessful((loginUiState as LoginUiState.SuccessfulLogin).account)
             })
+            // Show loading screen on success.
+            LoadingScreen()
         }
-        is LoginUiState.LoggingIn -> {
-            // Busy logging in, this is where we'll replace the button with a circular progress indicator.
-            // TODO: replace button.
+
+        is LoginUiState.ShowLoginForm -> {
+            val emailAddressState: String? by loginViewModel.emailAddressState.collectAsState()
+            val passwordState: String? by loginViewModel.passwordState.collectAsState()
+
+            LoginForm(
+                showLoginForm = loginUiState as LoginUiState.ShowLoginForm,
+                emailAddress = emailAddressState,
+                password = passwordState,
+
+                updateEmailAddress = loginViewModel::updateEmailAddress,
+                updatePassword = loginViewModel::updatePassword,
+                onRegisterClicked = onRegisterLocalAccountClicked,
+                onAttemptLoginClicked = loginViewModel::attemptLogin
+            )
         }
-        is LoginUiState.Failed -> {
-            // Failed. We must handle the error locally here.
-            Timber.e("Failed to login! Got error:\n${(loginUiState as LoginUiState.Failed).resourceError}")
-        }
-        is LoginUiState.Idle -> {
-            // Idle. Don't do anything.
-        }
+
+        is LoginUiState.Loading ->
+            LoadingScreen()
     }
-
-    val emailAddress: String? by loginViewModel.emailAddress.collectAsState()
-    val validateEmailAddressResult by loginViewModel.validateEmailAddressResult.collectAsState()
-    val password: String? by loginViewModel.password.collectAsState()
-    val validatePasswordResult by loginViewModel.validatePasswordResult.collectAsState()
-
-    LoginFormUi(
-        onRegisterClicked = onRegisterLocalAccountClicked,
-        onAttemptLoginClicked = loginViewModel::attemptLogin,
-        emailAddress = emailAddress,
-        validateEmailAddressResult = validateEmailAddressResult,
-        updateEmailAddress = loginViewModel::updateEmailAddress,
-        password = password,
-        validatePasswordResult = validatePasswordResult,
-        updatePassword = loginViewModel::updatePassword
-    )
 }
 
 /**
  * TODO: validation must still be applied to all form controls.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginFormUi(
-    onRegisterClicked: () -> Unit,
-    onAttemptLoginClicked: () -> Unit,
-
+fun LoginForm(
+    showLoginForm: LoginUiState.ShowLoginForm,
     emailAddress: String?,
-    validateEmailAddressResult: InputValidationResult,
-    updateEmailAddress: (String) -> Unit,
-
     password: String?,
-    validatePasswordResult: InputValidationResult,
-    updatePassword: (String) -> Unit,
 
-    resourceError: ResourceError? = null
+    updateEmailAddress: ((String) -> Unit)? = null,
+    updatePassword: ((String) -> Unit)? = null,
+    onRegisterClicked: (() -> Unit)? = null,
+    onAttemptLoginClicked: (() -> Unit)? = null
 ) {
+    var canAttemptLogin: Boolean by remember { mutableStateOf(false) }
+    var isLoggingIn: Boolean by remember { mutableStateOf(false) }
+    var loginError: ResourceError? by remember { mutableStateOf(null) }
+
+    when(val loginFormUiState = showLoginForm.loginFormUiState) {
+        is LoginFormUiState.LoginForm -> {
+            canAttemptLogin = loginFormUiState.canAttemptLogin
+            isLoggingIn = false
+        }
+        is LoginFormUiState.LoggingIn -> {
+            isLoggingIn = true
+            loginError = null
+        }
+        is LoginFormUiState.LoginFailed -> {
+            isLoggingIn = false
+            loginError = loginFormUiState.resourceError
+        }
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxHeight()
@@ -149,7 +160,7 @@ fun LoginFormUi(
                     placeholder = {
                         Text(text = stringResource(id = R.string.placeholder_email))
                     },
-                    onValueChange = updateEmailAddress
+                    onValueChange = updateEmailAddress ?: {}
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -165,11 +176,12 @@ fun LoginFormUi(
                     placeholder = {
                         Text(text = stringResource(id = R.string.placeholder_password))
                     },
-                    onValueChange = updatePassword
+                    onValueChange = updatePassword ?: {}
                 )
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
-                    onClick = onAttemptLoginClicked,
+                    enabled = !isLoggingIn && canAttemptLogin,
+                    onClick = onAttemptLoginClicked ?: {},
                     shape = RectangleShape,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -182,7 +194,7 @@ fun LoginFormUi(
                 TextButton(
                     modifier = Modifier
                         .fillMaxWidth(),
-                    onClick = onRegisterClicked
+                    onClick = onRegisterClicked ?: {}
                 ) {
                     Text(
                         text = stringResource(id = R.string.login_sign_up).uppercase()
@@ -196,19 +208,20 @@ fun LoginFormUi(
 
 @Preview
 @Composable
-fun PreviewLoginFormUi(
+fun PreviewLoginForm(
 
 ) {
     HawkSpeedTheme {
-        LoginFormUi(
-            onRegisterClicked = { /*TODO*/ },
-            onAttemptLoginClicked = { /*TODO*/ },
-            emailAddress = "",
-            validateEmailAddressResult = InputValidationResult(true),
-            updateEmailAddress = { e -> },
-            password = "",
-            validatePasswordResult = InputValidationResult(true),
-            updatePassword = { e -> }
+        LoginForm(
+            showLoginForm = LoginUiState.ShowLoginForm(
+                loginFormUiState = LoginFormUiState.LoginForm(
+                    InputValidationResult(true),
+                    InputValidationResult(false),
+                    false
+                )
+            ),
+            emailAddress = "user1@mail.com",
+            password = null
         )
     }
 }

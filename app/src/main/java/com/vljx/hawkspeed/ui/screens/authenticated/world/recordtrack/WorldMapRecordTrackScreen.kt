@@ -7,19 +7,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,6 +50,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -52,52 +59,51 @@ import com.vljx.hawkspeed.Extension.FOLLOW_PLAYER_ZOOM
 import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
+import com.vljx.hawkspeed.ui.screens.common.BottomSheetTemporaryState
 import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrackDraft
+import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.screens.common.SheetControls
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
+import com.vljx.hawkspeed.util.ExampleData
 import com.vljx.hawkspeed.util.Extension.getActivity
 import kotlinx.coroutines.CoroutineScope
 import timber.log.Timber
+import kotlin.math.roundToInt
 
 @Composable
 fun WorldMapRecordTrackMode(
     recordTrackMode: WorldMapUiState.WorldMapLoadedRecordTrackMode,
-    onSetupTrackDetails: (TrackDraftWithPoints) -> Unit,
-    onCancelRecordingClicked: () -> Unit,
+
+    onSetupTrackDetails: ((TrackDraftWithPoints) -> Unit)? = null,
+    onCancelRecordingClicked: (() -> Unit)? = null,
+
     worldMapRecordTrackViewModel: WorldMapRecordTrackViewModel = hiltViewModel()
 ) {
     // Collect world map record states.
     val worldMapRecordTrackUiState: WorldMapRecordTrackUiState by worldMapRecordTrackViewModel.recordTrackUiState.collectAsState()
     when(worldMapRecordTrackUiState) {
         is WorldMapRecordTrackUiState.RecordingComplete -> {
+            // If recording complete, we'll move to the track detail UI, so call a loading screen composable.
+            LoadingScreen()
             // In a launched effect, invoke the callback for setup track details. This is technically invoked by a flow, not a direct User action.
             LaunchedEffect(key1 = Unit, block = {
-                onSetupTrackDetails(
+                onSetupTrackDetails?.invoke(
                     (worldMapRecordTrackUiState as WorldMapRecordTrackUiState.RecordingComplete).trackDraftWithPoints
                 )
             })
         }
         is WorldMapRecordTrackUiState.RecordingCancelled -> {
+            // If we have cancelled recording, call loading screen composable.
+            LoadingScreen()
             // When recording has been cancelled, we can now exit back to standard mode.
-            onCancelRecordingClicked()
-        }
-        is WorldMapRecordTrackUiState.NoSelectedTrackDraft -> {
-            /**
-             * TODO: I have created this state because I'm not entirely sure how to trigger the creation of a new track draft when none is provided for editing,
-             * TODO: and at the same time, avoid the creation of a new track draft if the User decides to navigate back from setup track details to this screen;
-             * TODO: which will cause a new track draft to be created if this side effect is launched at the bottom of composition ( which it was )
-             */
-            // Launch a new effect to create a new track.
-            //LaunchedEffect(key1 = Unit, block = {
-            // This is where we'd set the track draft's Id, if we're editing. But for now, just call new track.
-            //    worldMapRecordTrackViewModel.newTrack()
-            //})
+            onCancelRecordingClicked?.invoke()
         }
         else -> {
             // Collect location updates here.
@@ -112,7 +118,7 @@ fun WorldMapRecordTrackMode(
 
                     onStartRecordingClicked = worldMapRecordTrackViewModel::startRecording,
                     onUseTrackClicked = { trackDraftWithPoints ->
-                        worldMapRecordTrackViewModel.recordingComplete()
+                        worldMapRecordTrackViewModel.recordingComplete(trackDraftWithPoints)
                     },
                     onResetTrackClicked = worldMapRecordTrackViewModel::resetTrack,
                     onStopRecordingClicked = worldMapRecordTrackViewModel::stopRecording,
@@ -123,15 +129,23 @@ fun WorldMapRecordTrackMode(
 
                     componentActivity = LocalContext.current.getActivity()
                 )
-                // TODO: newTrack launchedeffect was here.
-                // TODO: this may cause a new track every single time we navigate here; even if we navigate back from details.
                 LaunchedEffect(key1 = Unit, block = {
-                    // This is where we'd set the track draft's Id, if we're editing. But for now, just call new track.
-                    worldMapRecordTrackViewModel.newTrack()
+                    try {
+                        // This is where we'd set the track draft's Id, if we're editing. But for now, just call new track.
+                        /**
+                         * TODO: this is where we'll also require the track type to be chosen. For now, we'll always use Sprint.
+                         * TODO: this is actually where we should be passing a state that will function like a trigger; causing a request for a track type to create a new track.
+                         */
+                        worldMapRecordTrackViewModel.newTrack(
+                            TrackType.SPRINT
+                        )
+                    } catch(ise: IllegalStateException) {
+                        Timber.w("newTrack threw illegal state exception - new track not created.")
+                    }
                 })
             } else {
-                // TODO: improve this.
-                Loading()
+                // We do not have a current location for the Player just yet. Call loading composable.
+                LoadingScreen()
             }
         }
     }
@@ -143,12 +157,14 @@ fun RecordTrack(
     recordTrackMode: WorldMapUiState.WorldMapLoadedRecordTrackMode,
     currentLocation: PlayerPosition?,
     worldMapRecordTrackUiState: WorldMapRecordTrackUiState,
+
     onStartRecordingClicked: (() -> Unit)? = null,
     onUseTrackClicked: ((TrackDraftWithPoints) -> Unit)? = null,
     onResetTrackClicked: (() -> Unit)? = null,
     onStopRecordingClicked: (() -> Unit)? = null,
     onCancelRecordingClicked: (() -> Unit)? = null,
     onMapClicked: ((LatLng) -> Unit)? = null,
+
     componentActivity: ComponentActivity? = null
 ) {
     // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
@@ -165,28 +181,18 @@ fun RecordTrack(
             trackDraftWithPoints = worldMapRecordTrackUiState.trackDraftWithPoints
             // Set view to be locked on to Player.
             shouldFollowPlayer = true
-            /**
-             * TODO: set the view locked to following the player.
-             */
         }
         is WorldMapRecordTrackUiState.RecordedTrackOverview -> {
             // Set latest track draft with points.
             trackDraftWithPoints = worldMapRecordTrackUiState.trackDraftWithPoints
             // View should no longer follow Player.
             shouldFollowPlayer = false
-
-            /**
-             * TODO: set the view to surround the entire recorded map.
-             */
         }
         is WorldMapRecordTrackUiState.NewTrack -> {
             // Set latest track draft with points.
             trackDraftWithPoints = worldMapRecordTrackUiState.trackDraftWithPoints
             // Set view to be locked on to Player.
             shouldFollowPlayer = true
-            /**
-             * TODO: set the view locked to following the player
-             */
         }
         is WorldMapRecordTrackUiState.Loading -> {
             /**
@@ -194,15 +200,7 @@ fun RecordTrack(
              * TODO: that indicates location is being waited for.
              */
         }
-        is WorldMapRecordTrackUiState.RecordingCancelled -> {
-            // Handled in caller.
-        }
-        is WorldMapRecordTrackUiState.NoSelectedTrackDraft -> {
-            // Handled in caller.
-        }
-        is WorldMapRecordTrackUiState.RecordingComplete -> {
-            // Handled in caller.
-        }
+        else -> { /* RecordingCancelled, NoSelectedTrackDraft, RecordingComplete not handled here, but in caller. */ }
     }
 
     val sheetPeekHeight = 128
@@ -223,7 +221,52 @@ fun RecordTrack(
         sheetSwipeEnabled = false,
         sheetContent = {
             // Call the most applicable content composable here for UI state.
-            // TODO
+            when(worldMapRecordTrackUiState) {
+                is WorldMapRecordTrackUiState.RecordedTrackOverview ->
+                    RecordedTrackOverviewControls(
+                        recordedTrackOverview = worldMapRecordTrackUiState,
+                        sheetPeekHeight = sheetPeekHeight,
+
+                        onUseTrackClicked = onUseTrackClicked,
+                        onResetTrackClicked = onResetTrackClicked,
+
+                        scope = scope,
+                        scaffoldState = scaffoldState
+                    )
+                is WorldMapRecordTrackUiState.Recording ->
+                    RecordingControls(
+                        recording = worldMapRecordTrackUiState,
+                        sheetPeekHeight = sheetPeekHeight,
+
+                        onStopRecordingClicked = onStopRecordingClicked,
+
+                        scope = scope,
+                        scaffoldState = scaffoldState
+                    )
+                is WorldMapRecordTrackUiState.NewTrack ->
+                    NewTrackControls(
+                        newTrack = worldMapRecordTrackUiState,
+                        sheetPeekHeight = sheetPeekHeight,
+
+                        onStartRecordingClicked = onStartRecordingClicked,
+                        onCancelRecordingClicked = onCancelRecordingClicked,
+
+                        scope = scope,
+                        scaffoldState = scaffoldState
+                    )
+                /**
+                 * TODO: insert a new state in here that requests all information required to create a new track draft.
+                 * For now, this is just the desired track type. This should then invoke a callback that will trigger the new track draft use case.
+                 */
+                else -> {
+                    // In all other cases, setup a temporary sheet state for hidden.
+                    BottomSheetTemporaryState(
+                        desiredState = SheetValue.Hidden,
+                        sheetState = scaffoldState.bottomSheetState,
+                        scope = scope
+                    )
+                }
+            }
         }
     ) { paddingValues ->
         Box(
@@ -328,21 +371,127 @@ fun RecordTrack(
 @Composable
 fun RecordedTrackOverviewControls(
     recordedTrackOverview: WorldMapRecordTrackUiState.RecordedTrackOverview,
+    sheetPeekHeight: Int = 128,
 
     onUseTrackClicked: ((TrackDraftWithPoints) -> Unit)? = null,
     onResetTrackClicked: (() -> Unit)? = null,
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    /**
-     * TODO: recorded track overview should be a partially expanded controls sheet, with buttons 'Use Track' and 'Reset Track', also some summary information about
-     * TODO: the new track like; num points, length etc?
-     */
     SheetControls(
+        desiredState = SheetValue.Expanded,
+        sheetPeekHeight = sheetPeekHeight,
         peekContent = {
-
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.record_track_recorded),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.ic_question_circle), contentDescription = "track type")
+                    }
+                    Column(
+                        modifier = Modifier
+                    ) {
+                        Text(
+                            text = when(recordedTrackOverview.trackDraftWithPoints.trackType) {
+                                TrackType.SPRINT -> stringResource(id = R.string.track_type_sprint)
+                                TrackType.CIRCUIT -> stringResource(id = R.string.track_type_circuit)
+                                else -> throw NotImplementedError("Failed to set recorded track overview - track type text. The provided type is not supported.")
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.ic_ruler_horizontal), contentDescription = "track length")
+                    }
+                    Column {
+                        Text(
+                            text = stringResource(id = R.string.record_track_length, recordedTrackOverview.totalLength),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
         },
-        expandedContent = { }
+        expandedContent = {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        Button(
+                            onClick = {
+                                // Use track clicked, we'll move onto filling out details for it.
+                                onUseTrackClicked?.invoke(recordedTrackOverview.trackDraftWithPoints)
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.record_use_track).uppercase())
+                        }
+                    }
+                }
+
+                Row {
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .weight(1f)
+                    ) {
+                        TextButton(
+                            onClick = {
+                                // Reset track clicked, this will delete the current track as its been recorded.
+                                onResetTrackClicked?.invoke()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.record_reset_track).uppercase())
+                        }
+                    }
+                }
+            }
+        },
+        scaffoldState = scaffoldState,
+        scope = scope
     )
 }
 
@@ -350,20 +499,51 @@ fun RecordedTrackOverviewControls(
 @Composable
 fun RecordingControls(
     recording: WorldMapRecordTrackUiState.Recording,
+    sheetPeekHeight: Int = 128,
 
     onStopRecordingClicked: (() -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    /**
-     * TODO: recording controls should be a partially expanded controls sheet, with buttons 'Stop Recording'. Also some ongoing summary info about the track being
-     * TODO: recorded.
-     */
     SheetControls(
+        desiredState = SheetValue.PartiallyExpanded,
+        sheetPeekHeight = sheetPeekHeight,
         peekContent = {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.record_track_recording),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White
+                        )
+                    }
 
+                    Column {
+                        Button(
+                            onClick = {
+                                // Stop recording clicked.
+                                onStopRecordingClicked?.invoke()
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .wrapContentWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.record_stop_recording).uppercase())
+                        }
+                    }
+                }
+            }
         },
-        expandedContent = { }
+        scaffoldState = scaffoldState,
+        scope = scope
     )
 }
 
@@ -371,30 +551,70 @@ fun RecordingControls(
 @Composable
 fun NewTrackControls(
     newTrack: WorldMapRecordTrackUiState.NewTrack,
+    sheetPeekHeight: Int = 128,
 
     onStartRecordingClicked: (() -> Unit)? = null,
+    onCancelRecordingClicked: (() -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    /**
-     * TODO: new track controls should be a partially expanded controls sheet, with buttons 'Start Recording'.
-     */
     SheetControls(
+        desiredState = SheetValue.Expanded,
+        sheetPeekHeight = sheetPeekHeight,
         peekContent = {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.record_record_new_sprint),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White
+                        )
+                    }
 
+                    Column {
+                        Button(
+                            onClick = {
+                                // Start recording the track now.
+                                onStartRecordingClicked?.invoke()
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .wrapContentWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.record_start_recording).uppercase())
+                        }
+                    }
+                }
+            }
         },
-        expandedContent = { }
+        expandedContent = {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+            ) {
+                TextButton(
+                    onClick = {
+                        // Cancel track recording/creation clicked, this will delete the track draft and quit.
+                        onCancelRecordingClicked?.invoke()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text(text = stringResource(id = R.string.record_cancel).uppercase())
+                }
+            }
+        },
+        scaffoldState = scaffoldState,
+        scope = scope
     )
-}
-
-@Composable
-fun Loading(
-
-) {
-    /**
-     * TODO: this should be an overlay over the google map, that is grayed out indicating disabled on the edges, and a loading indicator in the center.
-     */
-    CircularProgressIndicator()
 }
 
 @Preview
@@ -413,36 +633,60 @@ fun PreviewWorldMapRecordTrack(
             WorldMapRecordTrackUiState.RecordedTrackOverview(
                 TrackDraftWithPoints(
                     10L,
-                    null,
+                    TrackType.SPRINT,
                     null,
                     null,
                     listOf()
-                )
+                ),
+                "2.4km"
             )
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun PreviewRecordedTrackOverviewControls(
 
 ) {
-
+    HawkSpeedTheme {
+        RecordedTrackOverviewControls(
+            recordedTrackOverview = WorldMapRecordTrackUiState.RecordedTrackOverview(
+                ExampleData.getTrackDraftWithPoints(),
+                "872m"
+            )
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun PreviewRecordingControls(
 
 ) {
-
+    HawkSpeedTheme {
+        RecordingControls(
+            recording = WorldMapRecordTrackUiState.Recording(
+                ExampleData.getTrackDraftWithPoints(),
+                "872m"
+            )
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun PreviewNewTrackControls(
 
 ) {
-
+    HawkSpeedTheme {
+        NewTrackControls(
+            newTrack = WorldMapRecordTrackUiState.NewTrack(
+                ExampleData.getTrackDraftWithPoints()
+            )
+        )
+    }
 }

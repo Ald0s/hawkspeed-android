@@ -12,9 +12,9 @@ class TrackDraftWithPointsMapper @Inject constructor(
     override fun mapFromData(model: TrackDraftWithPointsModel): TrackDraftWithPoints {
         return TrackDraftWithPoints(
             model.trackDraft.trackDraftId!!,
+            model.trackDraft.trackType,
             model.trackDraft.name,
             model.trackDraft.description,
-            model.trackDraft.trackType,
             trackPointDraftMapper.mapFromDataList(model.trackPoints)
         )
     }
@@ -23,9 +23,9 @@ class TrackDraftWithPointsMapper @Inject constructor(
         return TrackDraftWithPointsModel(
             TrackDraftModel(
                 domain.trackDraftId,
-                domain.trackName,
-                domain.trackDescription,
                 domain.trackType,
+                domain.trackName,
+                domain.trackDescription
             ),
             trackPointDraftMapper.mapToDataList(domain.pointDrafts)
         )

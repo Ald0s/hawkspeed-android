@@ -129,8 +129,7 @@ fun TrackPreview(
                     ) {
                         Text(
                             text = track.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall,
                             color = Color.White
                         )
                     }

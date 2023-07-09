@@ -67,7 +67,7 @@ class DatabaseInstrumentedTest {
             UserModel("US", "aldos", 0, true, true),
             listOf(),
             TrackPointModel(1.0, 1.0, "track01"),
-            true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
+            true, true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
         )
         // Now, create 10 points, all belonging to the same track, and a trackpath model from that.
         val trackPathModel: TrackPathModel = TrackPathModel(
@@ -106,7 +106,7 @@ class DatabaseInstrumentedTest {
             UserModel("US", "aldos", 0, true, true),
             listOf(),
             TrackPointModel(1.0, 1.0, "track01"),
-            true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
+            true, true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
         )
         val track02Model: TrackModel = TrackModel(
             "track02",
@@ -115,7 +115,7 @@ class DatabaseInstrumentedTest {
             UserModel("US", "aldos", 0, true, true),
             listOf(),
             TrackPointModel(1.0, 1.0, "track01"),
-            true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
+            true, true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
         )
         val track03Model: TrackModel = TrackModel(
             "track03",
@@ -124,7 +124,7 @@ class DatabaseInstrumentedTest {
             UserModel("US", "aldos", 0, true, true),
             listOf(),
             TrackPointModel(1.0, 1.0, "track01"),
-            true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
+            true, true, TrackType.SPRINT, 0, 0, true, 0, true, true, true, true
         )
         // Now, create 10 points belonging to track 2. Tracks 1 and 3 have no track.
         val track02PathModel: TrackPathModel = TrackPathModel(

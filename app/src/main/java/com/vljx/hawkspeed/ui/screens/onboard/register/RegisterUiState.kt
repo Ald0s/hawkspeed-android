@@ -5,16 +5,6 @@ import com.vljx.hawkspeed.domain.models.account.Registration
 
 sealed class RegisterUiState {
     /**
-     * The default state.
-     */
-    object Idle: RegisterUiState()
-
-    /**
-     * When a registration attempt is taking place.
-     */
-    object Loading: RegisterUiState()
-
-    /**
      * When the registration attempt has succeeded.
      */
     data class RegistrationSuccessful(
@@ -22,9 +12,14 @@ sealed class RegisterUiState {
     ): RegisterUiState()
 
     /**
-     * When the registration attempt has failed.
+     * A state that indicates the registration form should be shown.
      */
-    data class RegistrationFailed(
-        val resourceError: ResourceError
+    data class ShowRegistrationForm(
+        val registerFormUiState: RegisterFormUiState
     ): RegisterUiState()
+
+    /**
+     * When a registration attempt is taking place.
+     */
+    object Loading: RegisterUiState()
 }

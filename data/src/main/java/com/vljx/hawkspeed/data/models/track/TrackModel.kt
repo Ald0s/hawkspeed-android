@@ -12,6 +12,7 @@ data class TrackModel(
     val topLeaderboard: List<RaceLeaderboardModel>,
     val startPoint: TrackPointModel,
     val isVerified: Boolean,
+    val isSnappedToRoads: Boolean,
     val trackType: TrackType,
     val numPositiveVotes: Int,
     val numNegativeVotes: Int,

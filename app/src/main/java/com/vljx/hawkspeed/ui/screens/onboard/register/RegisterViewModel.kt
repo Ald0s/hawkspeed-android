@@ -2,11 +2,13 @@ package com.vljx.hawkspeed.ui.screens.onboard.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestRegisterLocalAccount
 import com.vljx.hawkspeed.domain.usecase.account.RegisterLocalAccountUseCase
 import com.vljx.hawkspeed.ui.component.InputValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,14 +17,20 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val registerLocalAccountUseCase: RegisterLocalAccountUseCase
+    private val registerLocalAccountUseCase: RegisterLocalAccountUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * The result flow for the registration attempt. We've configured this as a shared flow that does not replay values, to stop emissions if this page
@@ -52,25 +60,14 @@ class RegisterViewModel @Inject constructor(
     /**
      * Publicise all arguments.
      */
-    val emailAddress: StateFlow<String?> =
-        mutableEmailAddress
-
-    val password: StateFlow<String?> =
-        mutablePassword
-
-    val confirmPassword: StateFlow<String?> =
-        mutableConfirmPassword
-
-    /**
-     * Publicise the UI state flow.
-     */
-    val registerUiState: SharedFlow<RegisterUiState> =
-        mutableRegisterUiState
+    val emailAddress: StateFlow<String?> = mutableEmailAddress
+    val password: StateFlow<String?> = mutablePassword
+    val confirmPassword: StateFlow<String?> = mutableConfirmPassword
 
     /**
      * A validator result for the email address.
      */
-    val validateEmailAddressResult: StateFlow<InputValidationResult> =
+    private val validateEmailAddressResult: StateFlow<InputValidationResult> =
         mutableEmailAddress.map { emailAddress ->
             // TODO: more complex validation.
             InputValidationResult(
@@ -81,7 +78,7 @@ class RegisterViewModel @Inject constructor(
     /**
      * A validator result for the password.
      */
-    val validatePasswordResult: StateFlow<InputValidationResult> =
+    private val validatePasswordResult: StateFlow<InputValidationResult> =
         mutablePassword.map { emailAddress ->
             // TODO: more complex validation.
             InputValidationResult(
@@ -92,7 +89,7 @@ class RegisterViewModel @Inject constructor(
     /**
      * A validator result that combines both password and confirm password to validate confirm password.
      */
-    val validateConfirmPasswordResult: StateFlow<InputValidationResult> =
+    private val validateConfirmPasswordResult: StateFlow<InputValidationResult> =
         combine(
             mutablePassword,
             mutableConfirmPassword
@@ -106,7 +103,7 @@ class RegisterViewModel @Inject constructor(
     /**
      * A state flow that emits true when a registration attempt can take place.
      */
-    val canAttemptRegistration: StateFlow<Boolean> =
+    private val canAttemptRegistration: StateFlow<Boolean> =
         combine(
             validateEmailAddressResult,
             validatePasswordResult,
@@ -116,10 +113,39 @@ class RegisterViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
+     * A shared flow that will combine the contents of the registration form, and emit a form UI state on that basis.
+     */
+    private val registrationFormUiState: SharedFlow<RegisterFormUiState> =
+        combine(
+            validateEmailAddressResult,
+            validatePasswordResult,
+            validateConfirmPasswordResult,
+            canAttemptRegistration
+        ) { validateEmail, validatePass, validateConfirmPass, canAttempt ->
+            RegisterFormUiState.RegistrationForm(
+                validateEmail,
+                validatePass,
+                validateConfirmPass,
+                canAttempt
+            )
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+
+    /**
+     * The public UI state for registration. This will merge the form UI state with the mutable UI state shared flow.
+     */
+    val registerUiState: StateFlow<RegisterUiState> =
+        merge(
+            registrationFormUiState.map { uiState ->
+                RegisterUiState.ShowRegistrationForm(uiState)
+            },
+            mutableRegisterUiState
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), RegisterUiState.Loading)
+
+    /**
      * Perform a registration attempt.
      */
     fun attemptRegistration() {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Change state to loading.
             mutableRegisterUiState.emit(RegisterUiState.Loading)
             // Get all required arguments.
@@ -133,13 +159,19 @@ class RegisterViewModel @Inject constructor(
             mutableRegisterUiState.emitAll(
                 registerLocalAccountUseCase(
                     RequestRegisterLocalAccount(emailAddress, password, confirmPassword)
-                ).map { registrationResource ->
-                    when(registrationResource.status) {
-                        Resource.Status.SUCCESS -> RegisterUiState.RegistrationSuccessful(registrationResource.data!!)
-                        Resource.Status.LOADING -> RegisterUiState.Loading
-                        Resource.Status.ERROR -> RegisterUiState.RegistrationFailed(registrationResource.resourceError!!)
+                )
+                    .flowOn(ioDispatcher)
+                    .map { registrationResource ->
+                        when(registrationResource.status) {
+                            Resource.Status.SUCCESS -> RegisterUiState.RegistrationSuccessful(registrationResource.data!!)
+                            Resource.Status.LOADING -> RegisterUiState.ShowRegistrationForm(
+                                RegisterFormUiState.AttemptingRegistration
+                            )
+                            Resource.Status.ERROR -> RegisterUiState.ShowRegistrationForm(
+                                RegisterFormUiState.RegistrationFailed(registrationResource.resourceError!!)
+                            )
+                        }
                     }
-                }
             )
         }
     }

@@ -22,7 +22,8 @@ interface AuthenticationEntryPoint {
     fun userRepository(): UserRepository
     fun vehicleRepository(): VehicleRepository
     fun raceRepository(): RaceRepository
-    fun raceOutcomeRepository(): LeaderboardRepository
+    fun leaderboardRepository(): LeaderboardRepository
+    fun raceLeaderboardRepository(): RaceLeaderboardRepository
     fun worldRepository(): WorldRepository
 }
 
@@ -108,7 +109,16 @@ class AuthenticationAccessModule {
     ): LeaderboardRepository =
         EntryPoints
             .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
-            .raceOutcomeRepository()
+            .leaderboardRepository()
+
+    @Bridged
+    @Provides
+    fun provideRaceLeaderboardRepository(
+        authenticationComponentManager: AuthenticationComponentManager
+    ): RaceLeaderboardRepository =
+        EntryPoints
+            .get(authenticationComponentManager, AuthenticationEntryPoint::class.java)
+            .raceLeaderboardRepository()
 
     @Bridged
     @Provides

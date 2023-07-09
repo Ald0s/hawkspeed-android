@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.domain.repository
 
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestClearTrackRating
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrack
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestSetTrackRating
@@ -23,9 +24,4 @@ interface TrackRepository {
      * Send a request to clear the current User's rating on a track. This will automatically cache the result.
      */
     suspend fun clearTrackRating(requestClearTrackRating: RequestClearTrackRating): Resource<Track>
-
-    /**
-     * Submit the track in the SubmitTrackRequest. This will also cache the new track, without its path.
-     */
-    fun submitNewTrack(requestSubmitTrack: RequestSubmitTrack): Flow<Resource<Track>>
 }

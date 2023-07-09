@@ -41,7 +41,11 @@ sealed class WorldMapUiState {
     data class NonStandardModeFailure(
         val requestedMode: WorldActionState,
         val reason: String
-    ): WorldMapUiState()
+    ): WorldMapUiState() {
+        companion object {
+            const val MISSING_PRECISE_LOCATION_PERMISSION = "location-inaccurate"
+        }
+    }
 
     /**
      * The initial state to display the operation being performed throughout the loading/connecting process.

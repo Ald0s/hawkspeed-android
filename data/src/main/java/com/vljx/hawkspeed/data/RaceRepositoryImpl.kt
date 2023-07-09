@@ -1,5 +1,6 @@
 package com.vljx.hawkspeed.data
 
+import com.vljx.hawkspeed.data.mapper.race.RaceLeaderboardMapper
 import com.vljx.hawkspeed.data.mapper.race.RaceMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
@@ -12,7 +13,8 @@ import javax.inject.Inject
 class RaceRepositoryImpl @Inject constructor(
     private val raceLocalData: RaceLocalData,
 
-    private val raceMapper: RaceMapper
+    private val raceMapper: RaceMapper,
+    private val raceLeaderboardMapper: RaceLeaderboardMapper
 ): BaseRepository(), RaceRepository {
     override fun selectOngoingRace(): Flow<Race?> {
         TODO("Not yet implemented")

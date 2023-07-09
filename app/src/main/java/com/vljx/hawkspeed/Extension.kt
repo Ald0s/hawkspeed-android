@@ -5,8 +5,10 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.SphericalUtil
 import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -59,4 +61,16 @@ object Extension {
                 this.bearing
             )
         )
+
+    /**
+     * An extension function to a list of coordinates that will return the total length, prettified like; 2.4km / 183m.
+     */
+    fun List<LatLng>.prettyLength(): String =
+        let { latLngs -> SphericalUtil.computeLength(latLngs).roundToInt() }
+        .let { totalLength ->
+            if((totalLength / 1000).toInt() > 0) {
+                return "${String.format("%.2f", totalLength / 1000)}km"
+            }
+            return "${totalLength}m"
+        }
 }

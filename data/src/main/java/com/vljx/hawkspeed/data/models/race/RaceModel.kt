@@ -10,5 +10,8 @@ data class RaceModel(
     val finished: Long?,
     val isDisqualified: Boolean,
     val disqualificationReason: String?,
-    val isCancelled: Boolean
+    val isCancelled: Boolean,
+    val averageSpeed: Int?,
+    val numLapsComplete: Int?,
+    val percentComplete: Int?
 )

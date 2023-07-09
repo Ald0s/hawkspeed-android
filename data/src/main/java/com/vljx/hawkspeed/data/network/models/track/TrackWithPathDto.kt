@@ -10,5 +10,5 @@ data class TrackWithPathDto(
 
     @Expose
     @SerializedName("track_path")
-    val trackPath: TrackPathDto
+    val trackPath: TrackPathDto?
 )

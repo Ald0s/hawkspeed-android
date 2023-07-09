@@ -2,9 +2,15 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.SphericalUtil
+import com.vljx.hawkspeed.Extension.prettyLength
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestTrackPointDraft
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.DeleteTrackDraftUseCase
@@ -14,6 +20,7 @@ import com.vljx.hawkspeed.domain.usecase.track.draft.ResetTrackDraftPointsUseCas
 import com.vljx.hawkspeed.domain.usecase.track.draft.SaveTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.AddTrackPointDraftUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +40,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 /**
  * TODO: allow editing at some stage.
@@ -47,7 +55,10 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     private val deleteTrackDraftUseCase: DeleteTrackDraftUseCase,
 
     private val addTrackPointDraftUseCase: AddTrackPointDraftUseCase,
-    private val resetTrackDraftPointsUseCase: ResetTrackDraftPointsUseCase
+    private val resetTrackDraftPointsUseCase: ResetTrackDraftPointsUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * A mutable shared flow for the required track draft state. Emit to this flow to control the track being edited/recorded.
@@ -87,8 +98,14 @@ class WorldMapRecordTrackViewModel @Inject constructor(
         mutableSelectedTrackDraftState.flatMapLatest { selectTrackDraftState ->
             when(selectTrackDraftState) {
                 is SelectTrackDraftState.CreateTrackDraft -> {
-                    newTrackDraftUseCase(Unit).onEach {
-                        mutableSelectedTrackDraftState.emit(SelectTrackDraftState.SelectTrackDraft(it.trackDraftId))
+                    newTrackDraftUseCase(
+                        RequestNewTrackDraft(selectTrackDraftState.chosenTrackType)
+                    ).onEach {
+                        // Whenever new track draft emits a value, we'll emit its track draft Id to our selected track draft state, and also emit  the new track itself as
+                        // a NewTrack state to the manual UI state controller.
+                        mutableSelectedTrackDraftState.emit(
+                            SelectTrackDraftState.SelectTrackDraft(it.trackDraftId)
+                        )
                         mutableWorldMapRecordTrackUiState.emit(
                             WorldMapRecordTrackUiState.NewTrack(it)
                         )
@@ -148,12 +165,18 @@ class WorldMapRecordTrackViewModel @Inject constructor(
             mutableIsRecording,
             trackDraftWithRecordedPoint
         ) { isRecording, latestTrackDraft ->
+            val totalLength: String = latestTrackDraft.pointDrafts
+                .map { LatLng(it.latitude, it.longitude) }
+                .prettyLength()
             // Now, return the most appropriate UI states.
             when(isRecording) {
                 /**
                  * If we are set to recording, emit the recording state along with latest track draft.
                  */
-                true -> WorldMapRecordTrackUiState.Recording(latestTrackDraft)
+                true -> WorldMapRecordTrackUiState.Recording(
+                    latestTrackDraft,
+                    totalLength
+                )
 
                 /**
                  * Otherwise, if we're not recording, emit recorded track overview if the latest track draft has a valid track recorded. Otherwise, emit
@@ -162,7 +185,10 @@ class WorldMapRecordTrackViewModel @Inject constructor(
                 false -> {
                     if(latestTrackDraft.hasRecordedTrack) {
                         Timber.d("Showing overview of track with ${latestTrackDraft.pointDrafts.size} recorded points.")
-                        return@combine WorldMapRecordTrackUiState.RecordedTrackOverview(latestTrackDraft)
+                        return@combine WorldMapRecordTrackUiState.RecordedTrackOverview(
+                            latestTrackDraft,
+                            totalLength
+                        )
                     } else {
                         Timber.d("Starting up a new track.")
                         return@combine WorldMapRecordTrackUiState.NewTrack(latestTrackDraft)
@@ -191,13 +217,14 @@ class WorldMapRecordTrackViewModel @Inject constructor(
         innerCurrentLocation
 
     /**
-     * Create a new Track. This will call out to the new track use case, emitting the newly created track's id to the
-     * selected track id mutable shared flow.
+     * Create a new Track. This will call out to the new track use case, emitting the newly created track's id to the selected track id mutable shared flow.
+     *
+     * TODO: currently this performs no checks to ensure a new track is allowed to be created.
      */
-    fun newTrack() {
+    fun newTrack(trackType: TrackType) {
         viewModelScope.launch {
             mutableSelectedTrackDraftState.emit(
-                SelectTrackDraftState.CreateTrackDraft
+                SelectTrackDraftState.CreateTrackDraft(trackType)
             )
         }
     }
@@ -215,7 +242,7 @@ class WorldMapRecordTrackViewModel @Inject constructor(
      */
     fun cancelRecording(trackDraftWithPoints: TrackDraftWithPoints, saveTrack: Boolean) {
         // Get the track draft with points.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Emit a loading state for the UI, to disable actions.
             mutableWorldMapRecordTrackUiState.tryEmit(WorldMapRecordTrackUiState.Loading)
             // On the view model scope, if User wants to save the track, invoke the save use case with the given track draft. Otherwise, invoke the
@@ -251,7 +278,7 @@ class WorldMapRecordTrackViewModel @Inject constructor(
             // TODO: handle this properly.
             throw NotImplementedError("Failed to reset track. UI state must be recorded track overview for this to be possible. Also, this is not handled.")
         }
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Now, call out to reset track draft points use case and instruct points for that track draft to be cleared. This should result in the latest track draft
             // with points for this track draft to be emitted, updating UI state in any case, to new track.
             val trackDraftWithPoints = resetTrackDraftPointsUseCase(
@@ -276,22 +303,20 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     /**
      * To be called when the User is happy with their recorded track, and wishes to fill out its details now.
      */
-    fun recordingComplete() {
+    fun recordingComplete(trackDraftWithPoints: TrackDraftWithPoints) {
         // Ensure the current UI state is a recording overview, which means we have a valid recording. Fail otherwise.
         if(recordTrackUiState.value !is WorldMapRecordTrackUiState.RecordedTrackOverview) {
             // TODO: handle this properly.
             throw NotImplementedError("Failed to complete track recording. UI state must be recorded track overview for this to be possible. Also, this is not handled.")
         }
-        // Get the UI state as a recorded track overview.
-        val recordedTrackOverview = recordTrackUiState.value as WorldMapRecordTrackUiState.RecordedTrackOverview
         // Emit loading to the mutable UI state, to recompose to loading.
         mutableWorldMapRecordTrackUiState.tryEmit(WorldMapRecordTrackUiState.Loading)
         // Launch a coroutine scope.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Now, save this recorded track into cache.
             // TODO: save recorded track as it is. Though, is this necessary?
             // Now that we've saved the track, we'll get back our saved version.
-            val savedTrackDraft = recordedTrackOverview.trackDraftWithPoints
+            val savedTrackDraft = trackDraftWithPoints
             // Wit this, we'll emit a recording complete UI state.
             mutableWorldMapRecordTrackUiState.emit(
                 WorldMapRecordTrackUiState.RecordingComplete(savedTrackDraft)

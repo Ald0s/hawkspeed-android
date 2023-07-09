@@ -2,20 +2,27 @@ package com.vljx.hawkspeed.ui.screens.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.usecase.account.CheckLoginUseCase
 import com.vljx.hawkspeed.domain.models.account.Account
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
-    private val checkLoginUseCase: CheckLoginUseCase
+    private val checkLoginUseCase: CheckLoginUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * Setup a flow for the result of attempting to login. This will, when collect, try and reauthenticate the current login with the server
@@ -23,6 +30,7 @@ class SplashViewModel @Inject constructor(
      */
     private val accountResource: Flow<Resource<Account>> =
         checkLoginUseCase(Unit)
+            .flowOn(ioDispatcher)
 
     /**
      * Map the outcome of the above query to a state of the appropriate type. We'll make this a state flow, so that the latest value emitted will

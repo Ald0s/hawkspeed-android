@@ -500,6 +500,10 @@ class WorldSocketSession @Inject constructor(
              */
             on<RaceFinishedDto>("race-finished") { raceFinished ->
                 Timber.e("Handling a race-finished message is not yet implemented.")
+                /**
+                 * TODO: race finished actually need to return the leaderboard entry as well.
+                 */
+                throw NotImplementedError()
             }
             /**
              * Event will be invoked each time the Player has an ongoing race, and submits a location update.

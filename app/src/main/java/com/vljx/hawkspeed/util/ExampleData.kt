@@ -3,10 +3,14 @@ package com.vljx.hawkspeed.util
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.race.Race
+import com.vljx.hawkspeed.domain.models.race.Race.Companion.DQ_REASON_MISSED_TRACK
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.domain.models.track.TrackComment
+import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.track.TrackPoint
+import com.vljx.hawkspeed.domain.models.track.TrackPointDraft
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 
@@ -71,6 +75,7 @@ object ExampleData {
             trackUid
         ),
         isVerified: Boolean = true,
+        isSnappedToRoads: Boolean = true,
         numPositiveVotes: Int = 6,
         numNegativeVotes: Int = 2,
         yourRating: Boolean? = null,
@@ -88,6 +93,7 @@ object ExampleData {
             topLeaderboard,
             trackPoint,
             isVerified,
+            isSnappedToRoads,
             TrackType.SPRINT,
             numPositiveVotes,
             numNegativeVotes,
@@ -108,6 +114,38 @@ object ExampleData {
             points = points
         )
 
+    fun getTrackDraftWithPoints(
+        trackDraftId: Long = 1,
+        trackType: TrackType = TrackType.SPRINT,
+        trackName: String = "",
+        trackDescription: String = "",
+        pointsDraft: List<TrackPointDraft> = listOf(
+            TrackPointDraft(1, 0.0, 0.0, System.currentTimeMillis(), 50f, 180f, 1),
+            TrackPointDraft(2, 0.0, 0.0, System.currentTimeMillis(), 50f, 180f, 1),
+            TrackPointDraft(3, 0.0, 0.0, System.currentTimeMillis(), 50f, 180f, 1)
+        )
+    ): TrackDraftWithPoints =
+        TrackDraftWithPoints(
+            trackDraftId = trackDraftId,
+            trackType = trackType,
+            trackName = trackName,
+            trackDescription = trackDescription,
+            pointDrafts = pointsDraft
+        )
+
+    fun getExampleTrackComment(
+        commentUid: String = "COMMENT01",
+        createdSeconds: Int = 1678508081,
+        text: String = "This is a great track. There's currently a lot of potholes all over so be careful. Suggest attempting racing late at night.",
+        user: User = getExampleUser()
+    ): TrackComment =
+        TrackComment(
+            commentUid,
+            createdSeconds,
+            text,
+            user
+        )
+
     fun getExampleLeaderboard(
 
     ): List<RaceLeaderboard> =
@@ -124,9 +162,12 @@ object ExampleData {
         finished: Long? = null,
         isDisqualified: Boolean = false,
         disqualificationReason: String? = null,
-        isCancelled: Boolean = false
+        isCancelled: Boolean = false,
+        averageSpeed: Int? = 70,
+        numLapsComplete: Int? = null,
+        percentComplete: Int? = 45
     ): Race =
-        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled, averageSpeed, numLapsComplete, percentComplete)
 
     fun getExampleFinishedRace(
         raceUid: String = "RACE01",
@@ -135,9 +176,12 @@ object ExampleData {
         finished: Long? = System.currentTimeMillis() - 1000,
         isDisqualified: Boolean = false,
         disqualificationReason: String? = null,
-        isCancelled: Boolean = false
+        isCancelled: Boolean = false,
+        averageSpeed: Int? = 120,
+        numLapsComplete: Int? = null,
+        percentComplete: Int? = 100
     ): Race =
-        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled, averageSpeed, numLapsComplete, percentComplete)
 
     fun getExampleCancelledRace(
         raceUid: String = "RACE01",
@@ -146,9 +190,12 @@ object ExampleData {
         finished: Long? = null,
         isDisqualified: Boolean = false,
         disqualificationReason: String? = null,
-        isCancelled: Boolean = true
+        isCancelled: Boolean = true,
+        averageSpeed: Int? = 20,
+        numLapsComplete: Int? = null,
+        percentComplete: Int? = 2
     ): Race =
-        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled, averageSpeed, numLapsComplete, percentComplete)
 
     fun getExampleDisqualifiedRace(
         raceUid: String = "RACE01",
@@ -156,8 +203,11 @@ object ExampleData {
         started: Long = System.currentTimeMillis() - (2 * 1000),
         finished: Long? = null,
         isDisqualified: Boolean = true,
-        disqualificationReason: String? = "left-track",
-        isCancelled: Boolean = false
+        disqualificationReason: String? = DQ_REASON_MISSED_TRACK,
+        isCancelled: Boolean = false,
+        averageSpeed: Int? = 45,
+        numLapsComplete: Int? = null,
+        percentComplete: Int? = 23
     ): Race =
-        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled)
+        Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled, averageSpeed, numLapsComplete, percentComplete)
 }

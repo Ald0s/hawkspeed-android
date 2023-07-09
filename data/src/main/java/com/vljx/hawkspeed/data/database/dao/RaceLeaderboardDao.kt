@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Query
 import com.vljx.hawkspeed.data.database.entity.race.RaceLeaderboardEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 abstract class RaceLeaderboardDao: BaseDao<RaceLeaderboardEntity>() {
@@ -18,6 +19,13 @@ abstract class RaceLeaderboardDao: BaseDao<RaceLeaderboardEntity>() {
         ORDER BY race_leaderboard.stopwatch ASC
     """)
     abstract fun pageRaceLeaderboardFromTrack(trackUid: String): PagingSource<Int, RaceLeaderboardEntity>
+
+    @Query("""
+        SELECT *
+        FROM race_leaderboard
+        WHERE raceUid = :raceUid
+    """)
+    abstract fun selectLeaderboardEntryForRace(raceUid: String): Flow<RaceLeaderboardEntity?>
 
     @Query("""
         DELETE FROM race_leaderboard

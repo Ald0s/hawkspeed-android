@@ -41,6 +41,9 @@ sealed class ResourceError {
     data class SocketError(
         val socketErrorWrapper: SocketErrorWrapper
     ): ResourceError() {
+        val reason: String
+            get() = socketErrorWrapper.reason
+        
         override val errorSummary: String
             get() = StringBuilder().apply {
                 appendLine("=== Socket Error ===")

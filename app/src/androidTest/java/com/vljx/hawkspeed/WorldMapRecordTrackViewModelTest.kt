@@ -3,6 +3,7 @@ package com.vljx.hawkspeed
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
@@ -117,7 +118,7 @@ class WorldMapRecordTrackViewModelTest {
         // Send the very first update.
         sendPlayerUpdateUseCase(playerUpdateRequests[0])
         // Now we'd have opened the record view model, and so the new track function is called.
-        worldMapRecordTrackViewModel.newTrack()
+        worldMapRecordTrackViewModel.newTrack(TrackType.SPRINT)
         // Wait for 2 items.
         states.waitForSize(2)
         // Assert the second state is of type NewTrack.

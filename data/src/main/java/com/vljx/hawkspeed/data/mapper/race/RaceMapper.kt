@@ -16,7 +16,10 @@ class RaceMapper @Inject constructor(
             model.finished,
             model.isDisqualified,
             model.disqualificationReason,
-            model.isCancelled
+            model.isCancelled,
+            model.averageSpeed,
+            model.numLapsComplete,
+            model.percentComplete
         )
     }
 
@@ -28,7 +31,10 @@ class RaceMapper @Inject constructor(
             domain.finished,
             domain.isDisqualified,
             domain.disqualificationReason,
-            domain.isCancelled
+            domain.isCancelled,
+            domain.averageSpeed,
+            domain.numLapsComplete,
+            domain.percentComplete
         )
     }
 }

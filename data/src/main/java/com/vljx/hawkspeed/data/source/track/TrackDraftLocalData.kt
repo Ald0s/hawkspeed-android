@@ -1,7 +1,9 @@
 package com.vljx.hawkspeed.data.source.track
 
 import com.vljx.hawkspeed.data.models.track.TrackDraftWithPointsModel
+import com.vljx.hawkspeed.data.models.track.TrackPointDraftModel
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import kotlinx.coroutines.flow.Flow
 
 interface TrackDraftLocalData {
@@ -13,13 +15,19 @@ interface TrackDraftLocalData {
     /**
      * Create a new track draft with points, then return a flow for it.
      */
-    fun newTrackDraftWithPoints(): Flow<TrackDraftWithPointsModel>
+    fun newTrackDraftWithPoints(requestNewTrackDraft: RequestNewTrackDraft): Flow<TrackDraftWithPointsModel>
 
     /**
      * Insert the given location as the latest point in the desired track draft, then return the up to date track draft with points. If the track draft
      * identified by the Id does not exist, this function will fail with an exception.
      */
     suspend fun addPointToTrack(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackDraftWithPointsModel
+
+    /**
+     * Insert the given location as the latest point in the desired track draft, then return just that new track point draft. If the track draft identified
+     * by the Id does not exist, this function will fail with an exception.
+     */
+    suspend fun addPointToTrackEx(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackPointDraftModel
 
     /**
      * Insert the given track draft and all associated points into cache.

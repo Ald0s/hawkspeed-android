@@ -48,5 +48,5 @@ interface TrackService {
     @Headers("Content-Type: application/json")
     suspend fun submitNewTrack(
         @Body requestSubmitTrackDto: RequestSubmitTrackDto
-    ): Response<TrackDto>
+    ): Response<TrackWithPathDto>
 }

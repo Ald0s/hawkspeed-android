@@ -4,6 +4,7 @@
     <string name="title_activity_main">MainActivity</string>
 
     <string name="loading">Loading…</string>
+    <string name="accept">Accept</string>
 
     <string name="placeholder_email">Email address</string>
     <string name="placeholder_password">Password</string>
@@ -30,6 +31,10 @@
     <string name="world_map_loading">Loading world</string>
     <string name="world_map_loading_location">Waiting for first location</string>
     <string name="world_map_loading_connecting">Connecting to game</string>
+
+    <string name="placeholder_setup_track_name">Track name</string>
+    <string name="placeholder_setup_track_description">About this track</string>
+    <string name="setup_track_finish">Finish</string>
 
     <string name="track_description_title">Description</string>
     <string name="track_author_title">Author</string>
@@ -58,4 +63,35 @@
     <string name="race_get_ready">Get Ready!</string>
     <string name="race_go">Go!</string>
     <string name="race_zero_time">00:00:000</string>
+    <string name="race_progress">%1$s%% complete</string>
+
+    <string name="race_start_failed">Race start failed!</string>
+    <string name="race_start_failed_desc">We had to decline your request for a new race. This attempt will not be visible on the leaderboard.</string>
+    <string name="race_start_failed_unknown">An unknown error occurred.</string>
+    <string name="race_start_failed_cant_be_raced">Sorry about this! For some reason, this track can\'t actually be raced right now. We suggest trying again in a few hours.</string>
+
+    <string name="race_cancelled">Race cancelled</string>
+    <string name="race_cancelled_desc">This race has been cancelled. This attempt will not be visible on the leaderboard.</string>
+    <string name="race_cancelled_unknown">An unknown error occurred.</string>
+
+    <string name="race_disqualified">You\'ve been disqualified!</string>
+    <string name="race_disqualified_desc">Something about your attempt lead us to believe you\'re up to no good. This attempt will not be visible on the leaderboard.</string>
+    <string name="race_disqualified_disconnected">At some point, you may have lost connection to HawkSpeed. We\'re pretty strict about this, so make sure your device always remains connected when racing!</string>
+    <string name="race_disqualified_missed_track">It seems as though you have missed a large portion of the track thus far. We\'re pretty strict about this, so make sure when racing, you always follow the highlighted track!</string>
+    <string name="race_disqualified_unknown">An unknown error occurred.</string>
+    <!--Other error messages here.-->
+    <string name="race_finished">Congratulations!</string>
+    <string name="race_finished_desc">You have successfully completed this track.</string>
+
+    <string name="record_track_recorded">Recorded track</string>
+    <string name="record_track_recording">Recording…</string>
+    <string name="record_record_new_sprint">New sprint</string>
+    <string name="record_record_new_circuit">New circuit</string>
+    <string name="record_track_length">Distance: 2.4km</string>
+    <string name="record_start_recording">Record</string>
+    <string name="record_stop_recording">Stop</string>
+    <string name="record_reset_track">Reset</string>
+    <string name="record_use_track">Use Track</string>
+    <string name="record_cancel">Cancel &amp; Exit</string>
+    <string name="record_distance">%1$d</string>
 </resources>

@@ -16,7 +16,10 @@ class RaceUpdateDtoMapper @Inject constructor(
             dto.finished,
             dto.isDisqualified,
             dto.disqualificationReason,
-            dto.isCancelled
+            dto.isCancelled,
+            dto.averageSpeed,
+            dto.numLapsComplete,
+            dto.percentComplete
         )
     }
 }

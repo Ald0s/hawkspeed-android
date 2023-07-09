@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,7 +67,21 @@ import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.Extension.toRaceTime
+import com.vljx.hawkspeed.domain.Resource
+import com.vljx.hawkspeed.domain.ResourceError
+import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException
+import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException.Companion.NO_TRACK_PATH
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_ALREADY_IN_RACE
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_NO_COUNTDOWN_POSITION
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_NO_STARTED_POSITION
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_NO_TRACK_FOUND
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_NO_VEHICLE
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_NO_VEHICLE_UID
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_POSITION_NOT_SUPPORTED
+import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException.Companion.REASON_TRACK_NOT_READY
 import com.vljx.hawkspeed.domain.models.race.Race
+import com.vljx.hawkspeed.domain.models.race.Race.Companion.DQ_REASON_DISCONNECTED
+import com.vljx.hawkspeed.domain.models.race.Race.Companion.DQ_REASON_MISSED_TRACK
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
@@ -98,25 +113,49 @@ import kotlin.time.toDuration
 fun WorldMapRaceMode(
     raceMode: WorldMapUiState.WorldMapLoadedRaceMode,
     trackUid: String,
-    onReturnClicked: () -> Unit,
+
+    onFinishedRace: ((Race) -> Unit)? = null,
+    onExitRaceMode: (() -> Unit)? = null,
 
     worldMapRaceViewModel: WorldMapRaceViewModel = hiltViewModel()
 ) {
     // Collect each UI state change.
     val worldMapRaceUiState by worldMapRaceViewModel.worldMapRaceUiState.collectAsState()
-    // Collect each location update.
-    val location: PlayerPosition? by worldMapRaceViewModel.currentLocation.collectAsState()
-    // With each UI state, compose the race mode UI.
-    RaceMode(
-        raceMode = raceMode,
-        currentLocation = location,
-        worldMapRaceUiState = worldMapRaceUiState,
+    // The only UI state we'll handle this early is load failed; since failing any that constitutes load failed means we shouldn't really
+    // display the race map anyway.
+    when(worldMapRaceUiState) {
+        is WorldMapRaceUiState.LoadFailed -> {
+            // Call our load failed composable, which will render the issue to the User.
+            LoadFailed(
+                loadFailed = worldMapRaceUiState as WorldMapRaceUiState.LoadFailed,
+                onAcceptClicked = {
+                    // On accepting a load failed, exit race mode.
+                    onExitRaceMode?.invoke()
+                }
+            )
+        }
+        else -> {
+            // Otherwise, draw the actual race mode UI. Collect each location update.
+            val location: PlayerPosition? by worldMapRaceViewModel.currentLocation.collectAsState()
+            // With each UI state, compose the race mode UI.
+            RaceMode(
+                raceMode = raceMode,
+                currentLocation = location,
+                worldMapRaceUiState = worldMapRaceUiState,
 
-        onStartRaceClicked = worldMapRaceViewModel::startRace,
-        onCancelRaceClicked = worldMapRaceViewModel::cancelRace,
+                onFinishedRace = onFinishedRace,
+                onStartRaceClicked = worldMapRaceViewModel::startRace,
+                onCancelRaceClicked = worldMapRaceViewModel::cancelRace,
+                onRequestResetRaceIntent = {
+                    // Reset race intent to idle.
+                    worldMapRaceViewModel.resetRaceIntent()
+                },
+                onExitRaceMode = onExitRaceMode,
 
-        componentActivity = LocalContext.current.getActivity()
-    )
+                componentActivity = LocalContext.current.getActivity()
+            )
+        }
+    }
     // In a launched effect, set the targeted track UID.
     LaunchedEffect(key1 = Unit, block = {
         worldMapRaceViewModel.setTrackUid(trackUid)
@@ -130,8 +169,11 @@ fun RaceMode(
     currentLocation: PlayerPosition?,
     worldMapRaceUiState: WorldMapRaceUiState,
 
+    onFinishedRace: ((Race) -> Unit)? = null,
     onStartRaceClicked: ((Vehicle, Track, PlayerPosition) -> Unit)? = null,
     onCancelRaceClicked: (() -> Unit)? = null,
+    onRequestResetRaceIntent: (() -> Unit)? = null,
+    onExitRaceMode: (() -> Unit)? = null,
 
     componentActivity: ComponentActivity? = null
 ) {
@@ -231,26 +273,7 @@ fun RaceMode(
             // We should be following the Player.
             shouldFollowPlayer = true
         }
-        is WorldMapRaceUiState.RaceStartFailed -> {
-            // Call our race start failed composable, which will render the issue to the User, and offer corrective action.
-            RaceStartFailed(
-                raceStartFailed = worldMapRaceUiState,
-                onAcceptClicked = {
-                    // TODO: we have accepted the race start failure issue.
-                    throw NotImplementedError()
-                }
-            )
-        }
-        is WorldMapRaceUiState.LoadFailed -> {
-            // Call our load failed composable, which will render the issue to the User.
-            LoadFailed(
-                loadFailed = worldMapRaceUiState,
-                onAcceptClicked = {
-                    // TODO: we have accepted the load failed issue.
-                    throw NotImplementedError()
-                }
-            )
-        }
+        else -> { /* Nothing to do. */ }
     }
 
     val sheetPeekHeight = 128
@@ -278,7 +301,8 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onAcceptClicked = {
-                            // TODO: accept cancellation clicked, exit race mode.
+                            // Reset race intent to idle.
+                            onRequestResetRaceIntent?.invoke()
                         }
                     )
                 is WorldMapRaceUiState.Disqualified ->
@@ -287,7 +311,8 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onAcceptClicked = {
-                            // TODO: accept disqualification clicked. Was this only countdown? Remain in race mode. Had the race started? Exit race mode.
+                            // Reset race intent to idle.
+                            onRequestResetRaceIntent?.invoke()
                         }
                     )
                 is WorldMapRaceUiState.Finished ->
@@ -296,7 +321,8 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onAcceptClicked = {
-                            // TODO: good work! Accept race finished.
+                            // Accepting a finished race will exit race mode, but in a successful manner.
+                            onFinishedRace?.invoke(worldMapRaceUiState.race)
                         }
                     )
                 is WorldMapRaceUiState.CountingDown ->
@@ -305,7 +331,7 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onCancelCountdownClicked = {
-                            // TODO: cancel countdown
+                            onCancelRaceClicked?.invoke()
                         }
                     )
                 is WorldMapRaceUiState.Racing ->
@@ -314,7 +340,7 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onCancelRaceClicked = {
-                            // TODO: cancel race.
+                            onCancelRaceClicked?.invoke()
                         }
                     )
                 is WorldMapRaceUiState.OnStartLine ->
@@ -323,10 +349,33 @@ fun RaceMode(
                         scaffoldState = scaffoldState,
                         scope = scope,
                         onStartRaceClicked = { chosenVehicle, track, countdownPosition ->
-                            // TODO: player wishes to begin a countdown.
+                            onStartRaceClicked?.invoke(chosenVehicle, track, countdownPosition)
                         }
                     )
-                else -> { /* Nothing to do. */ }
+                is WorldMapRaceUiState.RaceStartFailed -> {
+                    // Call our race start failed composable, which will render the issue to the User, and offer corrective action.
+                    RaceStartFailedControls(
+                        raceStartFailed = worldMapRaceUiState,
+                        scaffoldState = scaffoldState,
+                        scope = scope,
+                        onAcceptClicked = {
+                            // Reset the race intent state to Idle, which will trigger a revision of our current position.
+                            onRequestResetRaceIntent?.invoke()
+                        },
+                        onExitRaceModeRequest = {
+                            // If race started failed requests, inform calling composable we wish to exit race mode.
+                            onExitRaceMode?.invoke()
+                        }
+                    )
+                }
+                else -> {
+                    // In all other cases, setup a temporary sheet state for hidden.
+                    BottomSheetTemporaryState(
+                        desiredState = SheetValue.Hidden,
+                        sheetState = scaffoldState.bottomSheetState,
+                        scope = scope
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -445,44 +494,83 @@ fun RaceMode(
     }
 }
 
+@Composable
+fun LoadFailed(
+    loadFailed: WorldMapRaceUiState.LoadFailed,
+
+    onAcceptClicked: (() -> Unit)? = null
+) {
+    /**
+     * TODO: load failed is called when the initial loading of required resources failed.
+     * The following is a list of all current known failures that will cause this. All of these MUST be handled.
+     *   1. Track resource failed to load; expect the ResourceError instance from the Resource to be passed.
+     *   2. Track path is null, the Track probably doesn't even have a path; expect a GeneralError with message NO_TRACK_PATH and exception an instance of NoTrackPathException.
+     *   3. Your vehicles failed to load; expect the ResourceError instance from the Resource to be passed.
+     */
+    throw NotImplementedError("WorldMapRaceScreen::LoadFailed is not implemented!")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DisqualifiedControls(
     disqualified: WorldMapRaceUiState.Disqualified,
 
     onAcceptClicked: (() -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
     SheetControls(
+        desiredState = SheetValue.Expanded,
         peekContent = {
             Column {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .clickable { }
-                            .weight(1f)
-                    ) {
-                        Text(
-                            text = disqualified.track.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
+                    Text(
+                        text = stringResource(id = R.string.race_disqualified),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Row {
+                    Text(text = stringResource(id = R.string.race_disqualified_desc))
                 }
             }
         },
         expandedContent = {
-
-        }
-    )
-    // Disposable side effect to expand this sheet fully but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.Expanded,
-        sheetState = scaffoldState.bottomSheetState,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Row(
+                    modifier = Modifier.padding(bottom = 32.dp)
+                ) {
+                    Text(text = when(disqualified.race.disqualificationReason) {
+                        DQ_REASON_DISCONNECTED -> stringResource(id = R.string.race_disqualified_disconnected)
+                        DQ_REASON_MISSED_TRACK -> stringResource(id = R.string.race_disqualified_missed_track)
+                        else -> stringResource(id = R.string.race_disqualified_unknown)
+                    })
+                }
+                Row {
+                    Button(
+                        onClick = {
+                            // TODO: accept/exit race mode.
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.accept).uppercase())
+                    }
+                }
+            }
+        },
+        scaffoldState = scaffoldState,
         scope = scope
     )
 }
@@ -493,36 +581,52 @@ fun CancelledControls(
     cancelled: WorldMapRaceUiState.Cancelled,
 
     onAcceptClicked: (() -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
     SheetControls(
+        desiredState = SheetValue.Expanded,
         peekContent = {
             Column {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
                 ) {
-                    Column(
+                    Text(
+                        text = stringResource(id = R.string.race_cancelled),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Row {
+                    Text(text = stringResource(id = R.string.race_cancelled_desc))
+                }
+            }
+        },
+        expandedContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Row {
+                    Button(
+                        onClick = {
+                            // TODO: accept/exit race mode.
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
                         modifier = Modifier
-                            .clickable { }
-                            .weight(1f)
+                            .fillMaxWidth()
                     ) {
-                        Text(
-                            text = cancelled.track.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Text(text = stringResource(id = R.string.accept).uppercase())
                     }
                 }
             }
         },
-        expandedContent = { }
-    )
-    // Disposable side effect to expand this sheet fully but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.Expanded,
-        sheetState = scaffoldState.bottomSheetState,
+        scaffoldState = scaffoldState,
         scope = scope
     )
 }
@@ -533,36 +637,58 @@ fun FinishedControls(
     finished: WorldMapRaceUiState.Finished,
 
     onAcceptClicked: (() -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
     SheetControls(
+        desiredState = SheetValue.Expanded,
         peekContent = {
             Column {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
                 ) {
-                    Column(
+                    Text(
+                        text = stringResource(id = R.string.race_finished),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                /**
+                 * TODO: we should have access to the relevant leaderboard entry item here, which places the User somehwere
+                 * TODO: on the leaderboard and allows us to calculate averages and cool stuff.
+                 */
+                Row {
+                    Text(text = stringResource(id = R.string.race_finished_desc))
+                }
+            }
+        },
+        expandedContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                /**
+                 * TODO: some detail about the race attempt.
+                 */
+                Row {
+                    Button(
+                        onClick = {
+
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
                         modifier = Modifier
-                            .clickable { }
-                            .weight(1f)
+                            .fillMaxWidth()
                     ) {
-                        Text(
-                            text = finished.track.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Text(text = stringResource(id = R.string.accept).uppercase())
                     }
                 }
             }
         },
-        expandedContent = { }
-    )
-    // Disposable side effect to expand this sheet fully but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.Expanded,
-        sheetState = scaffoldState.bottomSheetState,
+        scaffoldState = scaffoldState,
         scope = scope
     )
 }
@@ -580,6 +706,7 @@ fun RacingControls(
     var currentRaceTime by remember { mutableStateOf<String>("00:00:000") }
     // Sheet controls.
     SheetControls(
+        desiredState = SheetValue.PartiallyExpanded,
         peekContent = {
             Column {
                 Row(
@@ -592,7 +719,7 @@ fun RacingControls(
                         // In racing mode, text will certainly be the time.
                         Text(
                             text = currentRaceTime,
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.headlineMedium,
                             color = Color.White
                         )
                     }
@@ -612,9 +739,20 @@ fun RacingControls(
                         }
                     }
                 }
+
+                Row {
+                    Text(
+                        text = stringResource(id = R.string.race_progress, racing.race.percentComplete!!),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        modifier = Modifier
+                            .padding(top = 24.dp)
+                    )
+                }
             }
         },
-        expandedContent = { }
+        scaffoldState = scaffoldState,
+        scope = scope
     )
     // A launched effect, keying off the current race's UID. This will run an infinite loop that will perform as our stopwatch.
     LaunchedEffect(key1 = racing.race.raceUid, block = {
@@ -627,12 +765,6 @@ fun RacingControls(
             delay(20)
         }
     })
-    // Disposable side effect to partially expand the sheet's state but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.PartiallyExpanded,
-        sheetState = scaffoldState.bottomSheetState,
-        scope = scope
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -645,6 +777,7 @@ fun CountingDownControls(
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
     SheetControls(
+        desiredState = SheetValue.PartiallyExpanded,
         peekContent = {
             Column {
                 Row(
@@ -652,12 +785,11 @@ fun CountingDownControls(
                 ) {
                     Column(
                         modifier = Modifier
-                            .clickable { }
                             .weight(1f)
                     ) {
                         Text(
                             text = stringResource(id = R.string.race_zero_time),
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.headlineMedium,
                             color = Color.White
                         )
                     }
@@ -676,14 +808,19 @@ fun CountingDownControls(
                         }
                     }
                 }
+
+                Row {
+                    Text(
+                        text = stringResource(id = R.string.race_progress, "0"),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        modifier = Modifier
+                            .padding(top = 24.dp)
+                    )
+                }
             }
         },
-        expandedContent = { }
-    )
-    // Disposable side effect to partially expand the sheet's state but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.PartiallyExpanded,
-        sheetState = scaffoldState.bottomSheetState,
+        scaffoldState = scaffoldState,
         scope = scope
     )
 }
@@ -698,6 +835,7 @@ fun StartLineControls(
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
     SheetControls(
+        desiredState = SheetValue.PartiallyExpanded,
         peekContent = {
             Column {
                 Row(
@@ -705,13 +843,11 @@ fun StartLineControls(
                 ) {
                     Column(
                         modifier = Modifier
-                            .clickable { }
                             .weight(1f)
                     ) {
                         Text(
                             text = startLine.track.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall,
                             color = Color.White
                         )
                     }
@@ -732,36 +868,96 @@ fun StartLineControls(
                 }
             }
         },
-        expandedContent = { }
-    )
-    // Disposable side effect to partially expand the sheet's state but only for the duration of this state.
-    BottomSheetTemporaryState(
-        desiredState = SheetValue.PartiallyExpanded,
-        sheetState = scaffoldState.bottomSheetState,
+        scaffoldState = scaffoldState,
         scope = scope
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RaceStartFailed(
+fun RaceStartFailedControls(
     raceStartFailed: WorldMapRaceUiState.RaceStartFailed,
 
-    onAcceptClicked: (() -> Unit)?
+    onAcceptClicked: (() -> Unit)? = null,
+    onExitRaceModeRequest: (() -> Unit)? = null,
+
+    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
+    scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    when(raceStartFailed.reasonCode) {
+    val reasonDescription by remember { mutableStateOf<String?>(null) }
+    when (raceStartFailed.reasonCode) {
         CANCELLED_BY_USER -> throw NotImplementedError()
         CANCEL_FALSE_START -> throw NotImplementedError()
-        CANCEL_RACE_SERVER_REFUSED -> throw NotImplementedError()
+        CANCEL_RACE_SERVER_REFUSED -> {
+            if(raceStartFailed.resourceError is ResourceError.SocketError) {
+                // Now within server refused, there will be a whole other section of potential errors, keying off the socket error's reason.
+                val socketError: ResourceError.SocketError = raceStartFailed.resourceError
+                when(socketError.reason) {
+                    REASON_ALREADY_IN_RACE -> throw NotImplementedError()
+                    REASON_POSITION_NOT_SUPPORTED -> throw NotImplementedError()
+                    REASON_NO_COUNTDOWN_POSITION -> throw NotImplementedError()
+                    REASON_NO_STARTED_POSITION -> throw NotImplementedError()
+                    REASON_NO_TRACK_FOUND -> throw NotImplementedError()
+                    REASON_TRACK_NOT_READY -> throw NotImplementedError()
+                    REASON_NO_VEHICLE_UID -> throw NotImplementedError()
+                    REASON_NO_VEHICLE -> throw NotImplementedError()
+                }
+            } else {
+                throw NotImplementedError("Failed handle racestartfailed with reason code server_refused. An unhandled resource error type was presented: ${raceStartFailed.resourceError}")
+            }
+        }
         CANCEL_RACE_REASON_NO_LOCATION -> throw NotImplementedError()
     }
-}
 
-@Composable
-fun LoadFailed(
-    loadFailed: WorldMapRaceUiState.LoadFailed,
-    onAcceptClicked: (() -> Unit)?
-) {
+    SheetControls(
+        desiredState = SheetValue.Expanded,
+        peekContent = {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.race_start_failed),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
+                Row {
+                    Text(text = stringResource(id = R.string.race_start_failed_desc))
+                }
+            }
+        },
+        expandedContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Row(
+                    modifier = Modifier.padding(bottom = 32.dp)
+                ) {
+                    Text(text = reasonDescription ?: stringResource(id = R.string.race_start_failed_unknown))
+                }
+                Row {
+                    Button(
+                        onClick = {
+                            // TODO: accept/exit race mode.
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.accept).uppercase())
+                    }
+                }
+            }
+        },
+        scaffoldState = scaffoldState,
+        scope = scope
+    )
 }
 
 @Preview
@@ -778,10 +974,25 @@ fun PreviewRaceMode(
                 "YARRABOULEVARD"
             ),
             currentLocation = PlayerPosition(0.0, 0.0, 0f, 0f, 0L),
-            worldMapRaceUiState = WorldMapRaceUiState.Disqualified(
-                ExampleData.getExampleDisqualifiedRace(),
-                track = ExampleData.getExampleTrack(),
-                trackPath = ExampleData.getExampleTrackPath()
+            worldMapRaceUiState = WorldMapRaceUiState.RaceStartFailed(
+                REASON_ALREADY_IN_RACE, null
+            )
+        )
+    }
+}
+
+@Preview
+@Composable
+fun PreviewLoadFailed(
+
+) {
+    HawkSpeedTheme {
+        LoadFailed(
+            loadFailed = WorldMapRaceUiState.LoadFailed(
+                ResourceError.GeneralError(
+                    NO_TRACK_PATH,
+                    NoTrackPathException()
+                )
             )
         )
     }
@@ -891,19 +1102,19 @@ fun PreviewStartLineControls(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun PreviewRaceStartFailed(
+fun PreviewRaceStartFailedControls(
 
 ) {
-
-}
-
-@Preview
-@Composable
-fun PreviewLoadFailed(
-
-) {
-
+    HawkSpeedTheme {
+        RaceStartFailedControls(
+            raceStartFailed = WorldMapRaceUiState.RaceStartFailed(
+                reasonCode = CANCEL_FALSE_START,
+                resourceError = null
+            )
+        )
+    }
 }
 

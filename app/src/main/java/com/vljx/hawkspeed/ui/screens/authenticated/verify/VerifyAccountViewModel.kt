@@ -3,10 +3,12 @@ package com.vljx.hawkspeed.ui.screens.authenticated.verify
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.usecase.account.GetAccountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,13 +19,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class VerifyAccountViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val getAccountUseCase: GetAccountUseCase
+    private val getAccountUseCase: GetAccountUseCase,
 
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * Read the User's UID from the saved state handle.
@@ -57,7 +62,7 @@ class VerifyAccountViewModel @Inject constructor(
     /**
      * Perform a query for the current User's account, and emit the result to our UI state.
      */
-    suspend fun refreshAccount() {
+    suspend fun refreshAccount() = withContext(ioDispatcher) {
         // Emit a loading state.
         mutableVerifyAccountUiState.emit(VerifyAccountUiState.Loading)
         // Perform a query for the current account.

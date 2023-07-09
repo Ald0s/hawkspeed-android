@@ -81,7 +81,7 @@ sealed class WorldMapRaceUiState {
     object Loading: WorldMapRaceUiState()
 
     /**
-     * A state that communicates the race has failed to start.
+     * A state that communicates the race has failed to start due to server refusal or other similar types of failures.
      */
     data class RaceStartFailed(
         val reasonCode: String,
@@ -89,7 +89,7 @@ sealed class WorldMapRaceUiState {
     ): WorldMapRaceUiState()
 
     /**
-     * The initial load failure state.
+     * The initial load failure state. This can contain: API errors, general exceptions.
      */
     data class LoadFailed(
         val resourceError: ResourceError

@@ -10,6 +10,7 @@ import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.track.TrackLocalData
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
 import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
+import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.race.RaceUpdate
 import com.vljx.hawkspeed.domain.models.race.StartRaceResult
 import com.vljx.hawkspeed.domain.models.world.GameSettings
@@ -85,14 +86,17 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
     override suspend fun startRace(requestStartRace: RequestStartRace): StartRaceResult {
         val startRaceResult = StartRaceResult(
             true,
-            RaceUpdate(
+            Race(
                 "RACE01",
                 requestStartRace.trackUid,
                 System.currentTimeMillis()-250,
                 null,
                 false,
                 null,
-                false
+                false,
+                0,
+                0,
+                0
             ),
             null
         )
@@ -105,7 +109,10 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
                 null,
                 false,
                 null,
-                false
+                false,
+                0,
+                0,
+                0
             )
         )
         // Return start result.

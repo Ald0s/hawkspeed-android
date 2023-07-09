@@ -22,9 +22,4 @@ interface TrackRemoteData {
      * Perform a query to clear the current User's rating for the desired track.
      */
     suspend fun clearTrackRating(requestClearTrackRating: RequestClearTrackRating): Resource<TrackModel>
-
-    /**
-     * Perform a query to request the creation of a new track.
-     */
-    suspend fun createNewTrack(requestSubmitTrack: RequestSubmitTrack): Resource<TrackModel>
 }

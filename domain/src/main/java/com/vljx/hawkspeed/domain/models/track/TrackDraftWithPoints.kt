@@ -10,9 +10,9 @@ import java.lang.IndexOutOfBoundsException
 
 data class TrackDraftWithPoints(
     val trackDraftId: Long,
+    val trackType: TrackType,
     val trackName: String?,
     val trackDescription: String?,
-    val trackType: TrackType?,
     val pointDrafts: List<TrackPointDraft>
 ) {
     /**

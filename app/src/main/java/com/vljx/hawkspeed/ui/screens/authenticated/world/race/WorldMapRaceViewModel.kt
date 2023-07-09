@@ -2,9 +2,12 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world.race
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.exc.race.NoLocationException
+import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException
+import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException.Companion.NO_TRACK_PATH
 import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.track.Track
@@ -18,6 +21,7 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
+import com.vljx.hawkspeed.domain.usecase.race.GetLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
@@ -25,6 +29,7 @@ import com.vljx.hawkspeed.domain.usecase.socket.SendStartRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.track.GetTrackWithPathUseCase
 import com.vljx.hawkspeed.domain.usecase.vehicle.GetOurVehiclesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -54,12 +59,16 @@ import javax.inject.Inject
 @HiltViewModel
 class WorldMapRaceViewModel @Inject constructor(
     private val getRaceUseCase: GetRaceUseCase,
+    private val getLeaderboardEntryForRaceUseCase: GetLeaderboardEntryForRaceUseCase,
     private val getOurVehiclesUseCase: GetOurVehiclesUseCase,
     private val getTrackWithPathUseCase: GetTrackWithPathUseCase,
 
     private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
     private val sendStartRaceRequestUseCase: SendStartRaceRequestUseCase,
-    private val sendCancelRaceRequestUseCase: SendCancelRaceRequestUseCase
+    private val sendCancelRaceRequestUseCase: SendCancelRaceRequestUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * A mutable shared flow, configured to replay a single value; this is the UID of the Track we will be racing.
@@ -98,6 +107,8 @@ class WorldMapRaceViewModel @Inject constructor(
     /**
      * Map the ongoing race UID to a Race instance. If null is returned, there is no race at all. Otherwise, if the race is finished, cancelled or disqualified,
      * this is a not racing state. Otherwise, this is a racing state.
+     *
+     * TODO: work into this flow emissions from getLeaderboardEntryForRaceUseCase. When this use case emits a value that isn't null, we can be sure the race is finished.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val raceStateFromCache: Flow<RaceState> =
@@ -112,16 +123,12 @@ class WorldMapRaceViewModel @Inject constructor(
             getRaceUseCase(
                 RequestGetRace(raceUid)
             ).map { race ->
-                // If race is null, return no race.
-                if(race == null) {
-                    return@map RaceState.NoRace
+                return@map when {
+                    race == null -> RaceState.NoRace
+                    race.isFinished -> RaceState.RaceFinished(race) /* TODO: this is where we should manifold the leaderboard entry item and pass it alongside is finished.. */
+                    race.isCancelled || race.isDisqualified -> RaceState.NotRacing(race)
+                    else -> RaceState.Racing(race)
                 }
-                // Otherwise, if race is finished, cancelled or disqualified, emit not racing.
-                if(race.isFinished || race.isCancelled || race.isDisqualified) {
-                    return@map RaceState.NotRacing(race)
-                }
-                // Otherwise, we are racing.
-                return@map RaceState.Racing(race)
             }
         }
 
@@ -248,7 +255,6 @@ class WorldMapRaceViewModel @Inject constructor(
                  * the mutable new race intent, then return the loading state from here.
                  */
                 race is RaceState.StartingRace && (startLine !is StartLineState.Perfect || resource.status != Resource.Status.SUCCESS || resource.data == null) -> {
-                    Timber.d("Cancelling countdown!")
                     emit(WorldMapRaceUiState.Loading)
                     // Disqualify the User by emitting an early disqualification state to our new race intent, which should cause the EarlyDisqualification branch to be triggered.
                     mutableNewRaceIntentState.value = NewRaceIntentState.CancelRaceStart(
@@ -277,10 +283,9 @@ class WorldMapRaceViewModel @Inject constructor(
 
                 /**
                  * If resource has a null path, emit an error that communicates this track does not have a path.
-                 * TODO: complete this error handle.
                  */
                 resource.data!!.path == null ->
-                    throw NotImplementedError("Failed to get worldMapRaceUiState - there is no track path for the desired track. This is not supported.")
+                    emit(WorldMapRaceUiState.LoadFailed(ResourceError.GeneralError(NO_TRACK_PATH, NoTrackPathException())))
 
                 /**
                  * If new race intent is early disqualification, emit a disqualification UI state.
@@ -401,16 +406,22 @@ class WorldMapRaceViewModel @Inject constructor(
                     )
 
                 /**
-                 * If we have a not racing state, this means we have completed a race. So differentiate on the race itself to determine which state specifically.
+                 * If we have a race finished state, this means we have completed a race.
+                 * TODO: pass a leaderboard entry item back here, too.
+                 */
+                race is RaceState.RaceFinished ->
+                    WorldMapRaceUiState.Finished(
+                        race.race,
+                        resource.data!!.track,
+                        resource.data!!.path!!
+                    )
+
+                /**
+                 * If we have a not racing state, this either means we have a cancelled race, or a disqualified race.
                  */
                 race is RaceState.NotRacing ->
                     emit(
                         when {
-                            race.race.isFinished -> WorldMapRaceUiState.Finished(
-                                race.race,
-                                resource.data!!.track,
-                                resource.data!!.path!!
-                            )
                             race.race.isDisqualified -> WorldMapRaceUiState.Disqualified(
                                 race.race,
                                 resource.data!!.track,
@@ -421,7 +432,6 @@ class WorldMapRaceViewModel @Inject constructor(
                                 resource.data!!.track,
                                 resource.data!!.path!!
                             )
-
                             else -> throw NotImplementedError("Failed to get worldMapRaceUiState - ongoingracestate is 'NotRacing' yet the race is not any of; finished, cancelled or disqualified.")
                         }
                     )
@@ -470,7 +480,7 @@ class WorldMapRaceViewModel @Inject constructor(
      * Cancel the ongoing race. If the countdown has only started, this will simply abort the countdown. Otherwise, this will cancel the race with the server.
      */
     fun cancelRace() {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Emit a loading state to close down the UI.
             mutableWorldMapRaceUiState.emit(WorldMapRaceUiState.Loading)
             // Get the current value of race state, which will determine how to cancel the race.
@@ -502,10 +512,11 @@ class WorldMapRaceViewModel @Inject constructor(
     }
 
     /**
-     * If a race countdown has been disqualified, call this function to reset the race intent to idle, which will release UI to again display OnStartLine
-     * when applicable.
+     * If a race has been disqualified, cancelled or otherwise interrupted such that it has been stopped, the UI will show the reason and potential corrective action for
+     * whatever the issue was. When the Player has accepted the issue, or resolved the issue, this function will reset the error'd UI back to idle, which will then trigger
+     * the NoRace state.
      */
-    fun resetCountdownDisqualified() {
+    fun resetRaceIntent() {
         mutableNewRaceIntentState.tryEmit(
             NewRaceIntentState.Idle
         )

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.TrackComment
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
@@ -19,6 +20,7 @@ import com.vljx.hawkspeed.domain.usecase.track.PageTrackCommentsUseCase
 import com.vljx.hawkspeed.domain.usecase.track.PageTrackLeaderboardUseCase
 import com.vljx.hawkspeed.domain.usecase.track.UpvoteTrackUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +41,10 @@ class TrackDetailViewModel @Inject constructor(
     private val pageTrackLeaderboardUseCase: PageTrackLeaderboardUseCase,
     private val upvoteTrackUseCase: UpvoteTrackUseCase,
     private val downvoteTrackUseCase: DownvoteTrackUseCase,
-    private val clearTrackRatingUseCase: ClearTrackRatingUseCase
+    private val clearTrackRatingUseCase: ClearTrackRatingUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * Get the Track's UID from the saved state handle.
@@ -72,7 +77,10 @@ class TrackDetailViewModel @Inject constructor(
      * Flat map the latest selected track UID to a pagination of leaderboard entries for the track.
      */
     val leaderboard: Flow<PagingData<RaceLeaderboard>> =
-        combineTransform<String, LeaderboardFilter, PagingData<RaceLeaderboard>>(mutableSelectedTrackUid, selectedLeaderboardFilter) { trackUid, filter ->
+        combineTransform<String, LeaderboardFilter, PagingData<RaceLeaderboard>>(
+            mutableSelectedTrackUid,
+            selectedLeaderboardFilter
+        ) { trackUid, filter ->
             pageTrackLeaderboardUseCase(
                 RequestPageTrackLeaderboard(trackUid)
             )
@@ -115,7 +123,7 @@ class TrackDetailViewModel @Inject constructor(
      */
     fun upvoteTrack(trackUid: String) {
         // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             upvoteTrackUseCase(trackUid)
         }
     }
@@ -125,7 +133,7 @@ class TrackDetailViewModel @Inject constructor(
      */
     fun downvoteTrack(trackUid: String) {
         // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             downvoteTrackUseCase(trackUid)
         }
     }
@@ -135,7 +143,7 @@ class TrackDetailViewModel @Inject constructor(
      */
     fun clearTrackRating(trackUid: String) {
         // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             clearTrackRatingUseCase(trackUid)
         }
     }

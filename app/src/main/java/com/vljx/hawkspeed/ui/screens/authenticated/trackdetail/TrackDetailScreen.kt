@@ -78,6 +78,7 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
@@ -88,7 +89,9 @@ import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.ui.component.TabItem
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
+import com.vljx.hawkspeed.ui.screens.common.Loading
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
+import com.vljx.hawkspeed.ui.screens.common.RaceLeaderboardItem
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import com.vljx.hawkspeed.util.Extension.getActivity
@@ -199,8 +202,7 @@ fun TrackDetail(
                     }
                 }
                 is TrackDetailUiState.Loading -> {
-                    // TODO: should we improve the loading indicator for this UI?
-                    LoadingScreen()
+                    Loading()
                 }
                 is TrackDetailUiState.Failed -> {
                     // TODO: some failed indicator here.
@@ -240,38 +242,45 @@ fun TrackPathOverview(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // We will draw a Google Map composable, with position locked on the track's path above. And some padding, too.
-            GoogleMap(
-                modifier = Modifier
-                    .fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(
+            var uiSettings by remember {
+                mutableStateOf(MapUiSettings(
+                    compassEnabled = false,
+                    myLocationButtonEnabled = false,
+                    indoorLevelPickerEnabled = false,
+                    mapToolbarEnabled = false,
+                    rotationGesturesEnabled = false,
+                    scrollGesturesEnabled = false,
+                    tiltGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    zoomControlsEnabled = false
+                ))
+            }
+            var mapProperties by remember {
+                mutableStateOf(MapProperties(
+                    isBuildingEnabled = false,
+                    isIndoorEnabled = false,
+                    isMyLocationEnabled = false,
+                    minZoomPreference = 3.0f,
+                    maxZoomPreference = 21.0f,
                     mapStyleOptions = componentActivity?.let { activity ->
                         MapStyleOptions.loadRawResourceStyle(
                             activity,
                             R.raw.worldstyle
                         )
                     }
-                ),
-                uiSettings = MapUiSettings(
-                    rotationGesturesEnabled = false,
-                    scrollGesturesEnabled = false,
-                    tiltGesturesEnabled = false,
-                    zoomGesturesEnabled = false,
-                    zoomControlsEnabled = false
-                ),
+                ))
+            }
+            // We will draw a Google Map composable, with position locked on the track's path above. And some padding, too.
+            GoogleMap(
+                modifier = Modifier
+                    .fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = mapProperties,
+                uiSettings = uiSettings,
                 onMapLoaded = {
                     // When map is loaded, cause a change to the camera such that we move to the track path's bounds.
                     val boundingBox: BoundingBox = trackPath.getBoundingBox()
-                    cameraPositionState.move(
-                        CameraUpdateFactory.newLatLngBounds(
-                            LatLngBounds(
-                                LatLng(boundingBox.southWest.latitude, boundingBox.southWest.longitude),
-                                LatLng(boundingBox.northEast.latitude, boundingBox.northEast.longitude)
-                            ),
-                            25
-                        )
-                    )
+                    cameraPositionState.move(boundingBox.toOverviewCameraUpdate())
                     isMapLoaded = true
                 }
             ) {
@@ -428,13 +437,14 @@ fun TrackLeaderboard(
         ) { index ->
             val raceLeaderboard = leaderboard[index]
                 ?: throw NotImplementedError()
-            Text(
-                modifier = Modifier
-                    .height(75.dp),
-                text = raceLeaderboard.player.userName
+            RaceLeaderboardItem(
+                raceLeaderboard = raceLeaderboard
             )
-
-            Divider()
+            // If this is the last item in the list, do not display a divider.
+            if(index < leaderboard.itemCount) {
+                // TODO: ensure this works...
+                Divider()
+            }
         }
         
         when {
@@ -456,50 +466,6 @@ fun TrackLeaderboard(
             else -> {
 
             }
-        }
-    }
-}
-
-@Composable
-fun RaceLeaderboardItem(
-    raceLeaderboard: RaceLeaderboard,
-    onViewPlayerClicked: ((User) -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(75.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(0.1f)
-                .fillMaxHeight()
-        ) {
-            Text(text = "#${raceLeaderboard.finishingPlace}")
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(0.3f)
-                .fillMaxHeight()
-        ) {
-            Text(text = raceLeaderboard.player.userName)
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(0.4f)
-                .fillMaxHeight()
-        ) {
-            Text(text = "1994 Toyota Supra")
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(0.2f)
-                .fillMaxHeight()
-        ) {
-            Text(text = "4:24:194")
         }
     }
 }
@@ -624,22 +590,14 @@ fun PreviewTrackLeaderboard(
             TrackLeaderboard(
                 track = ExampleData.getExampleTrack(),
                 leaderboardFlow = flow {
-                    emit(PagingData.from(ExampleData.getExampleLeaderboard()))
+                    emit(
+                        PagingData.from(
+                            ExampleData.getExampleLeaderboard()
+                        )
+                    )
                 }
             )
         }
-    }
-}
-
-@Preview
-@Composable
-fun PreviewRaceLeaderboardItem(
-    
-) {
-    HawkSpeedTheme {
-        RaceLeaderboardItem(
-            raceLeaderboard = ExampleData.getExampleLeaderboard().first()
-        )
     }
 }
 

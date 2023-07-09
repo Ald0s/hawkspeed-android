@@ -12,7 +12,7 @@ class TrackWithPathDtoMapper @Inject constructor(
     override fun mapFromDto(dto: TrackWithPathDto): TrackWithPathModel {
         return TrackWithPathModel(
             trackDtoMapper.mapFromDto(dto.track),
-            trackPathWithPointsDtoMapper.mapFromDto(dto.trackPath)
+            dto.trackPath?.let { trackPathWithPointsDtoMapper.mapFromDto(it) }
         )
     }
 }

@@ -20,7 +20,7 @@ import com.vljx.hawkspeed.data.database.entity.track.TrackPointEntity
 
 @Database(
     entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceLeaderboardEntity::class, TrackCommentEntity::class, TrackDraftEntity::class, TrackPointDraftEntity::class, VehicleEntity::class],
-    version = 45
+    version = 48
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {

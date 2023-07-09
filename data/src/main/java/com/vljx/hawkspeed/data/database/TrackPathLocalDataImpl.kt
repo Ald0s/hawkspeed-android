@@ -40,7 +40,7 @@ class TrackPathLocalDataImpl @Inject constructor(
     override suspend fun upsertTrackWithPath(trackWithPath: TrackWithPathModel) {
         // Map to entity equivalent.
         val trackWithPathEntity: TrackWithPathEntity = trackWithPathEntityMapper.mapToEntity(trackWithPath)
-        // Now, first insert all track points, then track path, then finally the track itself.
+        // Now, first insert all track points, then track path, then finally the track itself. This is only if there is actually a track path present.
         trackWithPathEntity.trackPathWithPoints?.let { trackPathWithPoints ->
             // TODO: improve this. For now, whenever we insert a new track path, we'll do so by clearing all points currently associated with that path, then inserting the latest.
             // TODO: this may be inefficient, so discover a better way of handling this.

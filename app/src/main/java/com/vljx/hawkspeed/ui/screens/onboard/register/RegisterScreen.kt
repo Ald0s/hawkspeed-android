@@ -19,10 +19,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -34,6 +37,7 @@ import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Registration
 import com.vljx.hawkspeed.ui.component.InputValidationResult
+import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,8 +46,7 @@ fun RegisterScreen(
     onRegistered: (Registration) -> Unit,
     registerViewModel: RegisterViewModel = hiltViewModel()
 ) {
-    val registerUiState by registerViewModel.registerUiState.collectAsState(initial = RegisterUiState.Idle)
-
+    val registerUiState by registerViewModel.registerUiState.collectAsState()
     when(registerUiState) {
         is RegisterUiState.RegistrationSuccessful -> {
             // When registration succeeds, we'll invoke our callback from a launched side effect.
@@ -51,60 +54,61 @@ fun RegisterScreen(
                 onRegistered((registerUiState as RegisterUiState.RegistrationSuccessful).registration)
             })
         }
-        is RegisterUiState.Loading -> {
-            // TODO: show a loading indicator
+        is RegisterUiState.ShowRegistrationForm -> {
+            val emailAddress: String? by registerViewModel.emailAddress.collectAsState()
+            val password: String? by registerViewModel.password.collectAsState()
+            val confirmPassword: String? by registerViewModel.confirmPassword.collectAsState()
+
+            RegisterFormUi(
+                registerFormUiState = (registerUiState as RegisterUiState.ShowRegistrationForm).registerFormUiState,
+                emailAddress = emailAddress,
+                password = password,
+                confirmPassword = confirmPassword
+            )
         }
-        is RegisterUiState.RegistrationFailed -> {
-            // TODO: handle registration failed case.
-        }
-        is RegisterUiState.Idle -> {
-            // Don't have to do anything for idling.
-        }
+        is RegisterUiState.Loading ->
+            LoadingScreen()
     }
-
-    val emailAddress: String? by registerViewModel.emailAddress.collectAsState()
-    val validateEmailAddressResult by registerViewModel.validateEmailAddressResult.collectAsState()
-    val password: String? by registerViewModel.password.collectAsState()
-    val validatePasswordResult by registerViewModel.validatePasswordResult.collectAsState()
-    val confirmPassword: String? by registerViewModel.confirmPassword.collectAsState()
-    val validateConfirmPasswordResult by registerViewModel.validateConfirmPasswordResult.collectAsState()
-
-    RegisterFormUi(
-        onAttemptRegistrationClicked = { /*TODO*/ },
-        emailAddress = emailAddress,
-        validateEmailAddressResult = validateEmailAddressResult,
-        updateEmailAddress = registerViewModel::updateEmailAddress,
-        password = password,
-        validatePasswordResult = validatePasswordResult,
-        updatePassword = registerViewModel::updatePassword,
-        confirmPassword = confirmPassword,
-        validateConfirmPasswordResult = validateConfirmPasswordResult,
-        updateConfirmPassword = registerViewModel::updateConfirmPassword
-    )
 }
 
 /**
  * TODO: validation must still be applied to all form controls.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterFormUi(
-    onAttemptRegistrationClicked: () -> Unit,
-
+    registerFormUiState: RegisterFormUiState,
     emailAddress: String?,
-    validateEmailAddressResult: InputValidationResult,
-    updateEmailAddress: (String) -> Unit,
-
     password: String?,
-    validatePasswordResult: InputValidationResult,
-    updatePassword: (String) -> Unit,
-
     confirmPassword: String?,
-    validateConfirmPasswordResult: InputValidationResult,
-    updateConfirmPassword: (String) -> Unit,
 
-    resourceError: ResourceError? = null
+    updateEmailAddress: ((String) -> Unit)? = null,
+    updatePassword: ((String) -> Unit)? = null,
+    updateConfirmPassword: ((String) -> Unit)? = null,
+    onAttemptRegistrationClicked: (() -> Unit)? = null
 ) {
+    var validateEmailAddress: InputValidationResult by remember { mutableStateOf(InputValidationResult(false)) }
+    var validatePassword: InputValidationResult by remember { mutableStateOf(InputValidationResult(false)) }
+    var validateConfirmPassword: InputValidationResult by remember { mutableStateOf(InputValidationResult(false)) }
+    var isAttemptingRegistration: Boolean by remember { mutableStateOf(false) }
+    var canAttemptRegistration: Boolean by remember { mutableStateOf(false) }
+    var registrationError: ResourceError? by remember { mutableStateOf(null) }
+
+    isAttemptingRegistration = registerFormUiState is RegisterFormUiState.AttemptingRegistration
+    canAttemptRegistration = registerFormUiState is RegisterFormUiState.RegistrationForm && registerFormUiState.canAttemptRegistration
+    when(registerFormUiState) {
+        is RegisterFormUiState.RegistrationForm ->  {
+            validateEmailAddress = registerFormUiState.validateEmailAddress
+            validatePassword = registerFormUiState.validatePassword
+            validateConfirmPassword = registerFormUiState.validateConfirmPassword
+        }
+        is RegisterFormUiState.AttemptingRegistration -> {
+            registrationError = null
+        }
+        is RegisterFormUiState.RegistrationFailed -> {
+            registrationError = registerFormUiState.resourceError
+        }
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxHeight()
@@ -133,7 +137,7 @@ fun RegisterFormUi(
                     placeholder = {
                         Text(text = stringResource(id = R.string.placeholder_email))
                     },
-                    onValueChange = updateEmailAddress,
+                    onValueChange = updateEmailAddress ?: {},
                     modifier = Modifier
                         .fillMaxWidth()
                 )
@@ -149,7 +153,7 @@ fun RegisterFormUi(
                     placeholder = {
                         Text(text = stringResource(id = R.string.placeholder_password))
                     },
-                    onValueChange = updatePassword,
+                    onValueChange = updatePassword ?: {},
                     modifier = Modifier
                         .fillMaxWidth()
                 )
@@ -165,13 +169,14 @@ fun RegisterFormUi(
                     placeholder = {
                         Text(text = stringResource(id = R.string.placeholder_confirm_password))
                     },
-                    onValueChange = updateConfirmPassword,
+                    onValueChange = updateConfirmPassword ?: {},
                     modifier = Modifier
                         .fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
-                    onClick = onAttemptRegistrationClicked,
+                    onClick = onAttemptRegistrationClicked ?: {},
+                    enabled = canAttemptRegistration && !isAttemptingRegistration,
                     shape = RectangleShape,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -190,16 +195,15 @@ fun PreviewRegisterFormUi(
 ) {
     HawkSpeedTheme {
         RegisterFormUi(
-            onAttemptRegistrationClicked = { /*TODO*/ },
-            emailAddress = "",
-            validateEmailAddressResult = InputValidationResult(true),
-            updateEmailAddress = { e -> },
-            password = "",
-            validatePasswordResult = InputValidationResult(true),
-            updatePassword = { e -> },
-            confirmPassword = "",
-            validateConfirmPasswordResult = InputValidationResult(true),
-            updateConfirmPassword = { e -> }
+            registerFormUiState = RegisterFormUiState.RegistrationForm(
+                InputValidationResult(true),
+                InputValidationResult(false),
+                InputValidationResult(false),
+                false
+            ),
+            emailAddress = "user1@mail.com",
+            password = null,
+            confirmPassword = null
         )
     }
 }

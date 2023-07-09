@@ -10,18 +10,18 @@ class TrackDraftEntityMapper @Inject constructor(
     override fun mapFromEntity(entity: TrackDraftEntity): TrackDraftModel {
         return TrackDraftModel(
             entity.trackDraftId!!,
+            entity.trackType,
             entity.name,
-            entity.description,
-            entity.trackType
+            entity.description
         )
     }
 
     override fun mapToEntity(model: TrackDraftModel): TrackDraftEntity {
         return TrackDraftEntity(
             model.trackDraftId,
-            model.name,
-            model.description,
             model.trackType,
+            model.name,
+            model.description
         )
     }
 }

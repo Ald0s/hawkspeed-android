@@ -1,7 +1,9 @@
 package com.vljx.hawkspeed.domain.repository
 
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
+import com.vljx.hawkspeed.domain.models.track.TrackPointDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import kotlinx.coroutines.flow.Flow
 
 interface TrackDraftRepository {
@@ -13,7 +15,7 @@ interface TrackDraftRepository {
     /**
      * Create a new track draft with points.
      */
-    fun newTrackDraftWithPoints(): Flow<TrackDraftWithPoints?>
+    fun newTrackDraftWithPoints(requestNewTrackDraft: RequestNewTrackDraft): Flow<TrackDraftWithPoints?>
 
     /**
      * Save the given track draft with points to cache.
@@ -24,6 +26,11 @@ interface TrackDraftRepository {
      * Add the given track point to the desired track draft, then return the latest track draft with points.
      */
     suspend fun addPointToTrackDraft(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackDraftWithPoints
+
+    /**
+     * Add the given track point to the desired track draft, then return just the created track point draft.
+     */
+    suspend fun addPointToTrackDraftEx(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackPointDraft
 
     /**
      * Clear all point drafts associated with the desired track draft.

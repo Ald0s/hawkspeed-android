@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world.race
 
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.race.Race
+import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 
 /**
@@ -26,7 +27,16 @@ sealed class RaceState {
     ): RaceState()
 
     /**
-     * The state that communicates a race that is no longer ongoing, but refers to the race just completed, cancelled or disqualified.
+     * The state that communicates a race is completed successfully.
+     *
+     * TODO: we should also pass a leaderboard entry item here.
+     */
+    data class RaceFinished(
+        val race: Race
+    ): RaceState()
+
+    /**
+     * The state that communicates a race that is no longer ongoing, but refers to the race just cancelled or disqualified.
      */
     data class NotRacing(
         val race: Race

@@ -11,8 +11,11 @@ import com.vljx.hawkspeed.data.database.mapper.TrackDraftWithPointsEntityMapper
 import com.vljx.hawkspeed.data.database.mapper.TrackPointDraftEntityMapper
 import com.vljx.hawkspeed.data.models.track.TrackDraftModel
 import com.vljx.hawkspeed.data.models.track.TrackDraftWithPointsModel
+import com.vljx.hawkspeed.data.models.track.TrackPointDraftModel
 import com.vljx.hawkspeed.data.source.track.TrackDraftLocalData
+import com.vljx.hawkspeed.domain.models.track.TrackPointDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
+import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.emitAll
@@ -36,14 +39,19 @@ class TrackDraftLocalDataImpl @Inject constructor(
             value?.let { trackDraftWithPointsEntityMapper.mapFromEntity(it) }
         }
 
-    override fun newTrackDraftWithPoints(): Flow<TrackDraftWithPointsModel> = flow {
+    override fun newTrackDraftWithPoints(requestNewTrackDraft: RequestNewTrackDraft): Flow<TrackDraftWithPointsModel> = flow {
         // Open a new flow, and immediately emit all from the result of selecting the result of inserting a blank track draft into cache.
         // Filter not null since this should never be null.
         emitAll(
             selectTrackDraftById(
                 insertTrackDraftWithPoints(
                     TrackDraftWithPointsModel(
-                        TrackDraftModel(null, null, null, null),
+                        TrackDraftModel(
+                            trackDraftId = null,
+                            trackType = requestNewTrackDraft.trackType,
+                            name = null,
+                            description = null
+                        ),
                         listOf()
                     )
                 )
@@ -52,6 +60,15 @@ class TrackDraftLocalDataImpl @Inject constructor(
     }
 
     override suspend fun addPointToTrack(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackDraftWithPointsModel {
+        // Call ex function to create the point, insert it into cache and receive back the actual track point draft model; but we won't use that.
+        addPointToTrackEx(requestAddTrackPointDraft)
+        // Now, return the first result of collecting the selection of that track draft.
+        return selectTrackDraftById(requestAddTrackPointDraft.trackDraftId)
+            .filterNotNull()
+            .first()
+    }
+
+    override suspend fun addPointToTrackEx(requestAddTrackPointDraft: RequestAddTrackPointDraft): TrackPointDraftModel {
         // TODO: First, check to ensure this track draft actually exists.
         // Next, create a track point draft entity for the new point.
         val trackPointDraft = TrackPointDraftEntity(
@@ -63,12 +80,14 @@ class TrackDraftLocalDataImpl @Inject constructor(
             requestAddTrackPointDraft.requestTrackPointDraft.rotation,
             requestAddTrackPointDraft.trackDraftId
         )
-        // Insert this point into cache.
-        trackPointDraftDao.insert(trackPointDraft)
-        // Now, return the first result of collecting the selection of that track draft.
-        return selectTrackDraftById(requestAddTrackPointDraft.trackDraftId)
-            .filterNotNull()
-            .first()
+        // Insert this point into cache, receiving back the track point draft's Id.
+        val trackPointDraftId = trackPointDraftDao.insert(trackPointDraft)
+        // Set the Id on this instance.
+        trackPointDraft.trackPointDraftId = trackPointDraftId
+        // Now return the created track point draft entity, but mapped to model.
+        return trackPointDraftEntityMapper.mapFromEntity(
+            trackPointDraft
+        )
     }
 
     @Transaction

@@ -3,10 +3,17 @@ package com.vljx.hawkspeed.ui.screens.authenticated.setuptrack
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
+import com.vljx.hawkspeed.domain.requestmodels.track.RequestSubmitTrack
+import com.vljx.hawkspeed.domain.usecase.track.SubmitTrackUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.DeleteTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.GetTrackDraftUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.SaveTrackDraftUseCase
 import com.vljx.hawkspeed.ui.component.InputValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -16,15 +23,27 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.combineTransform
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SetupTrackDetailViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val getTrackDraftUseCase: GetTrackDraftUseCase
+    private val getTrackDraftUseCase: GetTrackDraftUseCase,
+    private val submitTrackUseCase: SubmitTrackUseCase,
+    private val saveTrackDraftUseCase: SaveTrackDraftUseCase,
+    private val deleteTrackDraftUseCase: DeleteTrackDraftUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * A mutable state flow for the selected track draft's Id.
@@ -45,87 +64,165 @@ class SetupTrackDetailViewModel @Inject constructor(
      */
     private val mutableTrackName: MutableStateFlow<String?> = MutableStateFlow(null)
     private val mutableTrackDescription: MutableStateFlow<String?> = MutableStateFlow(null)
-    private val mutableTrackType: MutableStateFlow<Int?> = MutableStateFlow(null)
 
     /**
-     * Publicise all arguments.
+     * Publicise both argument flows for UI updates.
      */
-    val trackName: StateFlow<String?> =
-        mutableTrackName
-
-    val trackDescription: StateFlow<String?> =
-        mutableTrackDescription
-
-    val trackType: StateFlow<Int?> =
-        mutableTrackType
+    val trackNameState: StateFlow<String?> = mutableTrackName
+    val trackDescriptionState: StateFlow<String?> = mutableTrackDescription
 
     /**
      * A validator result for the track name.
      */
-    val validateTrackNameResult: StateFlow<InputValidationResult> =
+    private val validateTrackNameResult: Flow<InputValidationResult> =
         mutableTrackName.map { name ->
             // TODO: complete this validator. For now, will just return valid.
             InputValidationResult(true)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
+        }
 
     /**
      * A validator result for the track description.
      */
-    val validateTrackDescriptionResult: StateFlow<InputValidationResult> =
+    private val validateTrackDescriptionResult: Flow<InputValidationResult> =
         mutableTrackDescription.map { description ->
             // TODO: complete this validator. For now, will just return valid.
             InputValidationResult(true)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
-
-    /**
-     * A validator result for the track type.
-     */
-    val validateTrackTypeResult: StateFlow<InputValidationResult> =
-        mutableTrackType.map { description ->
-            // TODO: complete this validator. For now, will just return valid.
-            InputValidationResult(true)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
+        }
 
     /**
      * Flat map the latest selected track draft Id to the associated track draft, with all its points, from cache.
+     * We'll also configure this as a hot flow, so we can get its current value.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val selectedTrackDraft: Flow<TrackDraftWithPoints?> =
+    private val selectedTrackDraft: StateFlow<TrackDraftWithPoints?> =
         mutableSelectedTrackDraftId.flatMapLatest { trackDraftId ->
             getTrackDraftUseCase(
                 trackDraftId
             )
-        }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
     /**
      * A combination of the validators for track name, description and the selected track draft; that will control the
      * submit button's enabled status.
      */
-    val canAttemptCreateTrack: StateFlow<Boolean> =
+    private val canAttemptCreateTrack: StateFlow<Boolean> =
         combine(
             validateTrackNameResult,
             validateTrackDescriptionResult,
-            validateTrackTypeResult,
             selectedTrackDraft
-        ) { nameValid, descValid, trackType, trackDraft ->
-            nameValid.isValid && descValid.isValid && trackType.isValid && trackDraft != null
+        ) { nameValid, descValid, trackDraft ->
+            nameValid.isValid && descValid.isValid && trackDraft != null
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
 
     /**
-     * Publicise the UI state flow.
+     * Combine the latest track name, description and whether we can attempt to create the track being completed into a UI state for the form in
+     * its current position.
      */
-    val setupTrackDetailUiState: SharedFlow<SetupTrackDetailUiState> =
-        mutableSetupTrackDetailUiState
+    private val setupTrackDetailFormUiState: SharedFlow<SetupTrackDetailFormUiState> =
+        combine(
+            validateTrackNameResult,
+            validateTrackDescriptionResult,
+            canAttemptCreateTrack
+        ) { name, description, canAttempt ->
+            SetupTrackDetailFormUiState.TrackDetailForm(
+                name,
+                description,
+                canAttempt
+            )
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+
+    /**
+     * Combine the latest state of the detail's form with the track draft currently selected. Be advised, upon track creation, the selected track draft
+     * will be deleted from cache, which will trigger this flow to once again emit the Loading state. This isn't a big deal since the track created state
+     * will cause the detail form to exit anyway.
+     */
+    private val innerSetupTrackDetailUiState: Flow<SetupTrackDetailUiState> =
+        combine(
+            setupTrackDetailFormUiState,
+            selectedTrackDraft
+        ) { formUiState, trackDraftWithPoints ->
+            when (trackDraftWithPoints) {
+                null ->
+                    SetupTrackDetailUiState.Loading
+                else -> SetupTrackDetailUiState.ShowDetailForm(
+                    trackDraftWithPoints,
+                    formUiState
+                )
+            }
+        }
+
+    /**
+     * Publicise the track detail's UI state.
+     */
+    val setupTrackDetailUiState: StateFlow<SetupTrackDetailUiState> =
+        merge(
+            innerSetupTrackDetailUiState,
+            mutableSetupTrackDetailUiState
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), SetupTrackDetailUiState.Loading)
 
     /**
      * Perform a submission in an attempt to create this track.
      */
     fun createTrack() {
-        // TODO: get all required arguments.
-        // TODO: create a request for a new track, mapping arguments accordingly.
-        // TODO: call emitAll on UI shared flow, on result of SubmitTrackUseCase, mapping result to appropriate UI state, if UI state is success, use deleteTrackDraftUseCase
-        // TODO: to delete the track draft in question.
-        throw NotImplementedError()
+        // If we can't attempt to create the track, throw an illegal state exception.
+        if(!canAttemptCreateTrack.value) {
+            throw IllegalStateException()
+        }
+        viewModelScope.launch(ioDispatcher) {
+            // Get all required arguments.
+            val trackName: String = mutableTrackName.value
+                ?: throw NotImplementedError()
+            val trackDescription: String = mutableTrackDescription.value
+                ?: throw NotImplementedError()
+            val selectedTrackDraft: TrackDraftWithPoints = selectedTrackDraft.value
+                ?: throw NotImplementedError()
+            // Now, create a new request for a track.
+            val requestSubmitTrack = RequestSubmitTrack(
+                trackName,
+                trackDescription,
+                selectedTrackDraft
+            )
+            // Now, collect a flow for the submit track use case; mapping it to a setup track detail UI state, but inside a call to emit all, with the target
+            // being the manual UI state.
+            mutableSetupTrackDetailUiState.emitAll(
+                submitTrackUseCase(requestSubmitTrack)
+                    .flowOn(ioDispatcher)
+                    .map { trackResource ->
+                        when (trackResource.status) {
+                            Resource.Status.SUCCESS -> {
+                                // Successfully created the track on the server. Delete the draft.
+                                deleteTrackDraftUseCase(selectedTrackDraft.trackDraftId)
+                                // Return the created track with optional path.
+                                SetupTrackDetailUiState.TrackCreated(trackResource.data!!)
+                            }
+                            Resource.Status.LOADING -> SetupTrackDetailUiState.ShowDetailForm(
+                                selectedTrackDraft,
+                                SetupTrackDetailFormUiState.Submitting
+                            )
+                            Resource.Status.ERROR -> SetupTrackDetailUiState.ShowDetailForm(
+                                selectedTrackDraft,
+                                SetupTrackDetailFormUiState.ServerRefused(
+                                    trackResource.resourceError!!
+                                )
+                            )
+                        }
+                    }
+            )
+        }
+    }
+
+    /**
+     * Update the desired track name.
+     */
+    fun updateTrackName(name: String) {
+        mutableTrackName.tryEmit(name)
+    }
+
+    /**
+     * Update the desired track description.
+     */
+    fun updateTrackDescription(description: String) {
+        mutableTrackDescription.tryEmit(description)
     }
 
     companion object {

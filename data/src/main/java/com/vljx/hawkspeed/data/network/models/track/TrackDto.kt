@@ -36,6 +36,10 @@ data class TrackDto(
     val isVerified: Boolean,
 
     @Expose
+    @SerializedName("is_snapped_to_roads")
+    val isSnappedToRoads: Boolean,
+
+    @Expose
     @SerializedName("track_type")
     val trackType: TrackType,
 

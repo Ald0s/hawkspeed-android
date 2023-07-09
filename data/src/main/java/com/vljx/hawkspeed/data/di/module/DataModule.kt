@@ -59,10 +59,10 @@ interface DataModule {
     fun bindRaceLocalData(raceLocalDataImpl: RaceLocalDataImpl): RaceLocalData
 
     @Binds
-    fun bindRaceOutcomeLocalData(raceOutcomeLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData
+    fun bindRaceLeaderboardLocalData(raceLeaderboardLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData
 
     @Binds
-    fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceLeaderboardRemoteDataImpl): RaceLeaderboardRemoteData
+    fun bindRaceLeaderboardRemoteData(raceLeaderboardRemoteDataImpl: RaceLeaderboardRemoteDataImpl): RaceLeaderboardRemoteData
 
     @Binds
     fun bindUserLocalData(userLocalDataImpl: UserLocalDataImpl): UserLocalData

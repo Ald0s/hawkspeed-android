@@ -25,6 +25,7 @@ import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.ui.MainConfigurePermissions
+import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState.NonStandardModeFailure.Companion.MISSING_PRECISE_LOCATION_PERMISSION
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceMode
 import com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack.WorldMapRecordTrackMode
 import com.vljx.hawkspeed.ui.screens.authenticated.world.standard.WorldMapStandardMode
@@ -101,7 +102,10 @@ fun WorldMapScreen(
             WorldMapRaceMode(
                 raceMode = raceMode,
                 trackUid = raceMode.trackUid,
-                onReturnClicked = {
+                onFinishedRace = { race ->
+                    throw NotImplementedError("WorldMapLoadedRaceMode resulted in a successful race! But the handling of this in WorldMapScreen is not done yet.")
+                },
+                onExitRaceMode = {
                     // When we have returned from race mode, simply set back to standard mode.
                     worldMapViewModel.exitRaceMode()
                 }
@@ -123,7 +127,10 @@ fun WorldMapScreen(
              * TODO: this is an error state that will lock the view, gray the screen, and display a dialog that communicates the issue at hand, with a button that will reset the
              * TODO: desired mode to Standard mode.
              */
-            throw NotImplementedError()
+            when((worldMapUiState as WorldMapUiState.NonStandardModeFailure).reason) {
+                MISSING_PRECISE_LOCATION_PERMISSION -> throw NotImplementedError()
+                else -> throw NotImplementedError()
+            }
         }
         is WorldMapUiState.Loading -> {
             // Setup the loading composable.

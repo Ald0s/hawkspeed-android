@@ -14,6 +14,7 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
+import com.vljx.hawkspeed.domain.usecase.race.GetLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
@@ -64,6 +65,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
     @Inject
     lateinit var getRaceUseCase: GetRaceUseCase
     @Inject
+    lateinit var getLeaderboardEntryForRaceUseCase: GetLeaderboardEntryForRaceUseCase
+    @Inject
     lateinit var getTrackWithPathUseCase: GetTrackWithPathUseCase
     @Inject
     lateinit var getOurVehiclesUseCase: GetOurVehiclesUseCase
@@ -84,7 +87,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRaceViewModel = WorldMapRaceViewModel(
-            getRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
+            getRaceUseCase, getLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
         )
     }
 
@@ -219,7 +222,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         // Move back to a perfect position.
         sendPlayerUpdateUseCase(testPoints[0])
         // Now, reset disqualified track.
-        worldMapRaceViewModel.resetCountdownDisqualified()
+        worldMapRaceViewModel.resetRaceIntent()
         // Wait for 9 states. The latest state should now be a Perfect on line state.
         states.waitForSize(this, 9)
         assertEquals(9, states.size)
@@ -298,7 +301,10 @@ class WorldMapRaceViewModelTest: BaseTest() {
                 System.currentTimeMillis(),
                 false,
                 null,
-                false
+                false,
+                50,
+                null,
+                100
             )
         )
         // Now, wait for our states list to grow to 9 in size.
@@ -431,7 +437,10 @@ class WorldMapRaceViewModelTest: BaseTest() {
                 null,
                 true,
                 "moved-away",
-                false
+                false,
+                0,
+                null,
+                0
             )
         )
         // Now, wait for our states list to grow to 9 in size.

@@ -15,7 +15,10 @@ class RaceEntityMapper @Inject constructor(
             entity.finished,
             entity.isDisqualified,
             entity.disqualificationReason,
-            entity.isCancelled
+            entity.isCancelled,
+            entity.averageSpeed,
+            entity.numLapsComplete,
+            entity.percentComplete
         )
     }
 
@@ -27,7 +30,10 @@ class RaceEntityMapper @Inject constructor(
             model.finished,
             model.isDisqualified,
             model.disqualificationReason,
-            model.isCancelled
+            model.isCancelled,
+            model.averageSpeed,
+            model.numLapsComplete,
+            model.percentComplete
         )
     }
 }

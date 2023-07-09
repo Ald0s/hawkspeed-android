@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.ui.screens.dialogs.trackpreview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
@@ -14,6 +15,7 @@ import com.vljx.hawkspeed.domain.usecase.track.GetTrackUseCase
 import com.vljx.hawkspeed.domain.usecase.track.UpvoteTrackUseCase
 import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackRatingUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,7 +40,10 @@ class TrackPreviewViewModel @Inject constructor(
     private val upvoteTrackUseCase: UpvoteTrackUseCase,
     private val downvoteTrackUseCase: DownvoteTrackUseCase,
     private val clearTrackRatingUseCase: ClearTrackRatingUseCase,
-    private val getTrackLatestCommentsUseCase: GetTrackLatestCommentsUseCase
+    private val getTrackLatestCommentsUseCase: GetTrackLatestCommentsUseCase,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
     /**
      * A mutable shared flow for the selected track's UID. Changing this will immediately query the desired track.
@@ -134,9 +139,7 @@ class TrackPreviewViewModel @Inject constructor(
      * Publicise the track preview UI state and reconfigure it as a state flow.
      */
     val trackPreviewUiState: StateFlow<TrackPreviewUiState> =
-        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(),
-            TrackPreviewUiState.Loading
-        )
+        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackPreviewUiState.Loading)
 
     /**
      * Set the selected track's UID. This will cause the targeted track to be queried.
@@ -151,7 +154,7 @@ class TrackPreviewViewModel @Inject constructor(
      */
     fun upvoteTrack(trackUid: String) {
         // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             upvoteTrackUseCase(trackUid)
         }
     }
@@ -161,7 +164,7 @@ class TrackPreviewViewModel @Inject constructor(
      */
     fun downvoteTrack(trackUid: String) {
         // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             downvoteTrackUseCase(trackUid)
         }
     }
@@ -171,7 +174,7 @@ class TrackPreviewViewModel @Inject constructor(
      */
     fun clearTrackRating(trackUid: String) {
         // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             clearTrackRatingUseCase(trackUid)
         }
     }

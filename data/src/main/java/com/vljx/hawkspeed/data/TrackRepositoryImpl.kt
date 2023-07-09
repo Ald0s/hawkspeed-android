@@ -46,11 +46,4 @@ class TrackRepositoryImpl @Inject constructor(
                 trackLocalData.upsertTrack(track)
             }
         )
-
-    override fun submitNewTrack(requestSubmitTrack: RequestSubmitTrack): Flow<Resource<Track>> =
-        flowQueryNetworkAndCache(
-            trackMapper,
-            networkQuery = { trackRemoteData.createNewTrack(requestSubmitTrack) },
-            cacheResult = { trackSummaryModel -> trackLocalData.upsertTrack(trackSummaryModel) }
-        )
 }
