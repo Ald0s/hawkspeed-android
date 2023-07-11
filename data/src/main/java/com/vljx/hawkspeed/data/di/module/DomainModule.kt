@@ -14,6 +14,9 @@ interface DomainModule {
     fun bindAccountRepository(accountRepositoryImpl: AccountRepositoryImpl): AccountRepository
 
     @Binds
+    fun bindGameSettingsRepository(gameSettingsRepositoryImpl: GameSettingsRepositoryImpl): GameSettingsRepository
+
+    @Binds
     fun bindTrackRepository(trackRepositoryImpl: TrackRepositoryImpl): TrackRepository
 
     @Binds

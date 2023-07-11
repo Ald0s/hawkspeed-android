@@ -58,3 +58,14 @@
 * Changed minSdk to 28 due to lack of a newer physical device,
 * Started rolling out new workflow for two way screens where forms are involved - attempting to always combine into a single outgoing state,
 * Changed all flows & async work to run on IO dispatcher where network/IO is used, added qualifier for providing IO dispatcher from common module.
+
+## Version 1.10.13
+* Added separate WorldMapUiState for connecting to game server,
+* Moved scrollable from TrackDetail scaffold to details tab screen,
+* Decided to integrate device sensors for true rotation instead of co-opting location bearing; changed location access state container to "device aptitude" container to better generalise purpose,
+* Added necessary functionality to main activity for determining availability of sensors and added functionality to world service for accelerometer,
+* Basic implementation of User's current orientation complete. Solution is buggy and requires low pass filter, but device is now relied on for direction of view,
+* Started implementing proper access for configured game settings via cache; may change to preferences,
+* Changed GetLeaderboardEntryUseCase to GetCachedLeaderboardEntryUseCase for selecting only from cache, and created another GetLeaderboardEntryUseCase for querying the most up to date version of the race outcome,
+* Added RaceRemoteData source for querying current status of a race,
+* Added a detail screen for viewing a specific race's detail.

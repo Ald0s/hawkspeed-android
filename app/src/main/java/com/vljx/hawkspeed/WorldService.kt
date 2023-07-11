@@ -5,6 +5,14 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.hardware.Sensor
+import android.hardware.Sensor.TYPE_ACCELEROMETER
+import android.hardware.Sensor.TYPE_MAGNETIC_FIELD
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.hardware.SensorManager.SENSOR_DELAY_NORMAL
+import android.hardware.SensorManager.SENSOR_DELAY_UI
 import android.location.Location
 import android.location.LocationManager
 import android.location.LocationManager.GPS_PROVIDER
@@ -17,9 +25,13 @@ import com.vljx.hawkspeed.data.socket.requestmodels.*
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SetLocationAvailabilityUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.UpdateAccelerometerReadingsUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.UpdateMagnetometerReadingsUseCase
 import com.vljx.hawkspeed.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -28,12 +40,12 @@ import java.util.concurrent.ExecutionException
 import javax.inject.Inject
 
 /**
- * The world service component; maintains the responsibility of single source of truth for location updates. New locations and location availabilities will be passed
- * directly to the world socket session instance from here. Communication with this service should be avoided for HawkSpeed specific functionality. That should be done
- * via view models that communicate via use cases to world socket session.
+ * The world service component; maintains the responsibility of single source of truth for location and sensor updates. New locations location availabilities and sensor
+ * readings will be passed directly to the world socket session instance from here. Communication with this service should be avoided for HawkSpeed specific functionality.
+ * That should be done via view models that communicate via use cases to world socket session.
  */
 @AndroidEntryPoint
-class WorldService: Service() {
+class WorldService: Service(), SensorEventListener {
     inner class WorldServiceBinder: Binder() {
         fun getService(): WorldService = this@WorldService
     }
@@ -47,8 +59,16 @@ class WorldService: Service() {
     @Inject
     lateinit var setLocationAvailabilityUseCase: SetLocationAvailabilityUseCase
 
+    @Inject
+    lateinit var updateAccelerometerReadingsUseCase: UpdateAccelerometerReadingsUseCase
+
+    @Inject
+    lateinit var updateMagnetometerReadingsUseCase: UpdateMagnetometerReadingsUseCase
+
     // A binder to provide on bind to clients.
     private val binder = WorldServiceBinder()
+    // Sensor manager, so we can access accelerometer and magentic field etc.
+    private lateinit var sensorManager: SensorManager
     // Access to the location client.
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     // Provides parameters for the location request.
@@ -68,12 +88,18 @@ class WorldService: Service() {
     // Create a new coroutine scope based on this job.
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
+    // Storing our most recent accelerometer readings.
+    private val accelerometerReadings = FloatArray(3)
+    // Storing our most recent magnetometer readings.
+    private val magnetometerReadings = FloatArray(3)
     // Whether or not we are currently receiving updates.
     private var receivingLocationUpdates: Boolean = false
 
     @SuppressLint("MissingPermission")
     override fun onCreate() {
         super.onCreate()
+        // Get the sensor manager.
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         // Setup location client.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         // Get the notification manager.
@@ -122,6 +148,8 @@ class WorldService: Service() {
                 // TODO: onStartCommand invoked by notification.
                 throw NotImplementedError("WorldService.onStartCommand being invoked via notification is NOT YET handled!")
             }
+            // Begin receiving sensor changes.
+            beginSensorUpdates()
             // Begin receiving location updates.
             beginLocationUpdates()
             // Start the service in the foreground now.
@@ -160,6 +188,38 @@ class WorldService: Service() {
     }
 
     /**
+     * Accuracy refers to sensor accuracy changes, not location.
+     */
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+
+    }
+
+    /**
+     * Called by the system when a sensor changes. This is where we'll copy the latest values for the given sensor, and pass them to the world socket state
+     * for further use.
+     */
+    override fun onSensorChanged(event: SensorEvent?) {
+        when(event?.sensor?.type) {
+            TYPE_ACCELEROMETER -> {
+                // Copy readings from the event into our accelerometer readings.
+                System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
+                // Now, call the update use case to send the latest readings off.
+                updateAccelerometerReadingsUseCase(
+                    RequestUpdateAccelerometerReadings(accelerometerReadings)
+                )
+            }
+            TYPE_MAGNETIC_FIELD -> {
+                // Copy readings from the event into our magnetometer readings.
+                System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
+                // Now, call the update use case to send the latest readings off.
+                updateMagnetometerReadingsUseCase(
+                    RequestUpdateMagnetometerReadings(magnetometerReadings)
+                )
+            }
+        }
+    }
+
+    /**
      * Function responsible for leaving the world. This will attempt to communicate this to the remote server, as well as clearing all information on the
      * device about the world. This will also cease location updates being received.
      */
@@ -178,12 +238,36 @@ class WorldService: Service() {
      */
     fun stopWorldService() {
         Timber.d("Stopping world service...")
+        // Stop receiving sensor changes.
+        removeSensorUpdates()
         // Stop receiving location updates.
         removeLocationUpdates()
         // Leave the world.
         leaveWorld()
         // Finally, stop the service.
         stopSelf()
+    }
+
+    /**
+     * Register listeners for the accelerometer and magnetometer sensors.
+     */
+    private fun beginSensorUpdates() {
+        // Register a listener for the accelerometer.
+        sensorManager.getDefaultSensor(TYPE_ACCELEROMETER)?.also { accelerometer ->
+            sensorManager.registerListener(this, accelerometer, SENSOR_DELAY_NORMAL, SENSOR_DELAY_UI)
+        }
+        // Register a listener for the magnetometer.
+        sensorManager.getDefaultSensor(TYPE_MAGNETIC_FIELD)?.also { magneticField ->
+            sensorManager.registerListener(this, magneticField, SENSOR_DELAY_NORMAL, SENSOR_DELAY_UI)
+        }
+    }
+
+    /**
+     * Remove our listeners for the accelerometer and magnetometer sensors.
+     */
+    private fun removeSensorUpdates() {
+        // Remove listeners for sensor manager as a whole.
+        sensorManager.unregisterListener(this)
     }
 
     /**
@@ -350,9 +434,11 @@ class WorldService: Service() {
     }
 
     companion object {
+        /**
+         * Build a new location request, that will, at minimum, generate a location update every 5 seconds.
+         */
         fun newLocationRequest(): LocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateIntervalMillis(5000)
-            .setMinUpdateDistanceMeters(5f)
             .build()
 
         const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"

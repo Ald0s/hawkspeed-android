@@ -14,6 +14,6 @@ object Extension {
             val milliseconds = nanoseconds
                 .toDuration(DurationUnit.NANOSECONDS)
                 .inWholeMilliseconds
-            "$minutes:$seconds:$milliseconds"
+            "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}"
         }
 }

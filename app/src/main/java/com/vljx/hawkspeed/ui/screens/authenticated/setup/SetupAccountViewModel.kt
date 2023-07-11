@@ -83,7 +83,7 @@ class SetupAccountViewModel @Inject constructor(
                 username.isNullOrBlank() -> Pair(null, InputValidationResult(false))
                 else -> Pair(username, InputValidationResult(true))
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), Pair(null, InputValidationResult(false)))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Pair(null, InputValidationResult(false)))
 
     /**
      * Bio always validates successfully since it is not required.
@@ -91,7 +91,7 @@ class SetupAccountViewModel @Inject constructor(
     private val validateBioResult: StateFlow<InputValidationResult> =
         mutableBio.map { bio ->
             InputValidationResult(true)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * We require something to be given for the vehicle info.
@@ -100,7 +100,7 @@ class SetupAccountViewModel @Inject constructor(
         mutableVehicleInformation.map { vehicleInfo ->
             // TODO: more complex validation.
             InputValidationResult(!vehicleInfo.isNullOrBlank())
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), InputValidationResult(false))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A state that will eventually emit a username status for the currently entered username. The flow must not actually execute until clientside validation for
@@ -141,7 +141,7 @@ class SetupAccountViewModel @Inject constructor(
                     )
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), UsernameStatusUiState.Idle)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UsernameStatusUiState.Idle)
 
     /**
      * A validator for whether the account can be set up; involving the ultimate result of clientside username validation, whether or not username is taken,
@@ -155,7 +155,7 @@ class SetupAccountViewModel @Inject constructor(
             validateBioResult
         ) { validateUsername, usernameStatus, validateVehicle, validateBio ->
             validateUsername.second.isValid && usernameStatus is UsernameStatusUiState.UsernameAvailable && validateVehicle.isValid && validateBio.isValid
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
      * A flow that combines all flows involved in determining the latest state of the form itself. We'll also share this flow.
@@ -175,7 +175,7 @@ class SetupAccountViewModel @Inject constructor(
                 validateBio,
                 canSetup
             )
-        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
     /**
      * Now, merge our mutable setup account shared flow and the account form UI state above, mapping the latter to a state to show the form.
@@ -188,7 +188,7 @@ class SetupAccountViewModel @Inject constructor(
                 )
             },
             mutableSetupAccountUiState
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), SetupAccountUiState.Loading)
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SetupAccountUiState.Loading)
 
     /**
      * Set this account's profile up.

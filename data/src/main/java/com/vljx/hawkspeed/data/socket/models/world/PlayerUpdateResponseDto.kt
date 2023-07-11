@@ -17,8 +17,8 @@ data class PlayerUpdateResponseDto(
     val longitude: Double,
 
     @Expose
-    @SerializedName("rotation")
-    val rotation: Float,
+    @SerializedName("bearing")
+    val bearing: Float,
 
     @Expose
     @SerializedName("world_object_update")

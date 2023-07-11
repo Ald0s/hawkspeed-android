@@ -151,8 +151,9 @@ object ExampleData {
     ): List<RaceLeaderboard> =
         listOf(
             RaceLeaderboard("RACE01", finishingPlace = 1, 1000, 100, 26450, User("USER01", "aldos", 0, false, true), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE01", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE01", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD")
+            RaceLeaderboard("RACE02", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE03", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE04", finishingPlace = 4, 1000, 100, 129134, User("USER04", "user3", 0, false, false), Vehicle("VEHICLE04", "1994 Toyota Supra", false), "YARRABOULEVARD")
         )
 
     fun getExampleRacingRace(

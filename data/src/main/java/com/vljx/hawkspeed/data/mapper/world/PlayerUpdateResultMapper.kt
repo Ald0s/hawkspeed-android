@@ -12,7 +12,7 @@ class PlayerUpdateResultMapper @Inject constructor(
         return PlayerUpdateResult(
             model.latitude,
             model.longitude,
-            model.rotation,
+            model.bearing,
             model.worldObjectUpdateResult?.let { worldObjectUpdateResultMapper.mapFromData(it) }
         )
     }
@@ -21,7 +21,7 @@ class PlayerUpdateResultMapper @Inject constructor(
         return PlayerUpdateResultModel(
             domain.latitude,
             domain.longitude,
-            domain.rotation,
+            domain.bearing,
             domain.worldObjectUpdateResult?.let { worldObjectUpdateResultMapper.mapToData(it) }
         )
     }

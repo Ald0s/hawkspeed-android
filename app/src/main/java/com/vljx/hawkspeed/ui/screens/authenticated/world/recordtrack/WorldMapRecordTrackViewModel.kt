@@ -9,9 +9,11 @@ import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestTrackPointDraft
+import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.DeleteTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.GetTrackDraftUseCase
@@ -48,7 +50,7 @@ import kotlin.math.roundToInt
  */
 @HiltViewModel
 class WorldMapRecordTrackViewModel @Inject constructor(
-    private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
+    private val getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     private val newTrackDraftUseCase: NewTrackDraftUseCase,
     private val getTrackDraftUseCase: GetTrackDraftUseCase,
     private val saveTrackDraftUseCase: SaveTrackDraftUseCase,
@@ -83,10 +85,11 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     private val mutableIsRecording: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     /**
-     * Get the current location from the world socket state. We'll use emissions from this flow to update our draft track.
+     * Get changes for the device's current position, and orientation angles.
      */
-    private val innerCurrentLocation: StateFlow<PlayerPosition?> =
-        getCurrentLocationUseCase(Unit)
+    val innerLocationWithOrientation: StateFlow<PlayerPositionWithOrientation?> =
+        getCurrentLocationAndOrientationUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Flat map the latest emissions from our selected track draft flow. If the selected state is an intent to create a track draft, return a flow for a new track draft
@@ -127,16 +130,17 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     private val trackDraftWithRecordedPoint: Flow<TrackDraftWithPoints> =
         combineTransform(
             mutableIsRecording,
-            innerCurrentLocation,
+            innerLocationWithOrientation,
             trackDraftWithPoints
-        ) { isRecording, location, trackDraft ->
+        ) { isRecording, locationWithOrientation, trackDraft ->
             // If recording is false OR location is null, emit nothing as this flow is not required.
-            if(!isRecording || location == null) {
+            if(!isRecording || locationWithOrientation == null) {
                 return@combineTransform
             }
             // Sure recording is true and location is not null. Determine if latest location is far enough away from last point. If not far away enough, emit
             // the existing track draft, to ensure we're in the Recording state.
-            if(!trackDraft.shouldTakePosition(location)) {
+            // TODO: improve this with orientation.
+            if(!trackDraft.shouldTakePosition(locationWithOrientation)) {
                 // Decided not to take this position, but we'll emit the existing track draft.
                 emit(trackDraft)
                 return@combineTransform
@@ -146,11 +150,11 @@ class WorldMapRecordTrackViewModel @Inject constructor(
                 RequestAddTrackPointDraft(
                     trackDraft.trackDraftId,
                     RequestTrackPointDraft(
-                        location.latitude,
-                        location.longitude,
-                        location.loggedAt,
-                        location.speed,
-                        location.rotation
+                        locationWithOrientation.position.latitude,
+                        locationWithOrientation.position.longitude,
+                        locationWithOrientation.position.loggedAt,
+                        locationWithOrientation.position.speed,
+                        locationWithOrientation.position.bearing
                     )
                 )
             )
@@ -213,8 +217,8 @@ class WorldMapRecordTrackViewModel @Inject constructor(
     /**
      * Publicise the current location.
      */
-    val currentLocation: StateFlow<PlayerPosition?> =
-        innerCurrentLocation
+    val currentLocationWithOrientation: StateFlow<PlayerPositionWithOrientation?> =
+        innerLocationWithOrientation
 
     /**
      * Create a new Track. This will call out to the new track use case, emitting the newly created track's id to the selected track id mutable shared flow.

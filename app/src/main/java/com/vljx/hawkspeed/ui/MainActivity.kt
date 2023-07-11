@@ -15,6 +15,11 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.hardware.Sensor.TYPE_ACCELEROMETER
+import android.hardware.Sensor.TYPE_GYROSCOPE
+import android.hardware.Sensor.TYPE_MAGNETIC_FIELD
+import android.hardware.Sensor.TYPE_ROTATION_VECTOR
+import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.SystemClock
@@ -38,12 +43,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermissions {
+class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermissions, MainCheckSensors {
     private var mIsServiceBound: Boolean = false
     private lateinit var mWorldService: WorldService
 
     private lateinit var settingsClient: SettingsClient
     private lateinit var locationRequest: LocationRequest
+    private lateinit var sensorManager: SensorManager
 
     // TODO: this isn't the best, or even a good way to do this.
     var permissionSettingsCallback: PermissionSettingsCallback? = null
@@ -70,6 +76,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
         super.onCreate(savedInstanceState)
         locationRequest = WorldService.newLocationRequest()
         settingsClient = LocationServices.getSettingsClient(this)
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
 
         setContent {
             HawkspeedApp()
@@ -99,6 +106,12 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
         unbindService(serviceConnection)
         super.onDestroy()
     }
+
+    override fun checkSensors(typesToCheck: List<Int>): Map<Int, MainCheckSensors.SensorReport> =
+        typesToCheck.map { typeId ->
+            // TODO: we can get other info for each type here.
+            Pair(typeId, MainCheckSensors.SensorReport(typeId, sensorManager.getDefaultSensor(typeId) != null))
+        }.toMap()
 
     override fun resolveLocationPermission(permissionSettingsCallback: PermissionSettingsCallback) {
         // Set the current permission settings callback, then begin a location permission resolution flow.

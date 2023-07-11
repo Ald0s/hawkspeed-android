@@ -61,8 +61,10 @@ import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.common.BottomSheetTemporaryState
 import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
@@ -106,14 +108,14 @@ fun WorldMapRecordTrackMode(
             onCancelRecordingClicked?.invoke()
         }
         else -> {
-            // Collect location updates here.
-            val currentLocation: PlayerPosition? by worldMapRecordTrackViewModel.currentLocation.collectAsState()
+            // Also recompose when current location changes.
+            val currentLocationWithOrientation: PlayerPositionWithOrientation? by worldMapRecordTrackViewModel.currentLocationWithOrientation.collectAsState()
             // If current location is ever null, simply show the loading composable instead of the map.
-            if(currentLocation != null) {
+            if(currentLocationWithOrientation != null) {
                 // Create the google map.
                 RecordTrack(
                     recordTrackMode,
-                    currentLocation!!,
+                    currentLocationWithOrientation,
                     worldMapRecordTrackUiState,
 
                     onStartRecordingClicked = worldMapRecordTrackViewModel::startRecording,
@@ -155,7 +157,7 @@ fun WorldMapRecordTrackMode(
 @Composable
 fun RecordTrack(
     recordTrackMode: WorldMapUiState.WorldMapLoadedRecordTrackMode,
-    currentLocation: PlayerPosition?,
+    currentLocationWithOrientation: PlayerPositionWithOrientation?,
     worldMapRecordTrackUiState: WorldMapRecordTrackUiState,
 
     onStartRecordingClicked: (() -> Unit)? = null,
@@ -168,7 +170,9 @@ fun RecordTrack(
     componentActivity: ComponentActivity? = null
 ) {
     // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
-    var lastLocation: PlayerPosition by remember { mutableStateOf<PlayerPosition>(currentLocation ?: recordTrackMode.location) }
+    var lastLocationWithOrientation: PlayerPositionWithOrientation by remember {
+        mutableStateOf<PlayerPositionWithOrientation>(currentLocationWithOrientation ?: recordTrackMode.locationWithOrientation)
+    }
     // Remember a boolean - when this is true, the view will follow the User. Otherwise, the view will overview the recorded track. But if that
     // too is not valid (trackDraftWithPoints is null, or there are no points in the track) the loading composable will be overlayed.
     var shouldFollowPlayer by remember { mutableStateOf<Boolean>(true) }
@@ -305,7 +309,7 @@ fun RecordTrack(
             val cameraPositionState = rememberCameraPositionState {
                 // Center on the Player, with a close zoom such as FOLLOW_PLAYER_ZOOM, as a default location.
                 position = CameraPosition.fromLatLngZoom(
-                    LatLng(lastLocation.latitude, lastLocation.longitude),
+                    LatLng(recordTrackMode.locationWithOrientation.position.latitude, recordTrackMode.locationWithOrientation.position.longitude),
                     FOLLOW_PLAYER_ZOOM
                 )
             }
@@ -319,21 +323,22 @@ fun RecordTrack(
                     onMapClicked?.invoke(latLng)
                 }
             ) {
-                if(currentLocation != null) {
+                // Draw the current User to the map, we will use the last location here.
+                if(currentLocationWithOrientation != null) {
                     // Draw the current Player to the map.
                     DrawCurrentPlayer(
-                        newPlayerPosition = currentLocation,
-                        oldPlayerPosition = lastLocation,
+                        newPlayerPositionWithOrientation = currentLocationWithOrientation,
+                        oldPlayerPositionWithOrientation = lastLocationWithOrientation,
                         isFollowing = shouldFollowPlayer
                     )
-                    lastLocation = currentLocation
+                    lastLocationWithOrientation = currentLocationWithOrientation
                 }
                 // Start a new launched effect here that keys off should follow player.
                 LaunchedEffect(key1 = shouldFollowPlayer, key2 = trackDraftWithPoints, block = {
                     if(shouldFollowPlayer || (trackDraftWithPoints?.hasRecordedTrack == false)) {
                         // Animate camera to last location.
                         cameraPositionState.animate(
-                            lastLocation.toFollowCameraUpdate(),
+                            lastLocationWithOrientation.toFollowCameraUpdate(),
                             500
                         )
                         mapProperties = mapProperties.copy(
@@ -627,9 +632,15 @@ fun PreviewWorldMapRecordTrack(
             recordTrackMode = WorldMapUiState.WorldMapLoadedRecordTrackMode(
                 "PLAYER01",
                 GameSettings(true, null, null),
-                PlayerPosition(0.0,0.0,0f,0f,0)
+                locationWithOrientation = PlayerPositionWithOrientation(
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                    DeviceOrientation(FloatArray(3))
+                )
             ),
-            currentLocation = PlayerPosition(0.0,0.0,0f,0f,0),
+            currentLocationWithOrientation = PlayerPositionWithOrientation(
+                PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                DeviceOrientation(FloatArray(3))
+            ),
             WorldMapRecordTrackUiState.RecordedTrackOverview(
                 TrackDraftWithPoints(
                     10L,

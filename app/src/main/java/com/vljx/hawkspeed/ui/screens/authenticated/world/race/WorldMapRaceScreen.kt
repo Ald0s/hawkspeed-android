@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -85,8 +86,10 @@ import com.vljx.hawkspeed.domain.models.race.Race.Companion.DQ_REASON_MISSED_TRA
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.RaceModePromptUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel.Companion.CANCELLED_BY_USER
@@ -97,6 +100,7 @@ import com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack.WorldMapRec
 import com.vljx.hawkspeed.ui.screens.common.BottomSheetTemporaryState
 import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
+import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.screens.common.SheetControls
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
@@ -136,11 +140,11 @@ fun WorldMapRaceMode(
         }
         else -> {
             // Otherwise, draw the actual race mode UI. Collect each location update.
-            val location: PlayerPosition? by worldMapRaceViewModel.currentLocation.collectAsState()
+            val playerPositionWithOrientation: PlayerPositionWithOrientation? by worldMapRaceViewModel.currentLocationWithOrientation.collectAsState()
             // With each UI state, compose the race mode UI.
             RaceMode(
                 raceMode = raceMode,
-                currentLocation = location,
+                currentLocationWithOrientation = playerPositionWithOrientation,
                 worldMapRaceUiState = worldMapRaceUiState,
 
                 onFinishedRace = onFinishedRace,
@@ -166,11 +170,11 @@ fun WorldMapRaceMode(
 @Composable
 fun RaceMode(
     raceMode: WorldMapUiState.WorldMapLoadedRaceMode,
-    currentLocation: PlayerPosition?,
+    currentLocationWithOrientation: PlayerPositionWithOrientation?,
     worldMapRaceUiState: WorldMapRaceUiState,
 
     onFinishedRace: ((Race) -> Unit)? = null,
-    onStartRaceClicked: ((Vehicle, Track, PlayerPosition) -> Unit)? = null,
+    onStartRaceClicked: ((Vehicle, Track, PlayerPositionWithOrientation) -> Unit)? = null,
     onCancelRaceClicked: (() -> Unit)? = null,
     onRequestResetRaceIntent: (() -> Unit)? = null,
     onExitRaceMode: (() -> Unit)? = null,
@@ -178,7 +182,9 @@ fun RaceMode(
     componentActivity: ComponentActivity? = null
 ) {
     // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
-    var lastLocation: PlayerPosition by remember { mutableStateOf<PlayerPosition>(currentLocation ?: raceMode.location) }
+    var lastLocationWithOrientation: PlayerPositionWithOrientation by remember {
+        mutableStateOf<PlayerPositionWithOrientation>(currentLocationWithOrientation ?: raceMode.locationWithOrientation)
+    }
     // Remember a state for controlling whether camera should be following Player, or overviewing track. Default is false for when composition first performed.
     var shouldFollowPlayer by remember { mutableStateOf<Boolean>(false) }
     // Remember a state for a Track instance.
@@ -343,15 +349,24 @@ fun RaceMode(
                             onCancelRaceClicked?.invoke()
                         }
                     )
-                is WorldMapRaceUiState.OnStartLine ->
-                    StartLineControls(
-                        startLine = worldMapRaceUiState,
-                        scaffoldState = scaffoldState,
-                        scope = scope,
-                        onStartRaceClicked = { chosenVehicle, track, countdownPosition ->
-                            onStartRaceClicked?.invoke(chosenVehicle, track, countdownPosition)
-                        }
-                    )
+                is WorldMapRaceUiState.OnStartLine -> {
+                    // If our start line state is moved away, we must actually exit race mode.
+                    if (worldMapRaceUiState.startLineState is StartLineState.MovedAway) {
+                        // Call exit race mode and then loading screen composable.
+                        // TODO: reason for exiting race mode please.
+                        onExitRaceMode?.invoke()
+                        LoadingScreen()
+                    } else {
+                        StartLineControls(
+                            startLine = worldMapRaceUiState,
+                            scaffoldState = scaffoldState,
+                            scope = scope,
+                            onStartRaceClicked = { chosenVehicle, track, countdownPosition ->
+                                onStartRaceClicked?.invoke(chosenVehicle, track, countdownPosition)
+                            }
+                        )
+                    }
+                }
                 is WorldMapRaceUiState.RaceStartFailed -> {
                     // Call our race start failed composable, which will render the issue to the User, and offer corrective action.
                     RaceStartFailedControls(
@@ -361,10 +376,6 @@ fun RaceMode(
                         onAcceptClicked = {
                             // Reset the race intent state to Idle, which will trigger a revision of our current position.
                             onRequestResetRaceIntent?.invoke()
-                        },
-                        onExitRaceModeRequest = {
-                            // If race started failed requests, inform calling composable we wish to exit race mode.
-                            onExitRaceMode?.invoke()
                         }
                     )
                 }
@@ -416,7 +427,7 @@ fun RaceMode(
             val cameraPositionState = rememberCameraPositionState {
                 // Center on the Player, with a close zoom such as FOLLOW_PLAYER_ZOOM, as a default location.
                 position = CameraPosition.fromLatLngZoom(
-                    LatLng(lastLocation.latitude, lastLocation.longitude),
+                    LatLng(raceMode.locationWithOrientation.position.latitude, raceMode.locationWithOrientation.position.longitude),
                     FOLLOW_PLAYER_ZOOM
                 )
             }
@@ -427,14 +438,15 @@ fun RaceMode(
                 properties = mapProperties,
                 uiSettings = uiSettings
             ) {
-                if(currentLocation != null) {
+                // Draw the current User to the map, we will use the last location here.
+                if(currentLocationWithOrientation != null) {
                     // Draw the current Player to the map.
                     DrawCurrentPlayer(
-                        newPlayerPosition = currentLocation,
-                        oldPlayerPosition = lastLocation,
+                        newPlayerPositionWithOrientation = currentLocationWithOrientation,
+                        oldPlayerPositionWithOrientation = lastLocationWithOrientation,
                         isFollowing = shouldFollowPlayer
                     )
-                    lastLocation = currentLocation
+                    lastLocationWithOrientation = currentLocationWithOrientation
                 }
                 // If track is available, draw it to the map.
                 track?.let {
@@ -449,7 +461,7 @@ fun RaceMode(
                     // to follow the Player.
                     if(shouldFollowPlayer) {
                         // Animate camera to last location.
-                        cameraPositionState.animate(lastLocation.toFollowCameraUpdate(), 500)
+                        cameraPositionState.animate(lastLocationWithOrientation.toFollowCameraUpdate(), 500)
                         mapProperties = mapProperties.copy(
                             minZoomPreference = FOLLOW_PLAYER_ZOOM,
                             maxZoomPreference = FOLLOW_PLAYER_ZOOM
@@ -472,14 +484,14 @@ fun RaceMode(
                 })
                 // Now, we'll handle moving the camera if we're following the User.
                 if(shouldFollowPlayer) {
-                    cameraPositionState.move(lastLocation.toFollowCameraUpdate())
+                    cameraPositionState.move(lastLocationWithOrientation.toFollowCameraUpdate())
                 }
             }
             // If this is a counting down state, add a centered countdown second over the Google map.
             if(worldMapRaceUiState is WorldMapRaceUiState.CountingDown) {
                 Text(
                     text = when(worldMapRaceUiState.currentSecond) {
-                       4 -> stringResource(id = R.string.race_get_ready)
+                        4 -> stringResource(id = R.string.race_get_ready)
                         3, 2, 1 -> worldMapRaceUiState.currentSecond.toString()
                         0 -> stringResource(id = R.string.race_go)
                         else -> throw NotImplementedError()
@@ -520,59 +532,61 @@ fun DisqualifiedControls(
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        peekContent = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.race_disqualified),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                Row {
-                    Text(text = stringResource(id = R.string.race_disqualified_desc))
-                }
-            }
-        },
-        expandedContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-            ) {
-                Row(
-                    modifier = Modifier.padding(bottom = 32.dp)
-                ) {
-                    Text(text = when(disqualified.race.disqualificationReason) {
-                        DQ_REASON_DISCONNECTED -> stringResource(id = R.string.race_disqualified_disconnected)
-                        DQ_REASON_MISSED_TRACK -> stringResource(id = R.string.race_disqualified_missed_track)
-                        else -> stringResource(id = R.string.race_disqualified_unknown)
-                    })
-                }
-                Row {
-                    Button(
-                        onClick = {
-                            // TODO: accept/exit race mode.
-                        },
-                        enabled = true,
-                        shape = RectangleShape,
+    Surface {
+        SheetControls(
+            desiredState = SheetValue.Expanded,
+            peekContent = {
+                Column {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     ) {
-                        Text(text = stringResource(id = R.string.accept).uppercase())
+                        Text(
+                            text = stringResource(id = R.string.race_disqualified),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Row {
+                        Text(text = stringResource(id = R.string.race_disqualified_desc))
                     }
                 }
-            }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+            },
+            expandedContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    ) {
+                        Text(text = when(disqualified.race.disqualificationReason) {
+                            DQ_REASON_DISCONNECTED -> stringResource(id = R.string.race_disqualified_disconnected)
+                            DQ_REASON_MISSED_TRACK -> stringResource(id = R.string.race_disqualified_missed_track)
+                            else -> stringResource(id = R.string.race_disqualified_unknown)
+                        })
+                    }
+                    Row {
+                        Button(
+                            onClick = {
+                                // TODO: accept/exit race mode.
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.accept).uppercase())
+                        }
+                    }
+                }
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -585,50 +599,52 @@ fun CancelledControls(
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        peekContent = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.race_cancelled),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                Row {
-                    Text(text = stringResource(id = R.string.race_cancelled_desc))
-                }
-            }
-        },
-        expandedContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-            ) {
-                Row {
-                    Button(
-                        onClick = {
-                            // TODO: accept/exit race mode.
-                        },
-                        enabled = true,
-                        shape = RectangleShape,
+    Surface {
+        SheetControls(
+            desiredState = SheetValue.Expanded,
+            peekContent = {
+                Column {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     ) {
-                        Text(text = stringResource(id = R.string.accept).uppercase())
+                        Text(
+                            text = stringResource(id = R.string.race_cancelled),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Row {
+                        Text(text = stringResource(id = R.string.race_cancelled_desc))
                     }
                 }
-            }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+            },
+            expandedContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                ) {
+                    Row {
+                        Button(
+                            onClick = {
+                                // TODO: accept/exit race mode.
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.accept).uppercase())
+                        }
+                    }
+                }
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -641,56 +657,58 @@ fun FinishedControls(
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        peekContent = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.race_finished),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-                /**
-                 * TODO: we should have access to the relevant leaderboard entry item here, which places the User somehwere
-                 * TODO: on the leaderboard and allows us to calculate averages and cool stuff.
-                 */
-                Row {
-                    Text(text = stringResource(id = R.string.race_finished_desc))
-                }
-            }
-        },
-        expandedContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-            ) {
-                /**
-                 * TODO: some detail about the race attempt.
-                 */
-                Row {
-                    Button(
-                        onClick = {
-
-                        },
-                        enabled = true,
-                        shape = RectangleShape,
+    Surface {
+        SheetControls(
+            desiredState = SheetValue.Expanded,
+            peekContent = {
+                Column {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     ) {
-                        Text(text = stringResource(id = R.string.accept).uppercase())
+                        Text(
+                            text = stringResource(id = R.string.race_finished),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    /**
+                     * TODO: we should have access to the relevant leaderboard entry item here, which places the User somehwere
+                     * TODO: on the leaderboard and allows us to calculate averages and cool stuff.
+                     */
+                    Row {
+                        Text(text = stringResource(id = R.string.race_finished_desc))
                     }
                 }
-            }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+            },
+            expandedContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                ) {
+                    /**
+                     * TODO: some detail about the race attempt.
+                     */
+                    Row {
+                        Button(
+                            onClick = {
+
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.accept).uppercase())
+                        }
+                    }
+                }
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -702,69 +720,71 @@ fun RacingControls(
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    // We have a valid race instance here, from which we'll set up a stopwatch, using the provided started attribute as base.
-    var currentRaceTime by remember { mutableStateOf<String>("00:00:000") }
-    // Sheet controls.
-    SheetControls(
-        desiredState = SheetValue.PartiallyExpanded,
-        peekContent = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
+    Surface {
+        // We have a valid race instance here, from which we'll set up a stopwatch, using the provided started attribute as base.
+        var currentRaceTime by remember { mutableStateOf<String>("00:00:000") }
+        // Sheet controls.
+        SheetControls(
+            desiredState = SheetValue.PartiallyExpanded,
+            peekContent = {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // In racing mode, text will certainly be the time.
-                        Text(
-                            text = currentRaceTime,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = Color.White
-                        )
-                    }
-
-                    Column {
-                        Button(
-                            onClick = {
-                                // Cancel the race we're in.
-                                onCancelRaceClicked?.invoke(racing.race)
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
+                        Column(
                             modifier = Modifier
-                                .wrapContentWidth()
+                                .weight(1f)
                         ) {
-                            Text(text = stringResource(id = R.string.race_cancel).uppercase())
+                            // In racing mode, text will certainly be the time.
+                            Text(
+                                text = currentRaceTime,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White
+                            )
+                        }
+
+                        Column {
+                            Button(
+                                onClick = {
+                                    // Cancel the race we're in.
+                                    onCancelRaceClicked?.invoke(racing.race)
+                                },
+                                enabled = true,
+                                shape = RectangleShape,
+                                modifier = Modifier
+                                    .wrapContentWidth()
+                            ) {
+                                Text(text = stringResource(id = R.string.race_cancel).uppercase())
+                            }
                         }
                     }
-                }
 
-                Row {
-                    Text(
-                        text = stringResource(id = R.string.race_progress, racing.race.percentComplete!!),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White,
-                        modifier = Modifier
-                            .padding(top = 24.dp)
-                    )
+                    Row {
+                        Text(
+                            text = stringResource(id = R.string.race_progress, racing.race.percentComplete!!),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White,
+                            modifier = Modifier
+                                .padding(top = 24.dp)
+                        )
+                    }
                 }
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+        // A launched effect, keying off the current race's UID. This will run an infinite loop that will perform as our stopwatch.
+        LaunchedEffect(key1 = racing.race.raceUid, block = {
+            while(true) {
+                // Subtract the current time milliseconds from the race started milliseconds to get back a duration.
+                val deltaDuration = System.currentTimeMillis().toDuration(DurationUnit.MILLISECONDS)
+                    .minus(racing.race.started.toDuration(DurationUnit.MILLISECONDS))
+                // Set current race time to result of delta duration to race time.
+                currentRaceTime = deltaDuration.toRaceTime()
+                delay(20)
             }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
-    // A launched effect, keying off the current race's UID. This will run an infinite loop that will perform as our stopwatch.
-    LaunchedEffect(key1 = racing.race.raceUid, block = {
-        while(true) {
-            // Subtract the current time milliseconds from the race started milliseconds to get back a duration.
-            val deltaDuration = System.currentTimeMillis().toDuration(DurationUnit.MILLISECONDS)
-                .minus(racing.race.started.toDuration(DurationUnit.MILLISECONDS))
-            // Set current race time to result of delta duration to race time.
-            currentRaceTime = deltaDuration.toRaceTime()
-            delay(20)
-        }
-    })
+        })
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -776,53 +796,55 @@ fun CountingDownControls(
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    SheetControls(
-        desiredState = SheetValue.PartiallyExpanded,
-        peekContent = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
+    Surface {
+        SheetControls(
+            desiredState = SheetValue.PartiallyExpanded,
+            peekContent = {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = stringResource(id = R.string.race_zero_time),
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = Color.White
-                        )
-                    }
-
-                    Column {
-                        Button(
-                            onClick = {
-                                // TODO: cancel the race
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
+                        Column(
                             modifier = Modifier
-                                .wrapContentWidth()
+                                .weight(1f)
                         ) {
-                            Text(text = stringResource(id = R.string.race_countdown_cancel).uppercase())
+                            Text(
+                                text = stringResource(id = R.string.race_zero_time),
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White
+                            )
+                        }
+
+                        Column {
+                            Button(
+                                onClick = {
+                                    // TODO: cancel the race
+                                },
+                                enabled = true,
+                                shape = RectangleShape,
+                                modifier = Modifier
+                                    .wrapContentWidth()
+                            ) {
+                                Text(text = stringResource(id = R.string.race_countdown_cancel).uppercase())
+                            }
                         }
                     }
-                }
 
-                Row {
-                    Text(
-                        text = stringResource(id = R.string.race_progress, "0"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White,
-                        modifier = Modifier
-                            .padding(top = 24.dp)
-                    )
+                    Row {
+                        Text(
+                            text = stringResource(id = R.string.race_progress, "0"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White,
+                            modifier = Modifier
+                                .padding(top = 24.dp)
+                        )
+                    }
                 }
-            }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -830,12 +852,19 @@ fun CountingDownControls(
 fun StartLineControls(
     startLine: WorldMapRaceUiState.OnStartLine,
 
-    onStartRaceClicked: ((Vehicle, Track, PlayerPosition) -> Unit)? = null,
+    onStartRaceClicked: ((Vehicle, Track, PlayerPositionWithOrientation) -> Unit)? = null,
+
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
+    /**
+     * TODO: player should choose their vehicle here. For now, the first will just be used.
+     */
+    var chosenVehicle: Vehicle by remember { mutableStateOf(startLine.yourVehicles.first()) }
+    var canStartRace: Boolean by remember { mutableStateOf(startLine.startLineState is StartLineState.Perfect) }
+
     SheetControls(
-        desiredState = SheetValue.PartiallyExpanded,
+        desiredState = SheetValue.Expanded,
         peekContent = {
             Column {
                 Row(
@@ -851,19 +880,52 @@ fun StartLineControls(
                             color = Color.White
                         )
                     }
+                }
 
+                Row(
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                ) {
                     Column {
-                        Button(
-                            onClick = {
-                                // TODO: start race.
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
+                        Row(
                             modifier = Modifier
-                                .wrapContentWidth()
+                                .padding(bottom = 4.dp)
                         ) {
-                            Text(text = stringResource(id = R.string.race_start).uppercase())
+                            Text(
+                                text = stringResource(id = R.string.race_your_vehicle)
+                            )
                         }
+                        Row {
+                            Text(
+                                text = chosenVehicle.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        expandedContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Row {
+                    Button(
+                        onClick = {
+                            if(canStartRace) {
+                                // If can start race is true, we MUST have a location so not-null assert is OK.
+                                onStartRaceClicked?.invoke(chosenVehicle, startLine.track, (startLine.startLineState as StartLineState.Perfect).location)
+                            }
+                        },
+                        enabled = canStartRace,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.race_start).uppercase())
                     }
                 }
             }
@@ -879,85 +941,86 @@ fun RaceStartFailedControls(
     raceStartFailed: WorldMapRaceUiState.RaceStartFailed,
 
     onAcceptClicked: (() -> Unit)? = null,
-    onExitRaceModeRequest: (() -> Unit)? = null,
 
     scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
     scope: CoroutineScope = rememberCoroutineScope()
 ) {
-    val reasonDescription by remember { mutableStateOf<String?>(null) }
-    when (raceStartFailed.reasonCode) {
-        CANCELLED_BY_USER -> throw NotImplementedError()
-        CANCEL_FALSE_START -> throw NotImplementedError()
-        CANCEL_RACE_SERVER_REFUSED -> {
-            if(raceStartFailed.resourceError is ResourceError.SocketError) {
-                // Now within server refused, there will be a whole other section of potential errors, keying off the socket error's reason.
-                val socketError: ResourceError.SocketError = raceStartFailed.resourceError
-                when(socketError.reason) {
-                    REASON_ALREADY_IN_RACE -> throw NotImplementedError()
-                    REASON_POSITION_NOT_SUPPORTED -> throw NotImplementedError()
-                    REASON_NO_COUNTDOWN_POSITION -> throw NotImplementedError()
-                    REASON_NO_STARTED_POSITION -> throw NotImplementedError()
-                    REASON_NO_TRACK_FOUND -> throw NotImplementedError()
-                    REASON_TRACK_NOT_READY -> throw NotImplementedError()
-                    REASON_NO_VEHICLE_UID -> throw NotImplementedError()
-                    REASON_NO_VEHICLE -> throw NotImplementedError()
+    Surface {
+        val reasonDescription by remember { mutableStateOf<String?>(null) }
+        when (raceStartFailed.reasonCode) {
+            CANCELLED_BY_USER -> throw NotImplementedError()
+            CANCEL_FALSE_START -> throw NotImplementedError()
+            CANCEL_RACE_SERVER_REFUSED -> {
+                if(raceStartFailed.resourceError is ResourceError.SocketError) {
+                    // Now within server refused, there will be a whole other section of potential errors, keying off the socket error's reason.
+                    val socketError: ResourceError.SocketError = raceStartFailed.resourceError
+                    when(socketError.reason) {
+                        REASON_ALREADY_IN_RACE -> throw NotImplementedError()
+                        REASON_POSITION_NOT_SUPPORTED -> throw NotImplementedError()
+                        REASON_NO_COUNTDOWN_POSITION -> throw NotImplementedError()
+                        REASON_NO_STARTED_POSITION -> throw NotImplementedError()
+                        REASON_NO_TRACK_FOUND -> throw NotImplementedError()
+                        REASON_TRACK_NOT_READY -> throw NotImplementedError()
+                        REASON_NO_VEHICLE_UID -> throw NotImplementedError()
+                        REASON_NO_VEHICLE -> throw NotImplementedError()
+                    }
+                } else {
+                    throw NotImplementedError("Failed handle racestartfailed with reason code server_refused. An unhandled resource error type was presented: ${raceStartFailed.resourceError}")
                 }
-            } else {
-                throw NotImplementedError("Failed handle racestartfailed with reason code server_refused. An unhandled resource error type was presented: ${raceStartFailed.resourceError}")
             }
+            CANCEL_RACE_REASON_NO_LOCATION -> throw NotImplementedError()
         }
-        CANCEL_RACE_REASON_NO_LOCATION -> throw NotImplementedError()
-    }
 
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        peekContent = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.race_start_failed),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                Row {
-                    Text(text = stringResource(id = R.string.race_start_failed_desc))
-                }
-            }
-        },
-        expandedContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-            ) {
-                Row(
-                    modifier = Modifier.padding(bottom = 32.dp)
-                ) {
-                    Text(text = reasonDescription ?: stringResource(id = R.string.race_start_failed_unknown))
-                }
-                Row {
-                    Button(
-                        onClick = {
-                            // TODO: accept/exit race mode.
-                        },
-                        enabled = true,
-                        shape = RectangleShape,
+        SheetControls(
+            desiredState = SheetValue.Expanded,
+            peekContent = {
+                Column {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     ) {
-                        Text(text = stringResource(id = R.string.accept).uppercase())
+                        Text(
+                            text = stringResource(id = R.string.race_start_failed),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Row {
+                        Text(text = stringResource(id = R.string.race_start_failed_desc))
                     }
                 }
-            }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+            },
+            expandedContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    ) {
+                        Text(text = reasonDescription ?: stringResource(id = R.string.race_start_failed_unknown))
+                    }
+                    Row {
+                        Button(
+                            onClick = {
+                                onAcceptClicked?.invoke()
+                            },
+                            enabled = true,
+                            shape = RectangleShape,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = stringResource(id = R.string.accept).uppercase())
+                        }
+                    }
+                }
+            },
+            scaffoldState = scaffoldState,
+            scope = scope
+        )
+    }
 }
 
 @Preview
@@ -970,12 +1033,28 @@ fun PreviewRaceMode(
             raceMode = WorldMapUiState.WorldMapLoadedRaceMode(
                 "PLAYER01",
                 GameSettings(true, null, null),
-                PlayerPosition(0.0, 0.0, 0f, 0f, 0L),
+                locationWithOrientation = PlayerPositionWithOrientation(
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                    DeviceOrientation(FloatArray(3))
+                ),
                 "YARRABOULEVARD"
             ),
-            currentLocation = PlayerPosition(0.0, 0.0, 0f, 0f, 0L),
-            worldMapRaceUiState = WorldMapRaceUiState.RaceStartFailed(
-                REASON_ALREADY_IN_RACE, null
+            currentLocationWithOrientation = PlayerPositionWithOrientation(
+                PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                DeviceOrientation(FloatArray(3))
+            ),
+            worldMapRaceUiState = WorldMapRaceUiState.OnStartLine(
+                listOf(
+                    ExampleData.getExampleVehicle()
+                ),
+                StartLineState.Perfect(
+                    PlayerPositionWithOrientation(
+                        PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                        DeviceOrientation(FloatArray(3))
+                    )
+                ),
+                ExampleData.getExampleTrack(),
+                ExampleData.getExampleTrackPath()
             )
         )
     }
@@ -1076,7 +1155,10 @@ fun PreviewCountdownControls(
         CountingDownControls(
             countingDown = WorldMapRaceUiState.CountingDown(
                 currentSecond = 0,
-                countdownStartedLocation = PlayerPosition(0.0, 0.0, 0f, 0f, 0),
+                countdownStartedLocationWithOrientation = PlayerPositionWithOrientation(
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                    DeviceOrientation(FloatArray(3))
+                ),
                 track = ExampleData.getExampleTrack(),
                 trackPath = ExampleData.getExampleTrackPath()
             )
@@ -1093,8 +1175,13 @@ fun PreviewStartLineControls(
     HawkSpeedTheme {
         StartLineControls(
             startLine = WorldMapRaceUiState.OnStartLine(
-                yourVehicles = listOf(),
-                startLineState = StartLineState.Perfect(PlayerPosition(0.0, 0.0, 0f, 0f, 0)),
+                yourVehicles = listOf(
+                    ExampleData.getExampleVehicle()
+                ),
+                startLineState = StartLineState.Perfect(PlayerPositionWithOrientation(
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                    DeviceOrientation(FloatArray(3))
+                )),
                 track = ExampleData.getExampleTrack(),
                 trackPath = ExampleData.getExampleTrackPath()
             )

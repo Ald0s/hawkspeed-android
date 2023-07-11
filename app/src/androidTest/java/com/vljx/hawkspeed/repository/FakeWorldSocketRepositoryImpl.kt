@@ -13,6 +13,7 @@ import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.race.RaceUpdate
 import com.vljx.hawkspeed.domain.models.race.StartRaceResult
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerUpdateResult
@@ -24,6 +25,8 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import kotlinx.coroutines.channels.BufferOverflow
@@ -70,6 +73,17 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
         get() = mutableCurrentLocation
     override val latestViewport: StateFlow<Viewport?>
         get() = mutableLatestViewport
+
+    override val latestOrientationAngles: Flow<DeviceOrientation>
+        get() = TODO("Not yet implemented")
+
+    override fun updateAccelerometerReadings(requestUpdateAccelerometerReadings: RequestUpdateAccelerometerReadings) {
+        TODO("Not yet implemented")
+    }
+
+    override fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings) {
+        TODO("Not yet implemented")
+    }
 
     override fun setLocationAvailability(available: Boolean) {
         TODO("Not yet implemented")
@@ -128,14 +142,14 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
         mutableCurrentLocation.value = PlayerPosition(
             requestPlayerUpdate.latitude,
             requestPlayerUpdate.longitude,
-            requestPlayerUpdate.rotation,
+            requestPlayerUpdate.bearing,
             requestPlayerUpdate.speed,
             requestPlayerUpdate.loggedAt
         )
         return PlayerUpdateResult(
             requestPlayerUpdate.latitude,
             requestPlayerUpdate.longitude,
-            requestPlayerUpdate.rotation,
+            requestPlayerUpdate.bearing,
             null
         )
     }

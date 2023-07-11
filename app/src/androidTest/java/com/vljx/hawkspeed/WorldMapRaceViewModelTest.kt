@@ -9,12 +9,10 @@ import com.vljx.hawkspeed.data.di.module.DomainModule
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
-import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
-import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
-import com.vljx.hawkspeed.domain.usecase.race.GetLeaderboardEntryForRaceUseCase
+import com.vljx.hawkspeed.domain.usecase.race.GetCachedLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
@@ -26,7 +24,6 @@ import com.vljx.hawkspeed.domain.usecase.vehicle.GetOurVehiclesUseCase
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.StartLineState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceViewModel
-import com.vljx.hawkspeed.util.ExampleData
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
@@ -43,7 +40,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import timber.log.Timber
 import javax.inject.Inject
 
 @UninstallModules(CommonModule::class, DatabaseModule::class, DataModule::class, DomainModule::class)
@@ -65,7 +61,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
     @Inject
     lateinit var getRaceUseCase: GetRaceUseCase
     @Inject
-    lateinit var getLeaderboardEntryForRaceUseCase: GetLeaderboardEntryForRaceUseCase
+    lateinit var getCachedLeaderboardEntryForRaceUseCase: GetCachedLeaderboardEntryForRaceUseCase
     @Inject
     lateinit var getTrackWithPathUseCase: GetTrackWithPathUseCase
     @Inject
@@ -87,7 +83,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRaceViewModel = WorldMapRaceViewModel(
-            getRaceUseCase, getLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
+            getRaceUseCase, getCachedLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
         )
     }
 

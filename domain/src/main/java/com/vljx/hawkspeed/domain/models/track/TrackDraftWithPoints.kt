@@ -5,6 +5,7 @@ import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.domain.models.world.Coordinate
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.domain.thirdparty.BoundingBoxUtil
 import java.lang.IndexOutOfBoundsException
 
@@ -51,15 +52,15 @@ data class TrackDraftWithPoints(
      * A function that will determine whether the given player position should be added as a new point to this track, considering the last point
      * added.
      */
-    fun shouldTakePosition(location: PlayerPosition): Boolean {
+    fun shouldTakePosition(locationWithOrientation: PlayerPositionWithOrientation): Boolean {
         // Return false if there is under 5 meters between given location and latest point.
         val lastPoint = lastPointDraft
         if(lastPoint != null) {
             val results = FloatArray(5)
 
             Location.distanceBetween(
-                location.latitude,
-                location.longitude,
+                locationWithOrientation.position.latitude,
+                locationWithOrientation.position.longitude,
                 lastPoint.latitude,
                 lastPoint.longitude,
                 results

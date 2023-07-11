@@ -19,12 +19,13 @@ import com.vljx.hawkspeed.data.database.entity.track.TrackPointDraftEntity
 import com.vljx.hawkspeed.data.database.entity.track.TrackPointEntity
 
 @Database(
-    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceLeaderboardEntity::class, TrackCommentEntity::class, TrackDraftEntity::class, TrackPointDraftEntity::class, VehicleEntity::class],
-    version = 48
+    entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceLeaderboardEntity::class, TrackCommentEntity::class, TrackDraftEntity::class, TrackPointDraftEntity::class, VehicleEntity::class, GameSettingsEntity::class],
+    version = 49
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {
     abstract fun accountDao(): AccountDao
+    abstract fun gameSettingsDao(): GameSettingsDao
     abstract fun trackDao(): TrackDao
     abstract fun trackPathDao(): TrackPathDao
     abstract fun trackPointDao(): TrackPointDao

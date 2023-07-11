@@ -57,30 +57,32 @@ class VerifyAccountViewModel @Inject constructor(
     val canResendVerificationEmail: StateFlow<Boolean> =
         flow<Boolean> {
             emit(false)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
      * Perform a query for the current User's account, and emit the result to our UI state.
      */
-    suspend fun refreshAccount() = withContext(ioDispatcher) {
-        // Emit a loading state.
-        mutableVerifyAccountUiState.emit(VerifyAccountUiState.Loading)
-        // Perform a query for the current account.
-        val accountResource: Resource<Account> = getAccountUseCase(Unit)
-        // Now, emit the result of this resource to the UI state.
-        mutableVerifyAccountUiState.emit(
-            when(accountResource.status) {
-                Resource.Status.SUCCESS -> {
-                    if(accountResource.data!!.isAccountVerified) {
-                        VerifyAccountUiState.AccountVerified(accountResource.data!!)
-                    } else {
-                        VerifyAccountUiState.AccountNotVerified(accountResource.data!!)
+    fun refreshAccount() {
+        viewModelScope.launch(ioDispatcher) {
+            // Emit a loading state.
+            mutableVerifyAccountUiState.emit(VerifyAccountUiState.Loading)
+            // Perform a query for the current account.
+            val accountResource: Resource<Account> = getAccountUseCase(Unit)
+            // Now, emit the result of this resource to the UI state.
+            mutableVerifyAccountUiState.emit(
+                when(accountResource.status) {
+                    Resource.Status.SUCCESS -> {
+                        if(accountResource.data!!.isAccountVerified) {
+                            VerifyAccountUiState.AccountVerified(accountResource.data!!)
+                        } else {
+                            VerifyAccountUiState.AccountNotVerified(accountResource.data!!)
+                        }
                     }
+                    Resource.Status.LOADING -> VerifyAccountUiState.Loading
+                    Resource.Status.ERROR -> VerifyAccountUiState.Failed(accountResource.resourceError!!)
                 }
-                Resource.Status.LOADING -> VerifyAccountUiState.Loading
-                Resource.Status.ERROR -> VerifyAccountUiState.Failed(accountResource.resourceError!!)
-            }
-        )
+            )
+        }
     }
 
     /**

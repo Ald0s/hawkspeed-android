@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.di.module
 
 import com.vljx.hawkspeed.data.AccountRepositoryImpl
+import com.vljx.hawkspeed.data.GameSettingsRepositoryImpl
 import com.vljx.hawkspeed.data.LeaderboardRepositoryImpl
 import com.vljx.hawkspeed.data.RaceLeaderboardRepositoryImpl
 import com.vljx.hawkspeed.data.RaceRepositoryImpl
@@ -14,6 +15,7 @@ import com.vljx.hawkspeed.data.WorldRepositoryImpl
 import com.vljx.hawkspeed.data.di.module.DomainModule
 import com.vljx.hawkspeed.domain.di.component.AuthenticationComponent
 import com.vljx.hawkspeed.domain.repository.AccountRepository
+import com.vljx.hawkspeed.domain.repository.GameSettingsRepository
 import com.vljx.hawkspeed.domain.repository.LeaderboardRepository
 import com.vljx.hawkspeed.domain.repository.RaceLeaderboardRepository
 import com.vljx.hawkspeed.domain.repository.RaceRepository
@@ -38,6 +40,9 @@ import dagger.hilt.testing.TestInstallIn
 interface FakeDomainModule {
     @Binds
     fun bindAccountRepository(accountRepositoryImpl: AccountRepositoryImpl): AccountRepository
+
+    @Binds
+    fun bindGameSettingsRepository(gameSettingsRepositoryImpl: GameSettingsRepositoryImpl): GameSettingsRepository
 
     @Binds
     fun bindTrackRepository(trackRepositoryImpl: TrackRepositoryImpl): TrackRepository

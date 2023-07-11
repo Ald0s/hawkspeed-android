@@ -4,6 +4,7 @@ import com.vljx.hawkspeed.data.WorldSocketRepositoryImpl
 import com.vljx.hawkspeed.data.database.*
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
 import com.vljx.hawkspeed.data.network.RaceLeaderboardRemoteDataImpl
+import com.vljx.hawkspeed.data.network.RaceRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackCommentRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
@@ -12,9 +13,11 @@ import com.vljx.hawkspeed.data.network.VehicleRemoteDataImpl
 import com.vljx.hawkspeed.data.source.*
 import com.vljx.hawkspeed.data.source.account.AccountLocalData
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
+import com.vljx.hawkspeed.data.source.account.GameSettingsLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardRemoteData
+import com.vljx.hawkspeed.data.source.race.RaceRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackCommentLocalData
 import com.vljx.hawkspeed.data.source.track.TrackCommentRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackDraftLocalData
@@ -41,6 +44,9 @@ interface DataModule {
     fun bindAccountRemoteData(accountRemoteDataImpl: AccountRemoteDataImpl): AccountRemoteData
 
     @Binds
+    fun bindGameSettingsLocalData(gameSettingsLocalDataImpl: GameSettingsLocalDataImpl): GameSettingsLocalData
+
+    @Binds
     fun bindTrackLocalData(trackLocalDataImpl: TrackLocalDataImpl): TrackLocalData
 
     @Binds
@@ -57,6 +63,9 @@ interface DataModule {
 
     @Binds
     fun bindRaceLocalData(raceLocalDataImpl: RaceLocalDataImpl): RaceLocalData
+
+    @Binds
+    fun bindRaceRemoteData(raceRemoteDataImpl: RaceRemoteDataImpl): RaceRemoteData
 
     @Binds
     fun bindRaceLeaderboardLocalData(raceLeaderboardLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData

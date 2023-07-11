@@ -74,9 +74,7 @@ fun VerifyAccountScreen(
         val startedObserver = LifecycleEventObserver { _, event ->
             // If event is ON_START, call out to view model to refresh the current account.
             if(event == Lifecycle.Event.ON_START) {
-                lifecycleOwner.lifecycleScope.launch {
-                    verifyAccountViewModel.refreshAccount()
-                }
+                verifyAccountViewModel.refreshAccount()
             }
         }
         // Add observer to lifecycle.

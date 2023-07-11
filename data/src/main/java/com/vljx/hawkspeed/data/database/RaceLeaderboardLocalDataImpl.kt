@@ -36,6 +36,11 @@ class RaceLeaderboardLocalDataImpl @Inject constructor(
         raceLeaderboardDao.upsert(raceOutcomeEntities)
     }
 
+    override suspend fun upsertRaceLeaderboard(raceLeaderboardModel: RaceLeaderboardModel) =
+        raceLeaderboardDao.upsert(
+            raceLeaderboardEntityMapper.mapToEntity(raceLeaderboardModel)
+        )
+
     override suspend fun clearLeaderboardFor(trackUid: String) =
         raceLeaderboardDao.clearLeaderboardFor(trackUid)
 }

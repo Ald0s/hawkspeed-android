@@ -14,8 +14,8 @@ data class RequestPlayerLocationDto(
     val longitude: Double,
 
     @Expose
-    @SerializedName("rotation")
-    val rotation: Float,
+    @SerializedName("bearing")
+    val bearing: Float,
 
     @Expose
     @SerializedName("speed")
@@ -29,7 +29,7 @@ data class RequestPlayerLocationDto(
             this(
                 requestPlayerUpdate.latitude,
                 requestPlayerUpdate.longitude,
-                requestPlayerUpdate.rotation,
+                requestPlayerUpdate.bearing,
                 requestPlayerUpdate.speed,
                 requestPlayerUpdate.loggedAt
             )

@@ -60,24 +60,24 @@ class LoginViewModel @Inject constructor(
     /**
      * A validator for the email address.
      */
-    private val validateEmailAddressResult: Flow<InputValidationResult> =
+    private val validateEmailAddressResult: StateFlow<InputValidationResult> =
         mutableEmailAddress.map { emailAddress ->
             // TODO: more complex validation.
             InputValidationResult(
                 !emailAddress.isNullOrBlank()
             )
-        }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A validator for the password.
      */
-    private val validatePasswordResult: Flow<InputValidationResult> =
+    private val validatePasswordResult: StateFlow<InputValidationResult> =
         mutablePassword.map { password ->
             // TODO: more complex validation.
             InputValidationResult(
                 !password.isNullOrBlank()
             )
-        }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A flow that will emit true when a login attempt can be made; that is, the form is valid.
@@ -88,7 +88,7 @@ class LoginViewModel @Inject constructor(
             validatePasswordResult
         ) { emailAddress, password ->
             emailAddress.isValid && password.isValid
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
      * Combine all form related arguments into a form UI state.
@@ -104,7 +104,7 @@ class LoginViewModel @Inject constructor(
                 validatePass,
                 canAttempt
             )
-        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
     /**
      * Now, merge a mapping of the mutable login UI state shared flow and also a mapped login form UI state. This is publicly available.
@@ -117,7 +117,7 @@ class LoginViewModel @Inject constructor(
                 )
             },
             mutableLoginUiState
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), LoginUiState.Loading)
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LoginUiState.Loading)
 
     /**
      * Attempt a login. This will take the given email address and password, and attempt to authenticate with these.

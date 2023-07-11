@@ -57,6 +57,11 @@
     <string name="track_preview_race">Race Mode</string>
     <string name="track_view_details">See More</string>
 
+    <string name="race_leaderboard_place">Place</string>
+    <string name="race_leaderboard_username">Username</string>
+    <string name="race_leaderboard_time">Time</string>
+
+    <string name="race_your_vehicle">Your vehicle</string>
     <string name="race_start">Start</string>
     <string name="race_countdown_cancel">Cancel</string>
     <string name="race_cancel">Cancel</string>

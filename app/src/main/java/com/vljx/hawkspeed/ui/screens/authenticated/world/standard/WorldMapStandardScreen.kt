@@ -41,8 +41,10 @@ import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewModalBottomSheetScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldObjectsUiState
@@ -54,7 +56,7 @@ import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 fun WorldMapStandardMode(
     standardMode: WorldMapUiState.WorldMapLoadedStandardMode,
     worldObjectsUi: WorldObjectsUiState,
-    currentLocation: PlayerPosition?,
+    currentLocationWithOrientation: PlayerPositionWithOrientation?,
 
     onViewCurrentProfileClicked: ((String) -> Unit)? = null,
     onRaceModeClicked: ((Track) -> Unit)? = null,
@@ -72,7 +74,9 @@ fun WorldMapStandardMode(
     // Remember a state for a boolean, this will indicate whether or not we are currently previewing an object.
     var isPreviewingWorldObject by remember { mutableStateOf<Boolean>(false) }
     // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
-    var lastLocation: PlayerPosition by remember { mutableStateOf<PlayerPosition>(currentLocation ?: standardMode.location) }
+    var lastLocationWithOrientation: PlayerPositionWithOrientation by remember {
+        mutableStateOf<PlayerPositionWithOrientation>(currentLocationWithOrientation ?: standardMode.locationWithOrientation)
+    }
     // Remember a mutable state for the track UID of the track we wish to preview. Default null meaning nothing to preview.
     var previewingTrackUid: String? by remember { mutableStateOf(null) }
 
@@ -138,7 +142,7 @@ fun WorldMapStandardMode(
             val cameraPositionState = rememberCameraPositionState {
                 // Center the camera initially over our first location, which is provided by the standard mode state.
                 position = CameraPosition.fromLatLngZoom(
-                    LatLng(standardMode.location.latitude, standardMode.location.longitude),
+                    LatLng(standardMode.locationWithOrientation.position.latitude, standardMode.locationWithOrientation.position.longitude),
                     15f
                 )
             }
@@ -164,14 +168,14 @@ fun WorldMapStandardMode(
                     }
                 }
                 // Draw the current User to the map, we will use the last location here.
-                if(currentLocation != null) {
+                if(currentLocationWithOrientation != null) {
                     // Draw the current Player to the map.
                     DrawCurrentPlayer(
-                        newPlayerPosition = currentLocation,
-                        oldPlayerPosition = lastLocation,
+                        newPlayerPositionWithOrientation = currentLocationWithOrientation,
+                        oldPlayerPositionWithOrientation = lastLocationWithOrientation,
                         isFollowing = shouldFollowPlayer
                     )
-                    lastLocation = currentLocation
+                    lastLocationWithOrientation = currentLocationWithOrientation
                 }
                 // Setup a launched effect that will restart on change of either following player or currently previewing world object. The point of this is to
                 // animate the camera to follow the Player, and also to set the tilt for the camera to 0 if player is no longer being followed.
@@ -181,7 +185,7 @@ fun WorldMapStandardMode(
                         // If should follow player, animate to following them.
                         if(shouldFollowPlayer) {
                             cameraPositionState.animate(
-                                lastLocation.toFollowCameraUpdate(
+                                lastLocationWithOrientation.toFollowCameraUpdate(
                                     zoom = 18f
                                 ),
                                 500
@@ -196,7 +200,7 @@ fun WorldMapStandardMode(
                 // Now, move the camera to follow the Player, but only if we're currently not previewing anything.
                 if(shouldFollowPlayer && !isPreviewingWorldObject) {
                     cameraPositionState.move(
-                        lastLocation.toFollowCameraUpdate(
+                        lastLocationWithOrientation.toFollowCameraUpdate(
                             zoom = 18f
                         )
                     )
@@ -228,6 +232,8 @@ fun WorldMapStandardMode(
                                     previewingTrackUid!!,
                                     worldObjectsUi.tracks,
                                     cameraPositionState,
+                                    onRaceModeClicked = onRaceModeClicked,
+                                    onViewTrackDetailClicked = onViewTrackDetail,
                                     onDismiss = {
                                         // Set the track being previewed to null.
                                         previewingTrackUid = null
@@ -306,13 +312,16 @@ fun PreviewStandardWorldMap(
             standardMode = WorldMapUiState.WorldMapLoadedStandardMode(
                 playerUid = "USER01",
                 gameSettings = GameSettings(true, "", ""),
-                location = PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                locationWithOrientation = PlayerPositionWithOrientation(
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                    DeviceOrientation(FloatArray(3))
+                ),
                 approximateOnly = false
             ),
             worldObjectsUi = WorldObjectsUiState.GotWorldObjects(
                 tracks
             ),
-            currentLocation = null
+            currentLocationWithOrientation = null
         )
     }
 }

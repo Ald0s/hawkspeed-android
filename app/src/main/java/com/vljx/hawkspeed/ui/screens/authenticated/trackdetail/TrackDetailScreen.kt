@@ -91,6 +91,7 @@ import com.vljx.hawkspeed.ui.component.TabItem
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
 import com.vljx.hawkspeed.ui.screens.common.Loading
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
+import com.vljx.hawkspeed.ui.screens.common.RaceLeaderboardHeaderItem
 import com.vljx.hawkspeed.ui.screens.common.RaceLeaderboardItem
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
@@ -146,12 +147,9 @@ fun TrackDetail(
     commentFlow: Flow<PagingData<TrackComment>>,
     componentActivity: ComponentActivity? = null
 ) {
-    // Remember a scroll state.
-    val scrollState = rememberScrollState()
     // Set up a scaffold. For all the content.
     Scaffold(
         modifier = Modifier
-            .verticalScroll(scrollState)
     ) { paddingValues ->
         // Setup a new column to take from the scaffold padding.
         Column(
@@ -166,7 +164,7 @@ fun TrackDetail(
                     // Set up a new row to contain the center aligned content.
                     Row(
                         modifier = Modifier
-                            .padding(top = 32.dp, bottom = 16.dp)
+                            .padding(top = 32.dp, bottom = 32.dp)
                     ) {
                         // Setup a new column to hold the centered information; that is, the actual track path overview and the
                         // track title and creator info.
@@ -185,6 +183,7 @@ fun TrackDetail(
                             Text(
                                 text = track.name,
                                 style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 softWrap = false
                             )
@@ -316,7 +315,9 @@ fun TrackTabHost(
     track: Track,
     leaderboardFlow: Flow<PagingData<RaceLeaderboard>>,
     commentFlow: Flow<PagingData<TrackComment>>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+
+    onLeaderboardEntryClicked: ((RaceLeaderboard) -> Unit)? = null
 ) {
     val pagerState = rememberPagerState()
     val coroutineScope = rememberCoroutineScope()
@@ -341,8 +342,7 @@ fun TrackTabHost(
             }
         }
         HorizontalPager(
-            modifier = Modifier
-                .padding(24.dp),
+            modifier = Modifier,
             pageCount = trackDetailTabs.size,
             state = pagerState
         ) {
@@ -351,8 +351,8 @@ fun TrackTabHost(
                     track = track
                 )
                 TAB_LEADERBOARD -> TrackLeaderboard(
-                    track = track,
-                    leaderboardFlow = leaderboardFlow
+                    leaderboardFlow = leaderboardFlow,
+                    onLeaderboardEntryClicked = onLeaderboardEntryClicked
                 )
                 TAB_REVIEWS -> TrackReviews(
                     track = track,
@@ -368,8 +368,12 @@ fun TrackOverview(
     track: Track,
     modifier: Modifier = Modifier
 ) {
+    // Remember a scroll state.
+    val scrollState = rememberScrollState()
     Column(
         modifier = modifier
+            .padding(24.dp)
+            .verticalScroll(scrollState)
             .fillMaxSize()
     ) {
         // Create a description title and place the description.
@@ -419,9 +423,10 @@ fun TrackOverview(
 
 @Composable
 fun TrackLeaderboard(
-    track: Track,
     leaderboardFlow: Flow<PagingData<RaceLeaderboard>>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+
+    onLeaderboardEntryClicked: ((RaceLeaderboard) -> Unit)? = null
 ) {
     // Collect as lazy paging items.
     val leaderboard: LazyPagingItems<RaceLeaderboard> = leaderboardFlow.collectAsLazyPagingItems()
@@ -430,6 +435,11 @@ fun TrackLeaderboard(
         modifier = Modifier
             .fillMaxWidth()
     ) {
+        // Render our leaderboard header item here.
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+        // Render all items in the list.
         items(
             count = leaderboard.itemCount,
             key = leaderboard.itemKey { it },
@@ -438,22 +448,19 @@ fun TrackLeaderboard(
             val raceLeaderboard = leaderboard[index]
                 ?: throw NotImplementedError()
             RaceLeaderboardItem(
-                raceLeaderboard = raceLeaderboard
+                raceLeaderboard = raceLeaderboard,
+                onViewAttemptClicked = onLeaderboardEntryClicked
             )
-            // If this is the last item in the list, do not display a divider.
-            if(index < leaderboard.itemCount) {
-                // TODO: ensure this works...
-                Divider()
-            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
-        
+        // Handle edge states like refreshing, end of pagination reached and no items located.
         when {
             leaderboard.loadState.refresh is LoadState.NotLoading -> {
                 // No longer refreshing.
             }
             leaderboard.loadState.source.refresh is LoadState.NotLoading &&
-                leaderboard.loadState.append.endOfPaginationReached &&
-                leaderboard.itemCount == 0 -> {
+                    leaderboard.loadState.append.endOfPaginationReached &&
+                    leaderboard.itemCount == 0 -> {
                 // Nothing to show. Create a placeholder.
                 item {
                     TrackDetailPaginationPlaceholder(
@@ -588,7 +595,6 @@ fun PreviewTrackLeaderboard(
                 .fillMaxSize()
         ) {
             TrackLeaderboard(
-                track = ExampleData.getExampleTrack(),
                 leaderboardFlow = flow {
                     emit(
                         PagingData.from(

@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world
 
 import android.content.Intent
+import android.hardware.Sensor
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -24,6 +25,8 @@ import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
+import com.vljx.hawkspeed.ui.MainCheckSensors
 import com.vljx.hawkspeed.ui.MainConfigurePermissions
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState.NonStandardModeFailure.Companion.MISSING_PRECISE_LOCATION_PERMISSION
 import com.vljx.hawkspeed.ui.screens.authenticated.world.race.WorldMapRaceMode
@@ -61,7 +64,7 @@ fun WorldMapScreen(
     when(worldMapUiState) {
         is WorldMapUiState.WorldMapLoadedStandardMode -> {
             // Also recompose when current location changes.
-            val currentLocation: PlayerPosition? by worldMapViewModel.currentLocation.collectAsState()
+            val currentLocationWithOrientation: PlayerPositionWithOrientation? by worldMapViewModel.currentLocationWithOrientation.collectAsState()
             // When map has been loaded call the world map composable.
             val standardMode = worldMapUiState as WorldMapUiState.WorldMapLoadedStandardMode
             // Collect world objects state here.
@@ -70,7 +73,7 @@ fun WorldMapScreen(
             WorldMapStandardMode(
                 standardMode = standardMode,
                 worldObjectsUi = worldObjectsUi,
-                currentLocation = currentLocation,
+                currentLocationWithOrientation = currentLocationWithOrientation,
 
                 onViewCurrentProfileClicked = onViewCurrentProfileClicked,
                 onRaceModeClicked = { track ->
@@ -155,8 +158,16 @@ fun WorldMapScreen(
             // We're not connected to server, but can be. Use the provided location to join the world.
             worldMapViewModel.joinWorld(
                 notConnected.gameSettings,
-                notConnected.location
+                notConnected.locationWithOrientation
             )
+        }
+        is WorldMapUiState.Connecting ->
+            LoadingScreen(R.string.world_map_loading_connecting)
+        is WorldMapUiState.DeviceSensorsIneptFailure -> {
+            /**
+             * TODO: handle cases where device sensors are not available or are disabled or whatever else.
+             */
+            throw NotImplementedError()
         }
         is WorldMapUiState.PermissionOrSettingsFailure -> {
             // Could not load map due to permissions or settings, call that composable.
@@ -204,6 +215,20 @@ fun WorldMapScreen(
                     )
                 } else {
                     throw IllegalStateException("Activity WorldMapScreen is attached to is not a MainConfigurePermissions!")
+                }
+                // Also on resume, get a report of device sensors and their states.
+                if(activityContext is MainCheckSensors) {
+                    // Call for report.
+                    val sensorReportsMap = activityContext.checkSensors(listOf(
+                        Sensor.TYPE_ACCELEROMETER,
+                        Sensor.TYPE_GYROSCOPE,
+                        Sensor.TYPE_MAGNETIC_FIELD,
+                        Sensor.TYPE_ROTATION_VECTOR
+                    ))
+                    // With results, update view model.
+                    worldMapViewModel.updateOnboardSensors(sensorReportsMap)
+                } else {
+                    throw IllegalStateException("Activity WorldMapScreen is attached to is not a MainCheckSensors!")
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.ui.screens.dialogs.trackpreview
 
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 
 sealed class RaceModePromptUiState {
     /**
@@ -9,7 +10,7 @@ sealed class RaceModePromptUiState {
      */
     data class CanEnterRaceMode(
         val trackUid: String,
-        val location: PlayerPosition
+        val locationWithOrientation: PlayerPositionWithOrientation
     ): RaceModePromptUiState()
 
     /**

@@ -6,7 +6,9 @@ import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrack
+import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.track.ClearTrackRatingUseCase
 import com.vljx.hawkspeed.domain.usecase.track.DownvoteTrackUseCase
@@ -35,7 +37,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TrackPreviewViewModel @Inject constructor(
-    private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
+    private val getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     private val getTrackUseCase: GetTrackUseCase,
     private val upvoteTrackUseCase: UpvoteTrackUseCase,
     private val downvoteTrackUseCase: DownvoteTrackUseCase,
@@ -62,13 +64,14 @@ class TrackPreviewViewModel @Inject constructor(
             getTrackUseCase(
                 RequestGetTrack(trackUid)
             )
-        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
     /**
-     * Get the current location as reported by our world socket state.
+     * Get the current location alongside orientation angles for device view.
      */
-    private val currentLocation: StateFlow<PlayerPosition?> =
-        getCurrentLocationUseCase(Unit)
+    private val currentLocationWithOrientation: StateFlow<PlayerPositionWithOrientation?> =
+        getCurrentLocationAndOrientationUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Combine the track resource flow and the device's current location. Return equivalent states for resource loading and error, determine whether Player can enter
@@ -79,29 +82,33 @@ class TrackPreviewViewModel @Inject constructor(
             trackResource.distinctUntilChanged { old, new ->
                 old.data?.trackUid == new.data?.trackUid
             },
-            currentLocation
-        ) { resource, location ->
+            currentLocationWithOrientation
+        ) { resource, locationWithOrientation ->
             return@combine when(resource.status) {
                 Resource.Status.SUCCESS ->
                     TrackPreviewUiState.TrackPreview(
                         resource.data!!,
                         // If location is null, return can't race, since its indeterminate. Otherwise, determine whether the player can enter race mode for this track.
-                        location?.let {
+                        locationWithOrientation?.let { playerPositionWithOrientation ->
+                            val location = playerPositionWithOrientation.position
+                            val orientation = playerPositionWithOrientation.orientation
+
                             // Now, get the track.
                             val track: Track = resource.data!!
                             // Get the distance to the start point here.
                             val distanceToStart: Float =
                                 track.distanceToStartPointFor(location.latitude, location.longitude)
                             // Determine whether orientation is correct.
+                            // TODO: ORIENTATION ANGLES we should be utilising orientation angles for this one right here.
                             val isOrientationCorrect: Boolean =
-                                track.isOrientationCorrectFor(location.rotation)
+                                track.isOrientationCorrectFor(location.bearing)
                             Timber.d("Checking location: distance: ${distanceToStart}m, orientation: $isOrientationCorrect")
                             when {
                                 /**
                                  * When we are within 30 meters of the start line, we will allow race mode.
                                  */
                                 distanceToStart <= 30f ->
-                                    RaceModePromptUiState.CanEnterRaceMode(track.trackUid, location)
+                                    RaceModePromptUiState.CanEnterRaceMode(track.trackUid, playerPositionWithOrientation)
                                 /**
                                  * Otherwise, we can't enter race mode.
                                  */
@@ -139,7 +146,7 @@ class TrackPreviewViewModel @Inject constructor(
      * Publicise the track preview UI state and reconfigure it as a state flow.
      */
     val trackPreviewUiState: StateFlow<TrackPreviewUiState> =
-        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackPreviewUiState.Loading)
+        innerTrackPreviewUiState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrackPreviewUiState.Loading)
 
     /**
      * Set the selected track's UID. This will cause the targeted track to be queried.

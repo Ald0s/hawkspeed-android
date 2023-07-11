@@ -52,7 +52,7 @@ class UserDetailViewModel @Inject constructor(
                 Resource.Status.LOADING -> UserDetailUiState.Loading
                 Resource.Status.ERROR -> UserDetailUiState.Failed(resource.resourceError!!)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), UserDetailUiState.Loading)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserDetailUiState.Loading)
 
     companion object {
         const val ARG_USER_UID = "userUid"

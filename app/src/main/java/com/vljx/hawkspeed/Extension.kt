@@ -8,29 +8,30 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.SphericalUtil
 import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 object Extension {
-    const val TRACK_OVERVIEW_PADDING = 25
+    const val TRACK_OVERVIEW_PADDING = 75
 
     const val FOLLOW_PLAYER_ZOOM = 20f
-    const val FOLLOW_PLAYER_TILT = 75f
+    const val FOLLOW_PLAYER_TILT = 85f
 
     /**
      * An extension function that will generate a target repositioning of the map's camera such that the subject player position is being followed.
      */
-    fun PlayerPosition.toFollowCameraUpdate(
+    fun PlayerPositionWithOrientation.toFollowCameraUpdate(
         zoom: Float = FOLLOW_PLAYER_ZOOM,
         tilt: Float = FOLLOW_PLAYER_TILT
     ): CameraUpdate =
         CameraUpdateFactory.newCameraPosition(
             CameraPosition.builder()
-                .target(LatLng(latitude, longitude))
+                .target(LatLng(position.latitude, position.longitude))
                 .tilt(tilt)
-                .bearing(rotation)
+                .bearing(orientation.rotation)
                 .zoom(zoom)
                 .build()
         )

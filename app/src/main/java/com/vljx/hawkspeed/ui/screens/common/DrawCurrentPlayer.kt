@@ -8,12 +8,13 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.util.ThirdParty
 
 @Composable
 fun DrawCurrentPlayer(
-    newPlayerPosition: PlayerPosition,
-    oldPlayerPosition: PlayerPosition?,
+    newPlayerPositionWithOrientation: PlayerPositionWithOrientation,
+    oldPlayerPositionWithOrientation: PlayerPositionWithOrientation?,
     isFollowing: Boolean = false
 ) {
     /**
@@ -23,11 +24,12 @@ fun DrawCurrentPlayer(
     Marker(
         state = MarkerState(
             position = LatLng(
-                newPlayerPosition.latitude,
-                newPlayerPosition.longitude
+                newPlayerPositionWithOrientation.position.latitude,
+                newPlayerPositionWithOrientation.position.longitude
             )
         ),
-        rotation = newPlayerPosition.rotation,
+        // TODO: we must further adjust angle of icon
+        rotation = newPlayerPositionWithOrientation.orientation.rotation,
         icon = ThirdParty.vectorToBitmap(LocalContext.current, R.drawable.ic_car_side, MaterialTheme.colorScheme.primary)
     )
 }

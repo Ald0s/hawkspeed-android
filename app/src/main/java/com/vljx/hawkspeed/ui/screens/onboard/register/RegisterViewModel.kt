@@ -73,7 +73,7 @@ class RegisterViewModel @Inject constructor(
             InputValidationResult(
                 !emailAddress.isNullOrBlank()
             )
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, InputValidationResult(false))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A validator result for the password.
@@ -84,7 +84,7 @@ class RegisterViewModel @Inject constructor(
             InputValidationResult(
                 !emailAddress.isNullOrBlank()
             )
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, InputValidationResult(false))
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A validator result that combines both password and confirm password to validate confirm password.
@@ -95,10 +95,8 @@ class RegisterViewModel @Inject constructor(
             mutableConfirmPassword
         ) { password, confirmPassword ->
             // Simply return true if password and confirm password are both not null and are the same.
-            return@combine InputValidationResult(
-                password != null && confirmPassword != null && password == confirmPassword
-            )
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, InputValidationResult(false))
+            return@combine InputValidationResult(password != null && confirmPassword != null && password == confirmPassword)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
      * A state flow that emits true when a registration attempt can take place.
@@ -110,7 +108,7 @@ class RegisterViewModel @Inject constructor(
             validateConfirmPasswordResult
         ) { validateEmail, validatePassword, validateConfirmPass ->
             return@combine validateEmail.isValid && validatePassword.isValid && validateConfirmPass.isValid
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
      * A shared flow that will combine the contents of the registration form, and emit a form UI state on that basis.
@@ -128,7 +126,7 @@ class RegisterViewModel @Inject constructor(
                 validateConfirmPass,
                 canAttempt
             )
-        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed())
+        }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
     /**
      * The public UI state for registration. This will merge the form UI state with the mutable UI state shared flow.
@@ -139,7 +137,7 @@ class RegisterViewModel @Inject constructor(
                 RegisterUiState.ShowRegistrationForm(uiState)
             },
             mutableRegisterUiState
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(), RegisterUiState.Loading)
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RegisterUiState.Loading)
 
     /**
      * Perform a registration attempt.

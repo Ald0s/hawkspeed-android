@@ -43,5 +43,5 @@ class SplashViewModel @Inject constructor(
                 Resource.Status.LOADING -> SplashUiState.Loading
                 Resource.Status.ERROR -> SplashUiState.Failed(accountResource.resourceError!!)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), SplashUiState.Loading)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SplashUiState.Loading)
 }

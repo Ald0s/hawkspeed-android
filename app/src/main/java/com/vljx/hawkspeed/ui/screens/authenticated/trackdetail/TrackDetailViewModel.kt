@@ -27,7 +27,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combineTransform
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -81,8 +83,10 @@ class TrackDetailViewModel @Inject constructor(
             mutableSelectedTrackUid,
             selectedLeaderboardFilter
         ) { trackUid, filter ->
-            pageTrackLeaderboardUseCase(
-                RequestPageTrackLeaderboard(trackUid)
+            emitAll(
+                pageTrackLeaderboardUseCase(
+                    RequestPageTrackLeaderboard(trackUid)
+                )
             )
         }.cachedIn(viewModelScope)
 
@@ -91,8 +95,10 @@ class TrackDetailViewModel @Inject constructor(
      */
     val comments: Flow<PagingData<TrackComment>> =
         combineTransform<String, TrackCommentFilter, PagingData<TrackComment>>(mutableSelectedTrackUid, selectedTrackCommentsFilter) { trackUid, commentsFilter ->
-            pageTrackCommentsUseCase(
-                RequestPageTrackComments(trackUid)
+            emitAll(
+                pageTrackCommentsUseCase(
+                    RequestPageTrackComments(trackUid)
+                )
             )
         }.cachedIn(viewModelScope)
 
@@ -116,7 +122,7 @@ class TrackDetailViewModel @Inject constructor(
                 Resource.Status.LOADING -> TrackDetailUiState.Loading
                 Resource.Status.ERROR -> TrackDetailUiState.Failed(resource.resourceError!!)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), TrackDetailUiState.Loading)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrackDetailUiState.Loading)
 
     /**
      * Called when the upvote button is clicked.

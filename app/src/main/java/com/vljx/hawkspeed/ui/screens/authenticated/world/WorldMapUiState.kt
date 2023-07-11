@@ -3,6 +3,7 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 
 sealed class WorldMapUiState {
     /**
@@ -11,7 +12,7 @@ sealed class WorldMapUiState {
     data class WorldMapLoadedRecordTrackMode(
         val playerUid: String,
         val gameSettings: GameSettings,
-        val location: PlayerPosition
+        val locationWithOrientation: PlayerPositionWithOrientation
     ): WorldMapUiState()
 
     /**
@@ -20,7 +21,7 @@ sealed class WorldMapUiState {
     data class WorldMapLoadedRaceMode(
         val playerUid: String,
         val gameSettings: GameSettings,
-        val location: PlayerPosition,
+        val locationWithOrientation: PlayerPositionWithOrientation,
         val trackUid: String
     ): WorldMapUiState()
 
@@ -30,7 +31,7 @@ sealed class WorldMapUiState {
     data class WorldMapLoadedStandardMode(
         val playerUid: String,
         val gameSettings: GameSettings,
-        val location: PlayerPosition,
+        val locationWithOrientation: PlayerPositionWithOrientation,
         val approximateOnly: Boolean
     ): WorldMapUiState()
 
@@ -51,6 +52,13 @@ sealed class WorldMapUiState {
      * The initial state to display the operation being performed throughout the loading/connecting process.
      */
     object Loading: WorldMapUiState()
+
+    /**
+     * A failure state that reports the current device has insufficient hardware to properly use HawkSpeed, and participate in the world.
+     */
+    data class DeviceSensorsIneptFailure(
+        val sensorState: SensorState
+    ): WorldMapUiState()
 
     /**
      * A failure state that reports a failure to organise the correct permissions or settings.
@@ -80,8 +88,13 @@ sealed class WorldMapUiState {
      */
     data class NotConnected(
         val gameSettings: GameSettings,
-        val location: PlayerPosition
+        val locationWithOrientation: PlayerPositionWithOrientation
     ): WorldMapUiState()
+
+    /**
+     * A state that indicates a connection to the game server is in progress.
+     */
+    object Connecting: WorldMapUiState()
 
     /**
      * A failure state that reports a failure to connect to the server.

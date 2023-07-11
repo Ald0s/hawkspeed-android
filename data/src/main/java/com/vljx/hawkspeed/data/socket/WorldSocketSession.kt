@@ -1,7 +1,9 @@
 package com.vljx.hawkspeed.data.socket
 
+import android.hardware.SensorManager
 import com.google.gson.Gson
 import com.vljx.hawkspeed.data.BuildConfig
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.data.models.race.CancelRaceResultModel
 import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
 import com.vljx.hawkspeed.data.models.world.PlayerUpdateResultModel
@@ -34,17 +36,22 @@ import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportUpdateDto
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.Viewport
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.CookieJar
@@ -75,7 +82,10 @@ class WorldSocketSession @Inject constructor(
     private val raceDisqualifiedDtoMapper: RaceDisqualifiedDtoMapper,
     private val raceProgressDtoMapper: RaceProgressDtoMapper,
     private val playerUpdateResultDtoMapper: PlayerUpdateResultDtoMapper,
-    private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper
+    private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper,
+
+    @IODispatcher
+    private val ioDispatcher: CoroutineDispatcher
 ) {
     // Objects for the socket IO server.
     // The socket IO manager.
@@ -115,6 +125,22 @@ class WorldSocketSession @Inject constructor(
     private val mutableLatestViewport: MutableStateFlow<Viewport?> = MutableStateFlow(null)
 
     /**
+     * A mutable shared flow for the latest accelerometer readings. Configured to reply 1 value.
+     */
+    private val mutableLatestAccelerometerReadings: MutableSharedFlow<RequestUpdateAccelerometerReadings> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * A mutable shared flow for the latest magnetometer readings. Configured to reply 1 value.
+     */
+    private val mutableLatestMagnetometerReadings: MutableSharedFlow<RequestUpdateMagnetometerReadings> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
      * A state flow for the current state of the connection to the game server.
      */
     val worldSocketState: SharedFlow<WorldSocketState> =
@@ -137,6 +163,42 @@ class WorldSocketSession @Inject constructor(
      */
     val latestViewport: StateFlow<Viewport?> =
         mutableLatestViewport
+
+    /**
+     * A flow, which is a zip of the latest accelerometer and magnetometer readings used to calculate a rotation matrix. We will utilise zip since we wish a new
+     * rotation matrix emitted only when we have new readings from both accelerometer and magnetometer.
+     */
+    private val latestRotationMatrix: Flow<FloatArray> =
+        mutableLatestAccelerometerReadings.zip(mutableLatestMagnetometerReadings) { accelerometerReadings, magnetometerReadings ->
+            // Make a new float array, 9 in size.
+            val rotationMatrixResult = FloatArray(9)
+            // Now use sensor manager to actually calculate the rotation matrix. I'm not sure if this breaks clean arch because we reference Android here, but its
+            // static so surely I'm good?
+            SensorManager.getRotationMatrix(
+                rotationMatrixResult,
+                null,
+                accelerometerReadings.latestReadings,
+                magnetometerReadings.latestReadings
+            )
+            rotationMatrixResult
+        }
+
+    /**
+     * A flow which maps the latest rotation matrix to the actual orientation angles. This is a public flow, and is not shared but upstream seems
+     * relatively inexpensive.
+     */
+    val latestOrientationAngles: Flow<DeviceOrientation> =
+        latestRotationMatrix.map { rotationMatrix ->
+            // Create a float array of 3 values.
+            val orientationAngles = FloatArray(3)
+            // Now use sensor manager to actually calculate them, with given rotation matrix.
+            SensorManager.getOrientation(
+                rotationMatrix,
+                orientationAngles
+            )
+            // Create and return a device orientation container for the angles.
+            DeviceOrientation(orientationAngles)
+        }
 
     /**
      * A combined flow of current game settings and current location. This flow will determine the overall intent to connect to the game server and
@@ -178,7 +240,7 @@ class WorldSocketSession @Inject constructor(
      * The current state of this flow will then inform whether we will connect/disconnect to the game server.
      */
     init {
-        applicationScope.launch {
+        applicationScope.launch(ioDispatcher) {
             worldSocketIntentState.collect { intentState ->
                 when(intentState) {
                     is WorldSocketIntentState.CanJoinWorld -> ensureConnectionOpen(intentState)
@@ -214,6 +276,24 @@ class WorldSocketSession @Inject constructor(
         // TODO: if we are currently connected, send a message to server letting it know we're leaving, optionally with reason.
         // Simply set gatekeeper to false.
         mutableShouldConnect.tryEmit(false)
+    }
+
+    /**
+     * Update latest accelerometer readings.
+     */
+    fun updateAccelerometerReadings(requestUpdateAccelerometerReadings: RequestUpdateAccelerometerReadings) {
+        mutableLatestAccelerometerReadings.tryEmit(
+            requestUpdateAccelerometerReadings
+        )
+    }
+
+    /**
+     * Update latest magnetometer readings.
+     */
+    fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings) {
+        mutableLatestMagnetometerReadings.tryEmit(
+            requestUpdateMagnetometerReadings
+        )
     }
 
     /**
@@ -266,7 +346,7 @@ class WorldSocketSession @Inject constructor(
                     canJoinWorld.deviceIdentifier,
                     canJoinWorld.location.latitude,
                     canJoinWorld.location.longitude,
-                    canJoinWorld.location.rotation,
+                    canJoinWorld.location.bearing,
                     canJoinWorld.location.speed,
                     canJoinWorld.location.loggedAt
                 ),
@@ -329,7 +409,7 @@ class WorldSocketSession @Inject constructor(
         mutableCurrentLocation.value = PlayerPosition(
             requestPlayerUpdate.latitude,
             requestPlayerUpdate.longitude,
-            requestPlayerUpdate.rotation,
+            requestPlayerUpdate.bearing,
             requestPlayerUpdate.speed,
             requestPlayerUpdate.loggedAt
         )
@@ -454,7 +534,7 @@ class WorldSocketSession @Inject constructor(
                 connectAuthenticationResponseDto.playerUid,
                 connectAuthenticationResponseDto.latitude,
                 connectAuthenticationResponseDto.longitude,
-                connectAuthenticationResponseDto.rotation
+                connectAuthenticationResponseDto.bearing
             )
         )
     }

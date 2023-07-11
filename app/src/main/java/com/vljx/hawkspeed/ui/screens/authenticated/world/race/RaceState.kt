@@ -4,6 +4,7 @@ import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.race.Race
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 
 /**
  * A state that indicates the existence and basic status of a specific race instance. This is to be used to wrap the result of querying a race from cache.
@@ -23,7 +24,7 @@ sealed class RaceState {
         val trackUid: String,
         val vehicleUid: String,
         val currentSecond: Int,
-        val countdownLocation: PlayerPosition
+        val countdownLocationWithOrientation: PlayerPositionWithOrientation
     ): RaceState()
 
     /**

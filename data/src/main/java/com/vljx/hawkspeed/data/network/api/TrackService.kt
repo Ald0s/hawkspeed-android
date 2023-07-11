@@ -1,6 +1,5 @@
 package com.vljx.hawkspeed.data.network.api
 
-import com.vljx.hawkspeed.data.network.models.race.RaceLeaderboardPageDto
 import com.vljx.hawkspeed.data.network.models.track.TrackCommentsPageDto
 import com.vljx.hawkspeed.data.network.models.track.TrackDto
 import com.vljx.hawkspeed.data.network.models.track.TrackWithPathDto
@@ -31,12 +30,6 @@ interface TrackService {
     suspend fun clearTrackRating(
         @Path(value = "uidTrack", encoded = true) uidTrack: String
     ): Response<TrackDto>
-
-    @GET("api/v1/track/{uidTrack}/leaderboard")
-    suspend fun queryLeaderboardPage(
-        @Path(value = "uidTrack", encoded = true) uidTrack: String,
-        @Query("p") page: Int
-    ): Response<RaceLeaderboardPageDto>
 
     @GET("api/v1/track/{uidTrack}/comments")
     suspend fun queryCommentsPage(

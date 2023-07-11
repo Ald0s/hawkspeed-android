@@ -12,6 +12,7 @@ import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerUpdateResult
 import com.vljx.hawkspeed.domain.models.race.StartRaceResult
+import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.Viewport
 import com.vljx.hawkspeed.domain.models.world.ViewportUpdateResult
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
@@ -20,8 +21,11 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -48,6 +52,15 @@ class WorldSocketRepositoryImpl @Inject constructor(
 
     override val latestViewport: StateFlow<Viewport?>
         get() = worldSocketSession.latestViewport
+
+    override val latestOrientationAngles: Flow<DeviceOrientation>
+        get() = worldSocketSession.latestOrientationAngles
+
+    override fun updateAccelerometerReadings(requestUpdateAccelerometerReadings: RequestUpdateAccelerometerReadings) =
+        worldSocketSession.updateAccelerometerReadings(requestUpdateAccelerometerReadings)
+
+    override fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings) =
+        worldSocketSession.updateMagnetometerReadings(requestUpdateMagnetometerReadings)
 
     override fun setLocationAvailability(available: Boolean) =
         worldSocketSession.setLocationAvailability(available)

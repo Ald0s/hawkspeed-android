@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.di.module
 
 import com.vljx.hawkspeed.data.database.AccountLocalDataImpl
+import com.vljx.hawkspeed.data.database.GameSettingsLocalDataImpl
 import com.vljx.hawkspeed.data.database.RaceLocalDataImpl
 import com.vljx.hawkspeed.data.database.RaceLeaderboardLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackCommentLocalDataImpl
@@ -12,6 +13,7 @@ import com.vljx.hawkspeed.data.database.VehicleLocalDataImpl
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
 import com.vljx.hawkspeed.data.network.RaceLeaderboardRemoteDataImpl
+import com.vljx.hawkspeed.data.network.RaceRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackCommentRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackPathRemoteDataImpl
 import com.vljx.hawkspeed.data.network.TrackRemoteDataImpl
@@ -20,9 +22,11 @@ import com.vljx.hawkspeed.data.network.VehicleRemoteDataImpl
 import com.vljx.hawkspeed.data.source.*
 import com.vljx.hawkspeed.data.source.account.AccountLocalData
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
+import com.vljx.hawkspeed.data.source.account.GameSettingsLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardRemoteData
+import com.vljx.hawkspeed.data.source.race.RaceRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackCommentLocalData
 import com.vljx.hawkspeed.data.source.track.TrackCommentRemoteData
 import com.vljx.hawkspeed.data.source.track.TrackDraftLocalData
@@ -53,6 +57,9 @@ interface FakeDataModule {
     fun bindAccountRemoteData(accountRemoteDataImpl: AccountRemoteDataImpl): AccountRemoteData
 
     @Binds
+    fun bindGameSettingsLocalData(gameSettingsLocalDataImpl: GameSettingsLocalDataImpl): GameSettingsLocalData
+
+    @Binds
     fun bindTrackLocalData(trackLocalDataImpl: TrackLocalDataImpl): TrackLocalData
 
     @Binds
@@ -71,10 +78,13 @@ interface FakeDataModule {
     fun bindRaceLocalData(raceLocalDataImpl: RaceLocalDataImpl): RaceLocalData
 
     @Binds
-    fun bindRaceOutcomeLocalData(raceOutcomeLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData
+    fun bindRaceRemoteData(raceRemoteDataImpl: RaceRemoteDataImpl): RaceRemoteData
 
     @Binds
-    fun bindRaceOutcomeRemoteData(raceOutcomeRemoteDataImpl: RaceLeaderboardRemoteDataImpl): RaceLeaderboardRemoteData
+    fun bindRaceLeaderboardLocalData(raceLeaderboardLocalDataImpl: RaceLeaderboardLocalDataImpl): RaceLeaderboardLocalData
+
+    @Binds
+    fun bindRaceLeaderboardRemoteData(raceLeaderboardRemoteDataImpl: RaceLeaderboardRemoteDataImpl): RaceLeaderboardRemoteData
 
     @Binds
     fun bindUserLocalData(userLocalDataImpl: UserLocalDataImpl): UserLocalData

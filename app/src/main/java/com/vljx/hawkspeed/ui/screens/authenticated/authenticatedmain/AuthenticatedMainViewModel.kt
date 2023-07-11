@@ -49,7 +49,7 @@ class AuthenticatedMainViewModel @Inject constructor(
                 }
                 is AuthenticationState.NotAuthenticated -> AuthenticatedMainUiState.NotAuthenticated
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), AuthenticatedMainUiState.Idle)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AuthenticatedMainUiState.Idle)
 
     companion object {
         const val ARG_USER_UID = "userUid"

@@ -12,7 +12,7 @@ class PlayerUpdateResultDtoMapper @Inject constructor(
         return PlayerUpdateResultModel(
             dto.latitude,
             dto.longitude,
-            dto.rotation,
+            dto.bearing,
             dto.worldObjectUpdate?.let { worldObjectUpdateResultDtoMapper.mapFromDto(it) }
         )
     }

@@ -8,7 +8,7 @@ import android.location.Location
 data class PlayerPosition(
     val latitude: Double,
     val longitude: Double,
-    val rotation: Float,
+    val bearing: Float,
     val speed: Float,
     val loggedAt: Long
 ) {

@@ -20,6 +20,10 @@ class DatabaseModule {
         appDatabase.accountDao()
 
     @Provides
+    fun provideGameSettingsDao(appDatabase: AppDatabase): GameSettingsDao =
+        appDatabase.gameSettingsDao()
+
+    @Provides
     fun provideTrackDao(appDatabase: AppDatabase): TrackDao =
         appDatabase.trackDao()
 

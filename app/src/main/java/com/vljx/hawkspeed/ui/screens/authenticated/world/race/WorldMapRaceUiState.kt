@@ -6,6 +6,7 @@ import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
+import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 
 sealed class WorldMapRaceUiState {
     /**
@@ -59,7 +60,7 @@ sealed class WorldMapRaceUiState {
          * 4 - GO!
          */
         val currentSecond: Int = 0,
-        val countdownStartedLocation: PlayerPosition,
+        val countdownStartedLocationWithOrientation: PlayerPositionWithOrientation,
         val track: Track,
         val trackPath: TrackPath
     ): WorldMapRaceUiState()

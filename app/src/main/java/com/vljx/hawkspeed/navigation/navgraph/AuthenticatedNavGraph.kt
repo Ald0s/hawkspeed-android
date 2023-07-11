@@ -8,6 +8,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import com.vljx.hawkspeed.navigation.AppDestination
 import com.vljx.hawkspeed.ui.screens.authenticated.authenticatedmain.AuthenticatedMainScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.leaderboarddetail.RaceLeaderboardDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setup.SetupAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setuptrack.SetupTrackDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackDetailScreen
@@ -89,6 +90,21 @@ object TrackDetailDestination: AppDestination("track_detail_destination") {
 
     val arguments = listOf(
         navArgument(trackUidArg) {
+            type = NavType.StringType
+            nullable = false
+        }
+    )
+}
+
+/**
+ * Viewing a race leaderboard entry's detail.
+ */
+object RaceLeaderboardDetailDestination: AppDestination("race_leaderboard_detail_destination") {
+    const val raceUidArg = "raceUid"
+    val routeWithArgs = "$route/{${raceUidArg}}"
+
+    val arguments = listOf(
+        navArgument(raceUidArg) {
             type = NavType.StringType
             nullable = false
         }
@@ -206,7 +222,7 @@ fun NavGraphBuilder.authenticatedNavGraph(
                 onViewTrackDetail = { track ->
                     // Navigate to track detail, with the given track's UID, and false for both viewing leaderboard and wanting to comment.
                     navHostController.navigate(
-                        TrackDetailDestination.withArgs(track.trackUid, false, false)
+                        TrackDetailDestination.withArgs(track.trackUid)
                     )
                 },
                 onSetupTrackDetails = { trackDraftId ->
@@ -234,6 +250,19 @@ fun NavGraphBuilder.authenticatedNavGraph(
         }
 
         composable(
+            route = RaceLeaderboardDetailDestination.routeWithArgs,
+            arguments = RaceLeaderboardDetailDestination.arguments
+        ) { navBackStackEntry ->
+            // Show the race leaderboard detail screen.
+            RaceLeaderboardDetailScreen(
+                onViewUserDetailClicked = {
+                    // TODO: when we click on something that should show another user's detail, navigate there now.
+                    throw NotImplementedError("onViewUserDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                }
+            )
+        }
+
+        composable(
             route = SetupTrackDetailDestination.routeWithArgs,
             arguments = SetupTrackDetailDestination.arguments
         ) { navBackStackEntry ->
@@ -241,7 +270,7 @@ fun NavGraphBuilder.authenticatedNavGraph(
             SetupTrackDetailScreen(
                 onTrackCreated = { trackWithPath ->
                     // TODO: when we have successfully created a path, we now want to navigate all the way back to world map.
-                    throw NotImplementedError("onTrackCreated not yet properly implemented.")
+                    throw NotImplementedError("onTrackCreated in SetupTrackDetailDestination composable not yet properly implemented.")
                 }
             )
         }

@@ -25,6 +25,11 @@ interface RaceLeaderboardLocalData {
     suspend fun upsertRaceLeaderboard(raceLeaderboardPageModel: RaceLeaderboardPageModel)
 
     /**
+     * Upsert the given leaderboard entry.
+     */
+    suspend fun upsertRaceLeaderboard(raceLeaderboardModel: RaceLeaderboardModel)
+
+    /**
      * Clear the entire cached leaderboard for the given track.
      */
     suspend fun clearLeaderboardFor(trackUid: String)
