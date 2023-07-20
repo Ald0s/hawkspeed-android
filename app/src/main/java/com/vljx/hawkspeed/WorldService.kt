@@ -33,6 +33,7 @@ import com.vljx.hawkspeed.domain.usecase.socket.SetLocationAvailabilityUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateAccelerometerReadingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateMagnetometerReadingsUseCase
 import com.vljx.hawkspeed.ui.MainActivity
+import com.vljx.hawkspeed.util.Extension.applyLowPass
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import timber.log.Timber
@@ -89,9 +90,9 @@ class WorldService: Service(), SensorEventListener {
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
     // Storing our most recent accelerometer readings.
-    private val accelerometerReadings = FloatArray(3)
+    private var accelerometerReadings = FloatArray(3)
     // Storing our most recent magnetometer readings.
-    private val magnetometerReadings = FloatArray(3)
+    private var magnetometerReadings = FloatArray(3)
     // Whether or not we are currently receiving updates.
     private var receivingLocationUpdates: Boolean = false
 
@@ -202,7 +203,10 @@ class WorldService: Service(), SensorEventListener {
         when(event?.sensor?.type) {
             TYPE_ACCELEROMETER -> {
                 // Copy readings from the event into our accelerometer readings.
-                System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
+                //System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
+
+                // Get accelerometer readings from the event, and send through our low pass filter.
+                accelerometerReadings = applyLowPass(event.values.clone(), accelerometerReadings)
                 // Now, call the update use case to send the latest readings off.
                 updateAccelerometerReadingsUseCase(
                     RequestUpdateAccelerometerReadings(accelerometerReadings)
@@ -210,7 +214,10 @@ class WorldService: Service(), SensorEventListener {
             }
             TYPE_MAGNETIC_FIELD -> {
                 // Copy readings from the event into our magnetometer readings.
-                System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
+                //System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
+                
+                // Get magnetometer readings from the event, and send through our low pass filter.
+                magnetometerReadings = applyLowPass(event.values.clone(), magnetometerReadings)
                 // Now, call the update use case to send the latest readings off.
                 updateMagnetometerReadingsUseCase(
                     RequestUpdateMagnetometerReadings(magnetometerReadings)

@@ -2,7 +2,6 @@ package com.vljx.hawkspeed.data.network.models.track
 
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
-import com.vljx.hawkspeed.data.network.models.comment.TrackCommentDto
 import com.vljx.hawkspeed.domain.base.Paged
 
 data class TrackCommentsPageDto(

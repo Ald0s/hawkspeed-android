@@ -15,7 +15,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 object Extension {
-    const val TRACK_OVERVIEW_PADDING = 75
+    const val TRACK_OVERVIEW_PADDING = 100
 
     const val FOLLOW_PLAYER_ZOOM = 20f
     const val FOLLOW_PLAYER_TILT = 85f

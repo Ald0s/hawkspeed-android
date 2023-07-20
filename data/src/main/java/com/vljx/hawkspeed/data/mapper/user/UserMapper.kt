@@ -12,6 +12,7 @@ class UserMapper @Inject constructor(
         return User(
             model.userUid,
             model.userName,
+            model.bio,
             model.privilege,
             model.isBot,
             model.isYou
@@ -22,6 +23,7 @@ class UserMapper @Inject constructor(
         return UserModel(
             domain.userUid,
             domain.userName,
+            domain.bio,
             domain.privilege,
             domain.isBot,
             domain.isYou

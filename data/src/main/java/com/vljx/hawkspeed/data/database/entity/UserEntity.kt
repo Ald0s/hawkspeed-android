@@ -12,6 +12,8 @@ data class UserEntity(
     @Expose
     val userName: String,
     @Expose
+    val bio: String?,
+    @Expose
     val privilege: Int,
     @Expose
     val isBot: Boolean,

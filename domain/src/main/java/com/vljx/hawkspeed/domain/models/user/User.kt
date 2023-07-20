@@ -7,6 +7,7 @@ import kotlinx.android.parcel.Parcelize
 data class User(
     val userUid: String,
     val userName: String,
+    val bio: String?,
     val privilege: Int,
     val isBot: Boolean,
     val isYou: Boolean

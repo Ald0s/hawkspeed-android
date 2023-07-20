@@ -9,6 +9,8 @@ data class RaceLeaderboardModel(
     val started: Long,
     val finished: Long,
     val stopwatch: Int,
+    val averageSpeed: Int?,
+    val percentMissed: Int,
     val player: UserModel,
     val vehicle: VehicleModel,
     val trackUid: String

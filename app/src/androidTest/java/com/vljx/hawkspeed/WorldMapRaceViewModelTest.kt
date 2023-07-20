@@ -6,6 +6,7 @@ import com.vljx.hawkspeed.data.di.module.CommonModule
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import com.vljx.hawkspeed.data.di.module.DomainModule
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.data.models.race.RaceModel
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
@@ -14,6 +15,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
 import com.vljx.hawkspeed.domain.usecase.race.GetCachedLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendCancelRaceRequestUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
@@ -29,11 +31,14 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import junit.framework.Assert.assertEquals
 import junit.framework.Assert.assertNotNull
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -57,6 +62,8 @@ class WorldMapRaceViewModelTest: BaseTest() {
     lateinit var raceLocalData: RaceLocalData
 
     @Inject
+    lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
+    @Inject
     lateinit var getCurrentLocationUseCase: GetCurrentLocationUseCase
     @Inject
     lateinit var getRaceUseCase: GetRaceUseCase
@@ -78,12 +85,16 @@ class WorldMapRaceViewModelTest: BaseTest() {
 
     private lateinit var worldMapRaceViewModel: WorldMapRaceViewModel
 
+    @Inject
+    @IODispatcher
+    lateinit var testDispatcher: CoroutineDispatcher
+
     @Before
     fun setUp() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRaceViewModel = WorldMapRaceViewModel(
-            getRaceUseCase, getCachedLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase
+            getRaceUseCase, getCachedLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationAndOrientationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase, testDispatcher
         )
     }
 

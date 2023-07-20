@@ -24,6 +24,10 @@ data class RaceLeaderboardEntity(
     val finished: Long,
     @Expose
     val stopwatch: Int,
+    @Expose
+    val averageSpeed: Int?,
+    @Expose
+    val percentMissed: Int,
     @Embedded(prefix = "race_")
     @Expose
     val player: UserEntity,

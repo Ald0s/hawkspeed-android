@@ -38,6 +38,7 @@ import com.vljx.hawkspeed.Extension.noTilt
 import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
+import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.models.user.User
@@ -62,6 +63,7 @@ fun WorldMapStandardMode(
     onRaceModeClicked: ((Track) -> Unit)? = null,
     onCreateTrackClicked: (() -> Unit)? = null,
     onViewUserDetail: ((User) -> Unit)? = null,
+    onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
     onViewTrackDetail: ((Track) -> Unit)? = null,
     onBoundingBoxChanged: ((VisibleRegion, Float) -> Unit)? = null,
     onTrackMarkerClicked: ((Marker, Track) -> Unit)? = null,
@@ -234,6 +236,8 @@ fun WorldMapStandardMode(
                                     cameraPositionState,
                                     onRaceModeClicked = onRaceModeClicked,
                                     onViewTrackDetailClicked = onViewTrackDetail,
+                                    onViewUserDetail = onViewUserDetail,
+                                    onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
                                     onDismiss = {
                                         // Set the track being previewed to null.
                                         previewingTrackUid = null
@@ -260,6 +264,8 @@ fun ShowPreviewTrack(
     latestTracksWithPaths: List<TrackWithPath>,
     cameraPositionState: CameraPositionState,
     onViewTrackDetailClicked: ((Track) -> Unit)? = null,
+    onViewUserDetail: ((User) -> Unit)? = null,
+    onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
     onRaceModeClicked: ((Track) -> Unit)? = null,
     onDismiss: (() -> Unit)? = null
 ) {
@@ -290,6 +296,8 @@ fun ShowPreviewTrack(
             track = trackWithPath!!.track,
             onRaceModeClicked = onRaceModeClicked,
             onViewTrackDetailClicked = onViewTrackDetailClicked,
+            onViewUserDetail = onViewUserDetail,
+            onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
             onDismiss = {
                 trackWithPath = null
                 onDismiss?.invoke()

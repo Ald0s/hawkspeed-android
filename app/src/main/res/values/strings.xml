@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">HawkSpeed</string>
-
+    <string name="bullet">•</string>
     <string name="title_activity_main">MainActivity</string>
 
     <string name="loading">Loading…</string>
@@ -57,11 +57,22 @@
     <string name="track_preview_race">Race Mode</string>
     <string name="track_view_details">See More</string>
 
+    <string name="race_leaderboard_place_hash">#%1$d</string>
     <string name="race_leaderboard_place">Place</string>
     <string name="race_leaderboard_username">Username</string>
     <string name="race_leaderboard_time">Time</string>
 
+    <string name="race_leaderboard_first">First</string>
+    <string name="race_leaderboard_second">Second</string>
+    <string name="race_leaderboard_third">Third</string>
+    <string name="race_leaderboard_awarded_to">Awarded to</string>
+    <string name="race_leaderboard_for_attempt">for their attempt on</string>
+    <string name="race_leaderboard_completed_at">completed at</string>
+    <string name="race_leaderboard_in_their">in their</string>
+    <string name="race_leaderboard_time_taken">Time taken</string>
+
     <string name="race_your_vehicle">Your vehicle</string>
+    <string name="race_change_your_vehicle">Change</string>
     <string name="race_start">Start</string>
     <string name="race_countdown_cancel">Cancel</string>
     <string name="race_cancel">Cancel</string>
@@ -71,7 +82,6 @@
     <string name="race_progress">%1$s%% complete</string>
 
     <string name="race_start_failed">Race start failed!</string>
-    <string name="race_start_failed_desc">We had to decline your request for a new race. This attempt will not be visible on the leaderboard.</string>
     <string name="race_start_failed_unknown">An unknown error occurred.</string>
     <string name="race_start_failed_cant_be_raced">Sorry about this! For some reason, this track can\'t actually be raced right now. We suggest trying again in a few hours.</string>
 
@@ -80,14 +90,21 @@
     <string name="race_cancelled_unknown">An unknown error occurred.</string>
 
     <string name="race_disqualified">You\'ve been disqualified!</string>
-    <string name="race_disqualified_desc">Something about your attempt lead us to believe you\'re up to no good. This attempt will not be visible on the leaderboard.</string>
     <string name="race_disqualified_disconnected">At some point, you may have lost connection to HawkSpeed. We\'re pretty strict about this, so make sure your device always remains connected when racing!</string>
     <string name="race_disqualified_missed_track">It seems as though you have missed a large portion of the track thus far. We\'re pretty strict about this, so make sure when racing, you always follow the highlighted track!</string>
     <string name="race_disqualified_unknown">An unknown error occurred.</string>
-    <!--Other error messages here.-->
     <string name="race_finished">Congratulations!</string>
     <string name="race_finished_desc">You have successfully completed this track.</string>
 
+    <string name="record_track_choose_type_title">Choose race type</string>
+    <string name="record_track_choose_type">Accept</string>
+    <string name="record_track_choose_type_prompt">Choose track type…</string>
+    <string name="record_track_choose_type_prompt_desc">Before you can begin recording, you must choose a race type. This will define the characteristics of how your new track can be raced.</string>
+    <string name="record_track_types">Types</string>
+    <string name="record_track_type_sprint">Sprint</string>
+    <string name="record_track_type_sprint_desc">This type involves racing from one point to another, with no laps.</string>
+    <string name="record_track_type_circuit">Circuit</string>
+    <string name="record_track_type_circuit_desc">This type involves racing a closed circuit type of track, with a set number of laps to complete.</string>
     <string name="record_track_recorded">Recorded track</string>
     <string name="record_track_recording">Recording…</string>
     <string name="record_record_new_sprint">New sprint</string>

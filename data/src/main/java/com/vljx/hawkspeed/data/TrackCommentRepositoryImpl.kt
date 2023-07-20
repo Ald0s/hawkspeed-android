@@ -8,7 +8,7 @@ import androidx.paging.map
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.database.entity.track.TrackCommentEntity
 import com.vljx.hawkspeed.data.database.mapper.TrackCommentEntityMapper
-import com.vljx.hawkspeed.data.mapper.comment.TrackCommentMapper
+import com.vljx.hawkspeed.data.mapper.track.TrackCommentMapper
 import com.vljx.hawkspeed.data.mapper.track.TrackCommentsMapper
 import com.vljx.hawkspeed.data.models.track.TrackCommentsPageModel
 import com.vljx.hawkspeed.data.remotemediator.BaseRemoteMediator

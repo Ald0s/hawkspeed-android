@@ -18,6 +18,8 @@ class RaceLeaderboardDtoMapper @Inject constructor(
             dto.started,
             dto.finished,
             dto.stopwatch,
+            dto.averageSpeed,
+            dto.percentMissed,
             userDtoMapper.mapFromDto(dto.player),
             vehicleDtoMapper.mapFromDto(dto.vehicle),
             dto.trackUid

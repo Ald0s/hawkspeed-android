@@ -100,10 +100,9 @@ class WorldMapRaceViewModel @Inject constructor(
     private val mutableNewRaceIntentState: MutableStateFlow<NewRaceIntentState> = MutableStateFlow(NewRaceIntentState.Idle)
 
     /**
-     * Map the ongoing race UID to a Race instance. If null is returned, there is no race at all. Otherwise, if the race is finished, cancelled or disqualified,
-     * this is a not racing state. Otherwise, this is a racing state.
-     *
-     * TODO: work into this flow emissions from getLeaderboardEntryForRaceUseCase. When this use case emits a value that isn't null, we can be sure the race is finished.
+     * Map the ongoing race UID to a Race instance. If null is returned, there is no race at all. Otherwise, if the race is cancelled or disqualified, this is
+     * a not racing state. When a race is successfully finished, a leaderboard entry should be inserted into cache for that race. This should trigger the get
+     * cached leaderboard entry flow to emit that value; which will qualify for the finished state.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val raceStateFromCache: Flow<RaceState> =
@@ -114,14 +113,30 @@ class WorldMapRaceViewModel @Inject constructor(
                     emit(RaceState.NoRace)
                 }
             }
-            // Otherwise, get race from cache.
-            getRaceUseCase(
-                RequestGetRace(raceUid)
-            ).map { race ->
-                return@map when {
+            val requestGetRace = RequestGetRace(raceUid)
+            return@flatMapLatest combine(
+                getRaceUseCase(requestGetRace),
+                getCachedLeaderboardEntryForRaceUseCase(requestGetRace)
+            ) { race, leaderboardEntry ->
+                return@combine when {
+                    /**
+                     * Race is null, there's no race.
+                     */
                     race == null -> RaceState.NoRace
-                    race.isFinished -> RaceState.RaceFinished(race) /* TODO: this is where we should manifold the leaderboard entry item and pass it alongside is finished.. */
+
+                    /**
+                     * If race is marked as finished, and we have a leaderboard entry for the race, the race is finished.
+                     */
+                    race.isFinished && leaderboardEntry != null -> RaceState.RaceFinished(race, leaderboardEntry)
+
+                    /**
+                     * If race is cancelled or disqualified, we're not racing this instance but we should still display this outcome.
+                     */
                     race.isCancelled || race.isDisqualified -> RaceState.NotRacing(race)
+
+                    /**
+                     * Otherwise, race is still ongoing.
+                     */
                     else -> RaceState.Racing(race)
                 }
             }
@@ -194,7 +209,7 @@ class WorldMapRaceViewModel @Inject constructor(
             val orientationAngles = locationWithOrientation?.orientation
 
             // If location is null, or if resource is not success, or if data inside the success is null, we'll return standby.
-            if(location == null || resource.status != Resource.Status.SUCCESS || resource.data == null) {
+            if(location == null || orientationAngles == null || resource.status != Resource.Status.SUCCESS || resource.data == null) {
                 return@combine StartLineState.Inconclusive
             }
             // Now, get the track.
@@ -202,8 +217,7 @@ class WorldMapRaceViewModel @Inject constructor(
             // Get the distance to the start point here.
             val distanceToStart: Float = track.distanceToStartPointFor(location.latitude, location.longitude)
             // Determine whether orientation is correct.
-            // TODO: ORIENTATION ANGLES we should be utilising orientation angles for this one right here.
-            val isOrientationCorrect: Boolean = track.isOrientationCorrectFor(location.bearing)
+            val isOrientationCorrect: Boolean = track.isOrientationCorrectFor(orientationAngles.rotation)
             Timber.d("Checking location: distance: ${distanceToStart}m, orientation: $isOrientationCorrect")
             return@combine when {
                 /**
@@ -213,15 +227,16 @@ class WorldMapRaceViewModel @Inject constructor(
                     StartLineState.Perfect(locationWithOrientation)
 
                 /**
-                 * When distance to start is greater than 10m but less or equal to 30m, we are in a standby position.
+                 * When distance to start is greater than 30m, we have moved away.
                  */
-                distanceToStart > 10f && distanceToStart <= 30 ->
-                    StartLineState.Standby(locationWithOrientation)
+                distanceToStart > 30f ->
+                    StartLineState.MovedAway(locationWithOrientation)
 
                 /**
-                 * Otherwise, we are no longer able to consider a race for this track.
+                 * Otherwise, at this point; distance to start is within the range of 10.1 to 30 and irrespective of whether orientation is
+                 * correct, we are in standby.
                  */
-                else -> StartLineState.MovedAway(locationWithOrientation)
+                else -> StartLineState.Standby(locationWithOrientation)
             }
         }.distinctUntilChanged { oldState, newState ->
             // Attach a distinct until changed that will function on the actual types of each state instead of the contents thereof,
@@ -407,11 +422,11 @@ class WorldMapRaceViewModel @Inject constructor(
 
                 /**
                  * If we have a race finished state, this means we have completed a race.
-                 * TODO: pass a leaderboard entry item back here, too.
                  */
                 race is RaceState.RaceFinished ->
                     WorldMapRaceUiState.Finished(
                         race.race,
+                        race.leaderboardEntry,
                         resource.data!!.track,
                         resource.data!!.path!!
                     )

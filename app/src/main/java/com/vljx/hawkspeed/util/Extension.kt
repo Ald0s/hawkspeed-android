@@ -6,6 +6,8 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 
 object Extension {
+    const val ALPHA = 0.25f
+
     fun Context.getActivity(): ComponentActivity {
         val currentContext = this
         while(currentContext is ContextWrapper) {
@@ -23,4 +25,15 @@ object Extension {
         getIntExtra(name, -1)
             .takeUnless { it == -1 }
             ?.let { T::class.java.enumConstants?.get(it) }
+
+    /**
+     * https://github.com/Bhide/Low-Pass-Filter-To-Android-Sensors
+     */
+    fun applyLowPass(input: FloatArray, output: FloatArray?): FloatArray {
+        if (output == null) return input
+        for (i in input.indices) {
+            output[i] = output[i] + ALPHA * (input[i] - output[i])
+        }
+        return output
+    }
 }

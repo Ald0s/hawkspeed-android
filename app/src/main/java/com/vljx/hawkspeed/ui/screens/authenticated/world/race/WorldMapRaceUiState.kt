@@ -2,6 +2,7 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world.race
 
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.race.Race
+import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
@@ -14,6 +15,7 @@ sealed class WorldMapRaceUiState {
      */
     data class Finished(
         val race: Race,
+        val raceLeaderboard: RaceLeaderboard,
         val track: Track,
         val trackPath: TrackPath
     ): WorldMapRaceUiState()

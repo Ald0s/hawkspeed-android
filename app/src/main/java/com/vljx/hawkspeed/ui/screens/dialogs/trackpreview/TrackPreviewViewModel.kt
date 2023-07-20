@@ -99,16 +99,16 @@ class TrackPreviewViewModel @Inject constructor(
                             val distanceToStart: Float =
                                 track.distanceToStartPointFor(location.latitude, location.longitude)
                             // Determine whether orientation is correct.
-                            // TODO: ORIENTATION ANGLES we should be utilising orientation angles for this one right here.
                             val isOrientationCorrect: Boolean =
-                                track.isOrientationCorrectFor(location.bearing)
+                                track.isOrientationCorrectFor(orientation.rotation)
                             Timber.d("Checking location: distance: ${distanceToStart}m, orientation: $isOrientationCorrect")
                             when {
                                 /**
-                                 * When we are within 30 meters of the start line, we will allow race mode.
+                                 * When we are within 30 meters of the start line and our orientation is correct, we will allow race mode.
                                  */
-                                distanceToStart <= 30f ->
+                                distanceToStart <= 30f && isOrientationCorrect ->
                                     RaceModePromptUiState.CanEnterRaceMode(track.trackUid, playerPositionWithOrientation)
+
                                 /**
                                  * Otherwise, we can't enter race mode.
                                  */

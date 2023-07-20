@@ -33,7 +33,8 @@ sealed class RaceState {
      * TODO: we should also pass a leaderboard entry item here.
      */
     data class RaceFinished(
-        val race: Race
+        val race: Race,
+        val leaderboardEntry: RaceLeaderboard
     ): RaceState()
 
     /**

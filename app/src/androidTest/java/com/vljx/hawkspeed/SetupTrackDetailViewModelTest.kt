@@ -7,6 +7,7 @@ import com.vljx.hawkspeed.data.di.module.CommonModule
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import com.vljx.hawkspeed.data.di.module.DomainModule
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.track.TrackPointDraft
@@ -30,10 +31,12 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import junit.framework.Assert
 import junit.framework.Assert.assertEquals
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -65,6 +68,10 @@ class SetupTrackDetailViewModelTest: BaseTest() {
     lateinit var appDatabase: AppDatabase
 
     private lateinit var setupTrackDetailViewModel: SetupTrackDetailViewModel
+
+    @Inject
+    @IODispatcher
+    lateinit var testDispatcher: CoroutineDispatcher
 
     @Before
     fun setUp() {
@@ -113,7 +120,8 @@ class SetupTrackDetailViewModelTest: BaseTest() {
             getTrackDraftUseCase,
             submitTrackUseCase,
             saveTrackDraftUseCase,
-            deleteTrackDraftUseCase
+            deleteTrackDraftUseCase,
+            testDispatcher
         )
         // Return this.
         return trackDraftWithPoints
@@ -152,10 +160,6 @@ class SetupTrackDetailViewModelTest: BaseTest() {
         assert(trackDraftWithPoints.pointDrafts.isNotEmpty())
         // Confirm the inner setup track detail form state is TrackDetailForm.
         assert(showDetailForm.setupTrackDetailFormUiState is SetupTrackDetailFormUiState.TrackDetailForm)
-        val trackDetailForm = showDetailForm.setupTrackDetailFormUiState as SetupTrackDetailFormUiState.TrackDetailForm
-        // Confirm track name and description are null.
-        assertEquals(null, trackDetailForm.trackName.first)
-        assertEquals(null, trackDetailForm.trackDescription.first)
 
         // Now update both track name and track description.
         setupTrackDetailViewModel.updateTrackName("New Track")

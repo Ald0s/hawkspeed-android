@@ -20,6 +20,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.WorldService
+import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.user.User
@@ -41,6 +42,7 @@ fun WorldMapScreen(
     onViewCurrentProfileClicked: (String) -> Unit,
     onViewUserDetail: (User) -> Unit,
     onViewTrackDetail: (Track) -> Unit,
+    onViewRaceLeaderboardDetail: (RaceLeaderboard) -> Unit,
     onSetupTrackDetails: (TrackDraftWithPoints) -> Unit,
 
     worldMapViewModel: WorldMapViewModel = hiltViewModel(),
@@ -88,13 +90,11 @@ fun WorldMapScreen(
                 },
                 onViewUserDetail = onViewUserDetail,
                 onViewTrackDetail = onViewTrackDetail,
+                onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
                 onBoundingBoxChanged = worldMapViewModel::updateViewport,
                 onTrackMarkerClicked = { marker, track ->
                     // When a track marker has been clicked, use the world map view model to download the desired track's full path.
                     worldMapViewModel.downloadTrack(track)
-                },
-                onMapClicked = {
-
                 },
 
                 componentActivity = activityContext
@@ -105,7 +105,7 @@ fun WorldMapScreen(
             WorldMapRaceMode(
                 raceMode = raceMode,
                 trackUid = raceMode.trackUid,
-                onFinishedRace = { race ->
+                onFinishedRace = { race, raceLeaderboard ->
                     throw NotImplementedError("WorldMapLoadedRaceMode resulted in a successful race! But the handling of this in WorldMapScreen is not done yet.")
                 },
                 onExitRaceMode = {

@@ -18,7 +18,9 @@ data class TrackEntity(
     val topLeaderboard: List<RaceLeaderboardEntity>,
     @Embedded(prefix = "start_")
     val startPoint: TrackPointEntity,
+    val startPointBearing: Float,
     val isVerified: Boolean,
+    val length: Int,
     val isSnappedToRoads: Boolean,
     val trackType: TrackType,
     val numPositiveVotes: Int,

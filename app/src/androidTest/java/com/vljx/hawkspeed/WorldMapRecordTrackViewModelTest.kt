@@ -3,11 +3,13 @@ package com.vljx.hawkspeed
 import com.vljx.hawkspeed.data.database.AppDatabase
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.AddTrackPointDraftUseCase
@@ -24,6 +26,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import junit.framework.Assert.assertEquals
 import junit.framework.Assert.fail
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -52,7 +56,7 @@ class WorldMapRecordTrackViewModelTest {
     lateinit var appDatabase: AppDatabase
 
     @Inject
-    lateinit var getCurrentLocationUseCase: GetCurrentLocationUseCase
+    lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
     @Inject
     lateinit var newTrackDraftUseCase: NewTrackDraftUseCase
     @Inject
@@ -71,12 +75,16 @@ class WorldMapRecordTrackViewModelTest {
 
     private lateinit var worldMapRecordTrackViewModel: WorldMapRecordTrackViewModel
 
+    @Inject
+    @IODispatcher
+    lateinit var testDispatcher: CoroutineDispatcher
+
     @Before
     fun setUp() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRecordTrackViewModel = WorldMapRecordTrackViewModel(
-            getCurrentLocationUseCase, newTrackDraftUseCase, getTrackDraftUseCase, saveTrackDraftUseCase, deleteTrackDraftUseCase, addTrackPointDraftUseCase, resetTrackDraftPointsUseCase
+            getCurrentLocationAndOrientationUseCase, newTrackDraftUseCase, getTrackDraftUseCase, saveTrackDraftUseCase, deleteTrackDraftUseCase, addTrackPointDraftUseCase, resetTrackDraftPointsUseCase, testDispatcher
         )
     }
 

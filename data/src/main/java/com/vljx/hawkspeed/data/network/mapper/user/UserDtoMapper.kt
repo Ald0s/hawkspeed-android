@@ -12,6 +12,7 @@ class UserDtoMapper @Inject constructor(
         return UserModel(
             dto.userUid,
             dto.userName,
+            dto.bio,
             dto.privilege,
             dto.isBot,
             dto.isYou

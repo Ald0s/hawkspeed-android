@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
@@ -17,16 +18,22 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
@@ -76,6 +83,7 @@ import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import com.vljx.hawkspeed.util.Extension.getActivity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.roundToInt
 
@@ -125,9 +133,6 @@ fun WorldMapRecordTrackMode(
                     onResetTrackClicked = worldMapRecordTrackViewModel::resetTrack,
                     onStopRecordingClicked = worldMapRecordTrackViewModel::stopRecording,
                     onCancelRecordingClicked = onCancelRecordingClicked,
-                    onMapClicked = {
-
-                    },
 
                     componentActivity = LocalContext.current.getActivity()
                 )
@@ -207,19 +212,17 @@ fun RecordTrack(
         else -> { /* RecordingCancelled, NoSelectedTrackDraft, RecordingComplete not handled here, but in caller. */ }
     }
 
-    val sheetPeekHeight = 128
-    val sheetContentPadding = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = SheetState(
             skipPartiallyExpanded = false,
-            initialValue = SheetValue.PartiallyExpanded
+            initialValue = SheetValue.Expanded
         )
     )
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetPeekHeight = (sheetPeekHeight + sheetContentPadding.calculateBottomPadding().value).dp,
+        sheetPeekHeight = 0.dp,
         sheetShadowElevation = 42.dp,
         sheetDragHandle = { /* No drag handle. */ },
         sheetSwipeEnabled = false,
@@ -229,46 +232,31 @@ fun RecordTrack(
                 is WorldMapRecordTrackUiState.RecordedTrackOverview ->
                     RecordedTrackOverviewControls(
                         recordedTrackOverview = worldMapRecordTrackUiState,
-                        sheetPeekHeight = sheetPeekHeight,
 
                         onUseTrackClicked = onUseTrackClicked,
-                        onResetTrackClicked = onResetTrackClicked,
-
-                        scope = scope,
-                        scaffoldState = scaffoldState
+                        onResetTrackClicked = onResetTrackClicked
                     )
                 is WorldMapRecordTrackUiState.Recording ->
                     RecordingControls(
                         recording = worldMapRecordTrackUiState,
-                        sheetPeekHeight = sheetPeekHeight,
 
-                        onStopRecordingClicked = onStopRecordingClicked,
-
-                        scope = scope,
-                        scaffoldState = scaffoldState
+                        onStopRecordingClicked = onStopRecordingClicked
                     )
                 is WorldMapRecordTrackUiState.NewTrack ->
                     NewTrackControls(
                         newTrack = worldMapRecordTrackUiState,
-                        sheetPeekHeight = sheetPeekHeight,
 
                         onStartRecordingClicked = onStartRecordingClicked,
-                        onCancelRecordingClicked = onCancelRecordingClicked,
-
-                        scope = scope,
-                        scaffoldState = scaffoldState
+                        onCancelRecordingClicked = onCancelRecordingClicked
                     )
                 /**
                  * TODO: insert a new state in here that requests all information required to create a new track draft.
                  * For now, this is just the desired track type. This should then invoke a callback that will trigger the new track draft use case.
                  */
                 else -> {
-                    // In all other cases, setup a temporary sheet state for hidden.
-                    BottomSheetTemporaryState(
-                        desiredState = SheetValue.Hidden,
-                        sheetState = scaffoldState.bottomSheetState,
-                        scope = scope
-                    )
+                    Column(modifier = Modifier.height(20.dp)) {
+
+                    }
                 }
             }
         }
@@ -370,256 +358,383 @@ fun RecordTrack(
             }
         }
     }
+    DisposableEffect(key1 = Unit, effect = {
+        scope.launch {
+            scaffoldState.bottomSheetState.expand()
+        }
+        onDispose {
+            scope.launch {
+                scaffoldState.bottomSheetState.hide()
+            }
+        }
+    })
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordedTrackOverviewControls(
     recordedTrackOverview: WorldMapRecordTrackUiState.RecordedTrackOverview,
-    sheetPeekHeight: Int = 128,
 
     onUseTrackClicked: ((TrackDraftWithPoints) -> Unit)? = null,
     onResetTrackClicked: (() -> Unit)? = null,
-    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
-    scope: CoroutineScope = rememberCoroutineScope()
-) {
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        sheetPeekHeight = sheetPeekHeight,
-        peekContent = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.record_track_recorded),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White
-                        )
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(top = 16.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                    ) {
-                        Icon(painter = painterResource(id = R.drawable.ic_question_circle), contentDescription = "track type")
-                    }
-                    Column(
-                        modifier = Modifier
-                    ) {
-                        Text(
-                            text = when(recordedTrackOverview.trackDraftWithPoints.trackType) {
-                                TrackType.SPRINT -> stringResource(id = R.string.track_type_sprint)
-                                TrackType.CIRCUIT -> stringResource(id = R.string.track_type_circuit)
-                                else -> throw NotImplementedError("Failed to set recorded track overview - track type text. The provided type is not supported.")
-                            },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
-                        )
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                    ) {
-                        Icon(painter = painterResource(id = R.drawable.ic_ruler_horizontal), contentDescription = "track length")
-                    }
-                    Column {
-                        Text(
-                            text = stringResource(id = R.string.record_track_length, recordedTrackOverview.totalLength),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-        },
-        expandedContent = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .padding(top = 24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                    ) {
-                        Button(
-                            onClick = {
-                                // Use track clicked, we'll move onto filling out details for it.
-                                onUseTrackClicked?.invoke(recordedTrackOverview.trackDraftWithPoints)
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            Text(text = stringResource(id = R.string.record_use_track).uppercase())
-                        }
-                    }
-                }
 
-                Row {
-                    Column(
+    contentPadding: PaddingValues = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
+) {
+    Surface {
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.record_track_recorded),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                ) {
+                    Icon(painter = painterResource(id = R.drawable.ic_question_circle), contentDescription = "track type")
+                }
+                Column(
+                    modifier = Modifier
+                ) {
+                    Text(
+                        text = when(recordedTrackOverview.trackDraftWithPoints.trackType) {
+                            TrackType.SPRINT -> stringResource(id = R.string.track_type_sprint)
+                            TrackType.CIRCUIT -> stringResource(id = R.string.track_type_circuit)
+                            else -> throw NotImplementedError("Failed to set recorded track overview - track type text. The provided type is not supported.")
+                        },
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                ) {
+                    Icon(painter = painterResource(id = R.drawable.ic_ruler_horizontal), contentDescription = "track length")
+                }
+                Column {
+                    Text(
+                        text = stringResource(id = R.string.record_track_length, recordedTrackOverview.totalLength),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+
+            Row {
+                Column {
+                    Row(
                         modifier = Modifier
-                            .padding(top = 8.dp)
-                            .weight(1f)
+                            .padding(top = 32.dp)
                     ) {
-                        TextButton(
-                            onClick = {
-                                // Reset track clicked, this will delete the current track as its been recorded.
-                                onResetTrackClicked?.invoke()
-                            },
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .weight(1f)
                         ) {
-                            Text(text = stringResource(id = R.string.record_reset_track).uppercase())
+                            Button(
+                                onClick = {
+                                    // Use track clicked, we'll move onto filling out details for it.
+                                    onUseTrackClicked?.invoke(recordedTrackOverview.trackDraftWithPoints)
+                                },
+                                enabled = true,
+                                shape = RectangleShape,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ) {
+                                Text(text = stringResource(id = R.string.record_use_track).uppercase())
+                            }
+                        }
+                    }
+
+                    Row {
+                        Column(
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .weight(1f)
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    // Reset track clicked, this will delete the current track as its been recorded.
+                                    onResetTrackClicked?.invoke()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ) {
+                                Text(text = stringResource(id = R.string.record_reset_track).uppercase())
+                            }
                         }
                     }
                 }
             }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordingControls(
     recording: WorldMapRecordTrackUiState.Recording,
-    sheetPeekHeight: Int = 128,
 
     onStopRecordingClicked: (() -> Unit)? = null,
 
-    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
-    scope: CoroutineScope = rememberCoroutineScope()
+    contentPadding: PaddingValues = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
 ) {
-    SheetControls(
-        desiredState = SheetValue.PartiallyExpanded,
-        sheetPeekHeight = sheetPeekHeight,
-        peekContent = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+    Surface {
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.record_track_recording),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White
-                        )
-                    }
+                    Text(
+                        text = stringResource(id = R.string.record_track_recording),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
 
-                    Column {
-                        Button(
-                            onClick = {
-                                // Stop recording clicked.
-                                onStopRecordingClicked?.invoke()
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
-                            modifier = Modifier
-                                .wrapContentWidth()
-                        ) {
-                            Text(text = stringResource(id = R.string.record_stop_recording).uppercase())
-                        }
+                Column {
+                    Button(
+                        onClick = {
+                            // Stop recording clicked.
+                            onStopRecordingClicked?.invoke()
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .wrapContentWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.record_stop_recording).uppercase())
                     }
                 }
             }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTrackControls(
     newTrack: WorldMapRecordTrackUiState.NewTrack,
-    sheetPeekHeight: Int = 128,
 
     onStartRecordingClicked: (() -> Unit)? = null,
     onCancelRecordingClicked: (() -> Unit)? = null,
 
-    scaffoldState: BottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
-    scope: CoroutineScope = rememberCoroutineScope()
+    contentPadding: PaddingValues = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
 ) {
-    SheetControls(
-        desiredState = SheetValue.Expanded,
-        sheetPeekHeight = sheetPeekHeight,
-        peekContent = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+    Surface {
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(bottom = 32.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.record_record_new_sprint),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White
-                        )
-                    }
+                    Text(
+                        text = stringResource(id = R.string.record_record_new_sprint),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
 
-                    Column {
-                        Button(
-                            onClick = {
-                                // Start recording the track now.
-                                onStartRecordingClicked?.invoke()
-                            },
-                            enabled = true,
-                            shape = RectangleShape,
+                Column {
+                    Button(
+                        onClick = {
+                            // Start recording the track now.
+                            onStartRecordingClicked?.invoke()
+                        },
+                        enabled = true,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .wrapContentWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.record_start_recording).uppercase())
+                    }
+                }
+            }
+
+            Row {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                ) {
+                    TextButton(
+                        onClick = {
+                            // Cancel track recording/creation clicked, this will delete the track draft and quit.
+                            onCancelRecordingClicked?.invoke()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.record_cancel).uppercase())
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectTrackTypeControls(
+    onTypeSelected: ((TrackType) -> Unit)? = null,
+
+    contentPadding: PaddingValues = PaddingValues(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
+) {
+    val options = listOf(
+        R.string.record_track_choose_type_prompt,
+        R.string.record_track_type_sprint
+    ).map { stringResource(id = it) } // TODO: circuit removed R.string.record_track_type_circuit
+
+    val descriptions = mapOf(
+        options[0] to R.string.record_track_choose_type_prompt_desc,
+        options[1] to R.string.record_track_type_sprint_desc
+    ).map { Pair(it.key, stringResource(id = it.value)) }.toMap() // TODO: circuit removed options[2] to R.string.record_track_type_circuit_desc
+
+    var selectedTrackType by remember { mutableStateOf<TrackType?>(null) }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedOptionText by remember { mutableStateOf(options[0]) }
+    var selectedOptionDescription by remember { mutableStateOf(descriptions[selectedOptionText] ?: "") }
+
+    Surface {
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .fillMaxWidth()
+        ) {
+            Row {
+                Column {
+                    Text(
+                        text = stringResource(id = R.string.record_track_choose_type_title),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 8.dp)
+            ) {
+                Column {
+                    Text(text = selectedOptionDescription)
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 32.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    ExposedDropdownMenuBox(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        expanded = expanded,
+                        onExpandedChange = {
+                            expanded = !expanded
+                        }
+                    ) {
+                        TextField(
                             modifier = Modifier
-                                .wrapContentWidth()
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            readOnly = true,
+                            value = selectedOptionText,
+                            onValueChange = { },
+                            label = {
+                                Text(text = stringResource(id = R.string.record_track_types))
+                            },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            colors = ExposedDropdownMenuDefaults.textFieldColors()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = {
+                                expanded = false
+                            }
                         ) {
-                            Text(text = stringResource(id = R.string.record_start_recording).uppercase())
+                            options.forEach { selectionOption ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = selectionOption)
+                                    },
+                                    onClick = {
+                                        selectedOptionText = selectionOption
+                                        selectedOptionDescription = descriptions[selectionOption] ?: ""
+                                        expanded = false
+                                        selectedTrackType = when(selectionOption) {
+                                            options[0] -> null
+                                            options[1] -> TrackType.SPRINT
+                                            else -> null // TODO: removed circuit options[2] -> TrackType.CIRCUIT
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
-        },
-        expandedContent = {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-            ) {
-                TextButton(
-                    onClick = {
-                        // Cancel track recording/creation clicked, this will delete the track draft and quit.
-                        onCancelRecordingClicked?.invoke()
-                    },
+
+            Row {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
-                    Text(text = stringResource(id = R.string.record_cancel).uppercase())
+                    Button(
+                        onClick = {
+                            selectedTrackType?.let { type ->
+                                onTypeSelected?.invoke(type)
+                            }
+                        },
+                        enabled = selectedTrackType != null,
+                        shape = RectangleShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(id = R.string.record_track_choose_type).uppercase())
+                    }
                 }
             }
-        },
-        scaffoldState = scaffoldState,
-        scope = scope
-    )
+        }
+    }
 }
 
 @Preview
@@ -699,5 +814,15 @@ fun PreviewNewTrackControls(
                 ExampleData.getTrackDraftWithPoints()
             )
         )
+    }
+}
+
+@Preview
+@Composable
+fun PreviewSelectTrackTypeControls(
+
+) {
+    HawkSpeedTheme {
+        SelectTrackTypeControls()
     }
 }

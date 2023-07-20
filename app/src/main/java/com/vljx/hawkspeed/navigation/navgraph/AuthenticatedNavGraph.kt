@@ -101,10 +101,15 @@ object TrackDetailDestination: AppDestination("track_detail_destination") {
  */
 object RaceLeaderboardDetailDestination: AppDestination("race_leaderboard_detail_destination") {
     const val raceUidArg = "raceUid"
-    val routeWithArgs = "$route/{${raceUidArg}}"
+    const val trackUidArg = "trackUid"
+    val routeWithArgs = "$route/{${raceUidArg}}/{${trackUidArg}}"
 
     val arguments = listOf(
         navArgument(raceUidArg) {
+            type = NavType.StringType
+            nullable = false
+        },
+        navArgument(trackUidArg) {
             type = NavType.StringType
             nullable = false
         }
@@ -225,6 +230,12 @@ fun NavGraphBuilder.authenticatedNavGraph(
                         TrackDetailDestination.withArgs(track.trackUid)
                     )
                 },
+                onViewRaceLeaderboardDetail = { raceLeaderboard ->
+                    // Navigate to race leaderboard detail, with the given race leaderboard's race and track UIDs.
+                    navHostController.navigate(
+                        RaceLeaderboardDetailDestination.withArgs(raceLeaderboard.raceUid, raceLeaderboard.trackUid)
+                    )
+                },
                 onSetupTrackDetails = { trackDraftId ->
                     // Navigate to setup track detail, with the given Id.
                     navHostController.navigate(
@@ -255,9 +266,17 @@ fun NavGraphBuilder.authenticatedNavGraph(
         ) { navBackStackEntry ->
             // Show the race leaderboard detail screen.
             RaceLeaderboardDetailScreen(
-                onViewUserDetailClicked = {
+                onViewUserDetailClicked = { user ->
                     // TODO: when we click on something that should show another user's detail, navigate there now.
                     throw NotImplementedError("onViewUserDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                },
+                onViewTrackDetailClicked = { track ->
+                    // TODO: when we click on something that should show a track's detail, navigate there now.
+                    throw NotImplementedError("onViewTrackDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                },
+                onViewVehicleDetailClicked = { vehicle ->
+                    // TODO: when we click on something that should show a vehicle's detail, navigate there now.
+                    throw NotImplementedError("onViewVehicleDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
                 }
             )
         }

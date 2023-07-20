@@ -9,6 +9,7 @@ import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.track.TrackComment
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
+import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageTrackComments
@@ -50,7 +51,6 @@ class TrackDetailViewModel @Inject constructor(
 ): ViewModel() {
     /**
      * Get the Track's UID from the saved state handle.
-     * TODO: we also have wants to view leaderboard and wants to comment arguments being passed, but we aren't doing anything with them right now.
      */
     private val mutableSelectedTrackUid: MutableStateFlow<String> = MutableStateFlow(checkNotNull(savedStateHandle[ARG_TRACK_UID]))
 
@@ -94,7 +94,10 @@ class TrackDetailViewModel @Inject constructor(
      * Flat map the latest selected track UID to a pagination of comments entries for the track.
      */
     val comments: Flow<PagingData<TrackComment>> =
-        combineTransform<String, TrackCommentFilter, PagingData<TrackComment>>(mutableSelectedTrackUid, selectedTrackCommentsFilter) { trackUid, commentsFilter ->
+        combineTransform(
+            mutableSelectedTrackUid,
+            selectedTrackCommentsFilter
+        ) { trackUid, commentsFilter ->
             emitAll(
                 pageTrackCommentsUseCase(
                     RequestPageTrackComments(trackUid)
@@ -127,30 +130,32 @@ class TrackDetailViewModel @Inject constructor(
     /**
      * Called when the upvote button is clicked.
      */
-    fun upvoteTrack(trackUid: String) {
+    fun upvoteTrack(track: Track) {
         // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
         viewModelScope.launch(ioDispatcher) {
-            upvoteTrackUseCase(trackUid)
+            // If track is already upvoted, clear track rating instead.
+            if(track.yourRating == true) {
+                clearTrackRatingUseCase(track.trackUid)
+            } else {
+                // Otherwise upvote.
+                upvoteTrackUseCase(track.trackUid)
+            }
         }
     }
 
     /**
      * Called when the downvote button is clicked.
      */
-    fun downvoteTrack(trackUid: String) {
+    fun downvoteTrack(track: Track) {
         // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
         viewModelScope.launch(ioDispatcher) {
-            downvoteTrackUseCase(trackUid)
-        }
-    }
-
-    /**
-     * Called when an already-selected rating state is clicked again. This will clear the rating.
-     */
-    fun clearTrackRating(trackUid: String) {
-        // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch(ioDispatcher) {
-            clearTrackRatingUseCase(trackUid)
+            // If track is already downvoted, clear track rating instead.
+            if(track.yourRating == false) {
+                clearTrackRatingUseCase(track.trackUid)
+            } else {
+                // Otherwise downvote.
+                downvoteTrackUseCase(track.trackUid)
+            }
         }
     }
 

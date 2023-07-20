@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ fun LoadingScreen(
     Scaffold { paddingValues ->
         Loading(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(paddingValues),
             loadingResId = loadingStringResId
         )
@@ -40,12 +42,11 @@ fun LoadingScreen(
 @Composable
 fun Loading(
     modifier: Modifier = Modifier,
-    @StringRes loadingResId: Int = R.string.loading
+    @StringRes loadingResId: Int? = R.string.loading
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .fillMaxSize()
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
@@ -55,10 +56,12 @@ fun Loading(
                     .size(72.dp)
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                style = MaterialTheme.typography.headlineMedium,
-                text = stringResource(id = loadingResId)
-            )
+            if(loadingResId != null) {
+                Text(
+                    style = MaterialTheme.typography.headlineMedium,
+                    text = stringResource(id = loadingResId)
+                )
+            }
         }
     }
 }
@@ -79,11 +82,10 @@ fun PreviewLoading(
 
 ) {
     HawkSpeedTheme {
-        Scaffold { paddingValues ->
+        Surface {
             Loading(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+                modifier = Modifier,
+                loadingResId = null
             )
         }
     }

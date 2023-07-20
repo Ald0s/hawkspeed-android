@@ -32,8 +32,16 @@ data class TrackDto(
     val startPoint: TrackPointDto,
 
     @Expose
+    @SerializedName("start_point_bearing")
+    val startPointBearing: Float,
+
+    @Expose
     @SerializedName("is_verified")
     val isVerified: Boolean,
+
+    @Expose
+    @SerializedName("length")
+    val length: Int,
 
     @Expose
     @SerializedName("is_snapped_to_roads")

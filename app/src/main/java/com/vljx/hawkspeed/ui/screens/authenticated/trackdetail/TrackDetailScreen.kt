@@ -7,7 +7,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items as arrItems
@@ -37,8 +41,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -53,7 +59,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -93,6 +101,7 @@ import com.vljx.hawkspeed.ui.screens.common.Loading
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.screens.common.RaceLeaderboardHeaderItem
 import com.vljx.hawkspeed.ui.screens.common.RaceLeaderboardItem
+import com.vljx.hawkspeed.ui.screens.common.TrackSubtitle
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import com.vljx.hawkspeed.util.Extension.getActivity
@@ -126,6 +135,9 @@ val trackDetailTabs = listOf(
 
 @Composable
 fun TrackDetailScreen(
+    onViewUserDetail: ((User) -> Unit)? = null,
+    onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
+
     trackDetailViewModel: TrackDetailViewModel = hiltViewModel()
 ) {
     // Collect the track detail UI state.
@@ -135,16 +147,23 @@ fun TrackDetailScreen(
         trackDetailUiState = trackDetailUiState,
         leaderboardFlow = trackDetailViewModel.leaderboard,
         commentFlow = trackDetailViewModel.comments,
+        onViewUserDetail = onViewUserDetail,
+        onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
+        onUpvoteClicked = trackDetailViewModel::upvoteTrack,
+        onDownvoteClicked = trackDetailViewModel::downvoteTrack,
         componentActivity = LocalContext.current.getActivity()
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackDetail(
     trackDetailUiState: TrackDetailUiState,
     leaderboardFlow: Flow<PagingData<RaceLeaderboard>>,
     commentFlow: Flow<PagingData<TrackComment>>,
+    onViewUserDetail: ((User) -> Unit)? = null,
+    onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
+    onUpvoteClicked: ((Track) -> Unit)? = null,
+    onDownvoteClicked: ((Track) -> Unit)? = null,
     componentActivity: ComponentActivity? = null
 ) {
     // Set up a scaffold. For all the content.
@@ -182,10 +201,14 @@ fun TrackDetail(
                             // Now, the title of the track.
                             Text(
                                 text = track.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 softWrap = false
+                            )
+                            // Setup a track subtitle here.
+                            TrackSubtitle(
+                                track = track
                             )
                         }
                     }
@@ -195,7 +218,11 @@ fun TrackDetail(
                             TrackTabHost(
                                 track = trackDetailUiState.track,
                                 leaderboardFlow = leaderboardFlow,
-                                commentFlow = commentFlow
+                                commentFlow = commentFlow,
+                                onViewUserDetail = onViewUserDetail,
+                                onLeaderboardEntryClicked = onViewRaceLeaderboardDetail,
+                                onUpvoteClicked = onUpvoteClicked,
+                                onDownvoteClicked = onDownvoteClicked
                             )
                         }
                     }
@@ -317,7 +344,10 @@ fun TrackTabHost(
     commentFlow: Flow<PagingData<TrackComment>>,
     modifier: Modifier = Modifier,
 
-    onLeaderboardEntryClicked: ((RaceLeaderboard) -> Unit)? = null
+    onViewUserDetail: ((User) -> Unit)? = null,
+    onLeaderboardEntryClicked: ((RaceLeaderboard) -> Unit)? = null,
+    onUpvoteClicked: ((Track) -> Unit)? = null,
+    onDownvoteClicked: ((Track) -> Unit)? = null
 ) {
     val pagerState = rememberPagerState()
     val coroutineScope = rememberCoroutineScope()
@@ -348,7 +378,8 @@ fun TrackTabHost(
         ) {
             when(trackDetailTabs[pagerState.currentPage].itemId) {
                 TAB_OVERVIEW -> TrackOverview(
-                    track = track
+                    track = track,
+                    onAuthorClicked = onViewUserDetail
                 )
                 TAB_LEADERBOARD -> TrackLeaderboard(
                     leaderboardFlow = leaderboardFlow,
@@ -356,7 +387,9 @@ fun TrackTabHost(
                 )
                 TAB_REVIEWS -> TrackReviews(
                     track = track,
-                    commentFlow = commentFlow
+                    commentFlow = commentFlow,
+                    onUpvoteClicked = onUpvoteClicked,
+                    onDownvoteClicked = onDownvoteClicked
                 )
             }
         }
@@ -366,13 +399,14 @@ fun TrackTabHost(
 @Composable
 fun TrackOverview(
     track: Track,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAuthorClicked: ((User) -> Unit)? = null
 ) {
     // Remember a scroll state.
     val scrollState = rememberScrollState()
     Column(
         modifier = modifier
-            .padding(24.dp)
+            .padding(32.dp)
             .verticalScroll(scrollState)
             .fillMaxSize()
     ) {
@@ -405,9 +439,7 @@ fun TrackOverview(
             TrackType.SPRINT -> R.string.track_type_sprint_description
             TrackType.CIRCUIT -> R.string.track_type_circuit_description
         }))
-
         Spacer(modifier = Modifier.height(24.dp))
-
         // Create a text for the track author's username.
         Text(
             text = stringResource(id = R.string.track_author_title),
@@ -417,7 +449,14 @@ fun TrackOverview(
             modifier = Modifier
                 .padding(bottom = 8.dp)
         )
-        Text(text = track.owner.userName)
+        Text(
+            modifier = Modifier
+                .clickable {
+                    // If the author's username is clicked, view the user's detail.
+                    onAuthorClicked?.invoke(track.owner)
+                },
+            text = track.owner.userName
+        )
     }
 }
 
@@ -428,50 +467,52 @@ fun TrackLeaderboard(
 
     onLeaderboardEntryClicked: ((RaceLeaderboard) -> Unit)? = null
 ) {
-    // Collect as lazy paging items.
-    val leaderboard: LazyPagingItems<RaceLeaderboard> = leaderboardFlow.collectAsLazyPagingItems()
+    Surface {
+        // Collect as lazy paging items.
+        val leaderboard: LazyPagingItems<RaceLeaderboard> = leaderboardFlow.collectAsLazyPagingItems()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
-        // Render our leaderboard header item here.
-        item {
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-        // Render all items in the list.
-        items(
-            count = leaderboard.itemCount,
-            key = leaderboard.itemKey { it },
-            contentType = leaderboard.itemContentType { "LeaderboardItems" }
-        ) { index ->
-            val raceLeaderboard = leaderboard[index]
-                ?: throw NotImplementedError()
-            RaceLeaderboardItem(
-                raceLeaderboard = raceLeaderboard,
-                onViewAttemptClicked = onLeaderboardEntryClicked
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-        // Handle edge states like refreshing, end of pagination reached and no items located.
-        when {
-            leaderboard.loadState.refresh is LoadState.NotLoading -> {
-                // No longer refreshing.
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            // Render our leaderboard header item here.
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
             }
-            leaderboard.loadState.source.refresh is LoadState.NotLoading &&
-                    leaderboard.loadState.append.endOfPaginationReached &&
-                    leaderboard.itemCount == 0 -> {
-                // Nothing to show. Create a placeholder.
-                item {
-                    TrackDetailPaginationPlaceholder(
-                        stringResId = R.string.track_detail_no_leaderboard,
-                        modifier = Modifier
-                            .fillParentMaxSize()
-                    )
+            // Render all items in the list.
+            items(
+                count = leaderboard.itemCount,
+                key = leaderboard.itemKey { it },
+                contentType = leaderboard.itemContentType { "LeaderboardItems" }
+            ) { index ->
+                val raceLeaderboard = leaderboard[index]
+                    ?: throw NotImplementedError()
+                RaceLeaderboardItem(
+                    raceLeaderboard = raceLeaderboard,
+                    onViewAttemptClicked = onLeaderboardEntryClicked
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            // Handle edge states like refreshing, end of pagination reached and no items located.
+            when {
+                leaderboard.loadState.refresh is LoadState.NotLoading -> {
+                    // No longer refreshing.
                 }
-            }
-            else -> {
+                leaderboard.loadState.source.refresh is LoadState.NotLoading &&
+                        leaderboard.loadState.append.endOfPaginationReached &&
+                        leaderboard.itemCount == 0 -> {
+                    // Nothing to show. Create a placeholder.
+                    item {
+                        TrackDetailPaginationPlaceholder(
+                            stringResId = R.string.track_detail_no_leaderboard,
+                            modifier = Modifier
+                                .fillParentMaxSize()
+                        )
+                    }
+                }
+                else -> {
 
+                }
             }
         }
     }
@@ -481,48 +522,148 @@ fun TrackLeaderboard(
 fun TrackReviews(
     track: Track,
     commentFlow: Flow<PagingData<TrackComment>>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+
+    onUpvoteClicked: ((Track) -> Unit)? = null,
+    onDownvoteClicked: ((Track) -> Unit)? = null
 ) {
-    // Collect as lazy paging items.
-    val comments: LazyPagingItems<TrackComment> = commentFlow.collectAsLazyPagingItems()
+    // A mutable boolean for disabling the rating buttons on tap.
+    var ratingButtonsEnabled by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
-        items(
-            count = comments.itemCount,
-            key = comments.itemKey { it },
-            contentType = comments.itemContentType { "CommentItems" }
-        ) { index ->
-            val comment = comments[index]
-                ?: throw NotImplementedError()
-            Text(text = comment.text)
-
-            Divider()
-        }
-
-        when {
-            comments.loadState.refresh is LoadState.NotLoading -> {
-                // No longer refreshing.
-            }
-            comments.loadState.source.refresh is LoadState.NotLoading &&
-                    comments.loadState.append.endOfPaginationReached &&
-                    comments.itemCount == 0 -> {
-                // Nothing to show. Create a placeholder.
-                item {
-                    TrackDetailPaginationPlaceholder(
-                        stringResId = R.string.track_detail_no_comments,
+    Surface {
+        // First, a section for upvoting/downvoting the track.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(top = 24.dp, bottom = 24.dp)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = "Rate this track",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Row {
+                // A column for the upvote.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                ) {
+                    IconButton(
                         modifier = Modifier
-                            .fillParentMaxSize()
+                            .size(64.dp),
+                        enabled = ratingButtonsEnabled,
+                        onClick = {
+                            onUpvoteClicked?.let {
+                                it.invoke(track)
+                                ratingButtonsEnabled = false
+                            }
+                        }
+                    ) {
+                        Image(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(64.dp),
+                            painter = painterResource(id = when(track.yourRating) {
+                                true -> R.drawable.thumbs_up_solid
+                                else -> R.drawable.thumbs_up
+                            }),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                            contentDescription = "like"
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // The current count of upvotes.
+                    Text(
+                        text = "${track.numPositiveVotes}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Spacer(modifier = Modifier.width(56.dp))
+                // A column for the downvote.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .wrapContentSize()
+                ) {
+                    IconButton(
+                        modifier = Modifier
+                            .size(64.dp),
+                        enabled = ratingButtonsEnabled,
+                        onClick = {
+                            onDownvoteClicked?.let {
+                                it.invoke(track)
+                                ratingButtonsEnabled = false
+                            }
+                        }
+                    ) {
+                        Image(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(64.dp),
+                            painter = painterResource(id = when(track.yourRating) {
+                                false -> R.drawable.thumbs_down_solid
+                                else -> R.drawable.thumbs_down
+                            }),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                            contentDescription = "dislike"
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // The current count of downvotes.
+                    Text(
+                        text = "${track.numNegativeVotes}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
-            else -> {
+        }
+        // Collect as lazy paging items.
+        val comments: LazyPagingItems<TrackComment> = commentFlow.collectAsLazyPagingItems()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            items(
+                count = comments.itemCount,
+                key = comments.itemKey { it },
+                contentType = comments.itemContentType { "CommentItems" }
+            ) { index ->
+                val comment = comments[index]
+                    ?: throw NotImplementedError()
+                Text(text = comment.text)
 
+                Divider()
+            }
+
+            when {
+                comments.loadState.refresh is LoadState.NotLoading -> {
+                    // No longer refreshing.
+                }
+                comments.loadState.source.refresh is LoadState.NotLoading &&
+                        comments.loadState.append.endOfPaginationReached &&
+                        comments.itemCount == 0 -> {
+                    // Nothing to show. Create a placeholder.
+                    item {
+                        TrackDetailPaginationPlaceholder(
+                            stringResId = R.string.track_detail_no_comments,
+                            modifier = Modifier
+                                .fillParentMaxSize()
+                        )
+                    }
+                }
+                else -> {
+
+                }
             }
         }
     }
+    LaunchedEffect(key1 = track.yourRating, block = {
+        // Every time your rating changes, we'll set the buttons to enabled.
+        ratingButtonsEnabled = true
+    })
 }
 
 @Composable
@@ -612,7 +753,9 @@ fun PreviewTrackLeaderboard(
 fun PreviewTrackReviews(
 
 ) {
-
+    HawkSpeedTheme {
+        TrackReviews(track = ExampleData.getExampleTrack(), commentFlow = emptyFlow())
+    }
 }
 
 @Preview

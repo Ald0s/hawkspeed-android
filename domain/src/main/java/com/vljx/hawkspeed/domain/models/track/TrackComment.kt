@@ -11,7 +11,8 @@ data class TrackComment(
     val commentUid: String,
     val created: Int,
     val text: String,
-    val user: User
+    val user: User,
+    val trackUid: String
 ) {
     /**
      * Convert the result of subtracting the current time from the timestamp for when this comment was created to a pretty string in the format; 12h 34m ago

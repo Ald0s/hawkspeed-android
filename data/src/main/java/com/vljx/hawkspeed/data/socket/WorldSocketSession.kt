@@ -581,7 +581,9 @@ class WorldSocketSession @Inject constructor(
             on<RaceFinishedDto>("race-finished") { raceFinished ->
                 Timber.e("Handling a race-finished message is not yet implemented.")
                 /**
-                 * TODO: race finished actually need to return the leaderboard entry as well.
+                 * TODO: race finished must also contain the leaderboard entry for the finished race.
+                 * With this, we must upsert the leaderboard entry and latest race update into cache; ideally in a single transaction. This will then trigger race UI
+                 * to allow the race to be finished.
                  */
                 throw NotImplementedError()
             }
@@ -590,6 +592,10 @@ class WorldSocketSession @Inject constructor(
              */
             on<RaceProgressDto>("race-progress") { raceProgress ->
                 Timber.e("Handling a race-progress message is not yet implemented.")
+                /**
+                 * TODO: race progress has been received, we must upsert this into cache.
+                 */
+                throw NotImplementedError()
             }
             /**
              * Event will be invoked if the server determines the race should be disqualified.

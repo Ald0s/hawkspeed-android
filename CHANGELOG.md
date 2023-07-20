@@ -69,3 +69,12 @@
 * Changed GetLeaderboardEntryUseCase to GetCachedLeaderboardEntryUseCase for selecting only from cache, and created another GetLeaderboardEntryUseCase for querying the most up to date version of the race outcome,
 * Added RaceRemoteData source for querying current status of a race,
 * Added a detail screen for viewing a specific race's detail.
+
+## Version 1.10.14
+* Changed WorldMapRaceViewModel to observe both cached race instance and cached leaderboard entry instance for the subject race. Then, inserting a leaderboard entry for that race in socket state will cause race to finish,
+* Removed cumbersome SheetControls composable for now,
+* Added track start point bearing,
+* Added track type selection controls to record track as first step,
+* Changed RaceLeaderboardDetailUiState to also show the Track and its Path and associated view model flows,
+* Implemented basic low pass filter for device rotation, yet untested,
+* Added stub for user's race list, vehicle list, vehicle detail and track list.

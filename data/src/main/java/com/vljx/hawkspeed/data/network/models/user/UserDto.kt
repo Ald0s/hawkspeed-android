@@ -13,6 +13,10 @@ data class UserDto(
     val userName: String,
 
     @Expose
+    @SerializedName("bio")
+    val bio: String?,
+
+    @Expose
     @SerializedName("privilege")
     val privilege: Int,
 

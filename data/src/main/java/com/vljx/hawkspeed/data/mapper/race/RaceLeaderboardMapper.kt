@@ -18,6 +18,8 @@ class RaceLeaderboardMapper @Inject constructor(
             model.started,
             model.finished,
             model.stopwatch,
+            model.averageSpeed,
+            model.percentMissed,
             userMapper.mapFromData(model.player),
             vehicleMapper.mapFromData(model.vehicle),
             model.trackUid
@@ -31,6 +33,8 @@ class RaceLeaderboardMapper @Inject constructor(
             domain.started,
             domain.finished,
             domain.stopwatch,
+            domain.averageSpeed,
+            domain.percentMissed,
             userMapper.mapToData(domain.player),
             vehicleMapper.mapToData(domain.vehicle),
             domain.trackUid

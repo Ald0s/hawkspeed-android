@@ -15,6 +15,8 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             entity.started,
             entity.finished,
             entity.stopwatch,
+            entity.averageSpeed,
+            entity.percentMissed,
             userEntityMapper.mapFromEntity(entity.player),
             vehicleEntityMapper.mapFromEntity(entity.vehicle),
             entity.trackUid
@@ -28,6 +30,8 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             model.started,
             model.finished,
             model.stopwatch,
+            model.averageSpeed,
+            model.percentMissed,
             userEntityMapper.mapToEntity(model.player),
             vehicleEntityMapper.mapToEntity(model.vehicle),
             model.trackUid

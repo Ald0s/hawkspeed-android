@@ -40,6 +40,7 @@ object ExampleData {
     fun getExampleUser(
         userUid: String = "USER01",
         userName: String = "aldos",
+        bio: String = "This is an example bio. I love street racing, so naturally I enjoy almost dying 4-9.5 times per night.",
         privilege: Int = 0,
         isBot: Boolean = false,
         isYou: Boolean = true
@@ -47,6 +48,7 @@ object ExampleData {
         User(
             userUid,
             userName,
+            bio,
             privilege,
             isBot,
             isYou
@@ -74,7 +76,9 @@ object ExampleData {
             145.02083480358127,
             trackUid
         ),
+        startPointBearing: Float = 180f,
         isVerified: Boolean = true,
+        length: Int = 7623,
         isSnappedToRoads: Boolean = true,
         numPositiveVotes: Int = 6,
         numNegativeVotes: Int = 2,
@@ -92,7 +96,9 @@ object ExampleData {
             getExampleUser(),
             topLeaderboard,
             trackPoint,
+            startPointBearing,
             isVerified,
+            length,
             isSnappedToRoads,
             TrackType.SPRINT,
             numPositiveVotes,
@@ -137,23 +143,25 @@ object ExampleData {
         commentUid: String = "COMMENT01",
         createdSeconds: Int = 1678508081,
         text: String = "This is a great track. There's currently a lot of potholes all over so be careful. Suggest attempting racing late at night.",
-        user: User = getExampleUser()
+        user: User = getExampleUser(),
+        trackUid: String = "TRACK01"
     ): TrackComment =
         TrackComment(
             commentUid,
             createdSeconds,
             text,
-            user
+            user,
+            trackUid
         )
 
     fun getExampleLeaderboard(
 
     ): List<RaceLeaderboard> =
         listOf(
-            RaceLeaderboard("RACE01", finishingPlace = 1, 1000, 100, 26450, User("USER01", "aldos", 0, false, true), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE02", finishingPlace = 2, 1000, 100, 54210, User("USER02", "user1", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE03", finishingPlace = 3, 1000, 100, 125134, User("USER03", "user2", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE04", finishingPlace = 4, 1000, 100, 129134, User("USER04", "user3", 0, false, false), Vehicle("VEHICLE04", "1994 Toyota Supra", false), "YARRABOULEVARD")
+            RaceLeaderboard("RACE01", finishingPlace = 1, 1672882465000, 1672882609000, 144000, 19, 0, getExampleUser(), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE02", finishingPlace = 2, 1673007209000, 1673007371000,162000, 19, 0, User("USER02", "user1", "This is user1's bio", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE03", finishingPlace = 3, 1673003429000, 1673003603000,174000, 19, 0, User("USER03", "user2", "This is user2's bio", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD"),
+            RaceLeaderboard("RACE04", finishingPlace = 4, 1672954990000, 1672955176000,186000, 19, 0, User("USER04", "user3", "This is user3's bio", 0, false, false), Vehicle("VEHICLE04", "1994 Toyota Supra", false), "YARRABOULEVARD")
         )
 
     fun getExampleRacingRace(
@@ -183,6 +191,30 @@ object ExampleData {
         percentComplete: Int? = 100
     ): Race =
         Race(raceUid, trackUid, started, finished, isDisqualified, disqualificationReason, isCancelled, averageSpeed, numLapsComplete, percentComplete)
+
+    fun getExampleRaceLeaderboard(
+        raceUid: String = "RACE01",
+        finishingPlace: Int = 1,
+        started: Long = System.currentTimeMillis() - (4 * 1000),
+        finished: Long = System.currentTimeMillis() - 1000,
+        averageSpeed: Int = 19,
+        percentMissed: Int = 0,
+        player: User = getExampleUser(),
+        vehicle: Vehicle = getExampleVehicle(),
+        trackUid: String = "YARRABOULEVARD"
+    ): RaceLeaderboard =
+        RaceLeaderboard(
+            raceUid = raceUid,
+            finishingPlace = finishingPlace,
+            started = started,
+            finished = finished,
+            stopwatch = (finished-started).toInt(),
+            averageSpeed = averageSpeed,
+            percentMissed = percentMissed,
+            player = player,
+            vehicle = vehicle,
+            trackUid = trackUid
+        )
 
     fun getExampleCancelledRace(
         raceUid: String = "RACE01",

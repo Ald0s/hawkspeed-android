@@ -11,6 +11,7 @@ class UserEntityMapper @Inject constructor(
         return UserModel(
             entity.userUid,
             entity.userName,
+            entity.bio,
             entity.privilege,
             entity.isBot,
             entity.isYou
@@ -21,6 +22,7 @@ class UserEntityMapper @Inject constructor(
         return UserEntity(
             model.userUid,
             model.userName,
+            model.bio,
             model.privilege,
             model.isYou,
             model.isBot

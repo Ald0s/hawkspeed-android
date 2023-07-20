@@ -27,6 +27,14 @@ data class RaceLeaderboardDto(
     val stopwatch: Int,
 
     @Expose
+    @SerializedName("average_speed")
+    val averageSpeed: Int?,
+
+    @Expose
+    @SerializedName("percent_missed")
+    val percentMissed: Int,
+
+    @Expose
     @SerializedName("player")
     val player: UserDto,
 

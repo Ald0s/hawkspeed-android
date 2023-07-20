@@ -6,6 +6,7 @@ import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.user.User
 import kotlinx.parcelize.Parcelize
+import kotlin.math.abs
 
 @Parcelize
 data class Track(
@@ -15,7 +16,9 @@ data class Track(
     val owner: User,
     val topLeaderboard: List<RaceLeaderboard>,
     val startPoint: TrackPoint,
+    val startPointBearing: Float,
     val isVerified: Boolean,
+    val length: Int,
     val isSnappedToRoads: Boolean,
     val trackType: TrackType,
     val numPositiveVotes: Int,
@@ -27,6 +30,16 @@ data class Track(
     val canDelete: Boolean,
     val canComment: Boolean
 ): Parcelable {
+    /**
+     * A get property for the total length of this track, but formatted. Either displayed as meters (843m) or kilometers (3.2km)
+     */
+    val lengthFormatted: String
+        get() = if(length < 1000) {
+            "${length}m"
+        } else {
+            String.format("%.1fkm", length / 1000f)
+        }
+
     /**
      * Returns the distance, in meters, between the given latitude and longitude, and the start poiint for this track.
      */
@@ -44,12 +57,11 @@ data class Track(
     }
 
     /**
-     * Returns true if the rotation given means that the Player is oriented in the correct direction for this track.
-     * TODO: complete this, for now, it will always return true.
+     * Returns true if the rotation given means that the Player is oriented in the correct direction for this track. We will check for an orientation that is similar
+     * within 20 degrees in either direction to the start point bearing.
      */
     fun isOrientationCorrectFor(rotation: Float): Boolean {
-        // TODO: check that bearing is appropriate. Player should be facing the same direction.
-        return true
+        return abs(rotation) > startPointBearing - 20 && abs(rotation) < startPointBearing + 20
     }
 
     override fun equals(other: Any?): Boolean {

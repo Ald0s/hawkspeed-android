@@ -6,8 +6,10 @@ import com.vljx.hawkspeed.data.di.module.CommonModule
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import com.vljx.hawkspeed.data.di.module.DomainModule
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.track.ClearTrackRatingUseCase
@@ -20,9 +22,11 @@ import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewViewModel
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -44,7 +48,7 @@ class TrackPreviewViewModelTest: BaseTest() {
     lateinit var trackWithPathLocalData: TrackPathLocalData
 
     @Inject
-    lateinit var getCurrentLocationUseCase: GetCurrentLocationUseCase
+    lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
     @Inject
     lateinit var getTrackUseCase: GetTrackUseCase
     @Inject
@@ -61,12 +65,16 @@ class TrackPreviewViewModelTest: BaseTest() {
 
     private lateinit var trackPreviewViewModel: TrackPreviewViewModel
 
+    @Inject
+    @IODispatcher
+    lateinit var testDispatcher: CoroutineDispatcher
+
     @Before
     fun setUp() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         trackPreviewViewModel = TrackPreviewViewModel(
-            getCurrentLocationUseCase, getTrackUseCase, upvoteTrackUseCase, downvoteTrackUseCase, clearTrackRatingUseCase, getTrackLatestCommentsUseCase
+            getCurrentLocationAndOrientationUseCase, getTrackUseCase, upvoteTrackUseCase, downvoteTrackUseCase, clearTrackRatingUseCase, getTrackLatestCommentsUseCase, testDispatcher
         )
     }
 
