@@ -116,4 +116,19 @@
     <string name="record_use_track">Use Track</string>
     <string name="record_cancel">Cancel &amp; Exit</string>
     <string name="record_distance">%1$d</string>
+    <string name="choose_make">Which make?</string>
+    <string name="choose_type">What kind of vehicle?</string>
+    <string name="choose_model">Which model?</string>
+    <string name="choose_year">From which year?</string>
+    <string name="choose_vehicle_stock">Which vehicle?</string>
+    <string name="choose_vehicle">Tap here to choose a vehicle</string>
+    <string name="multiple_prompt">If you have multiple, don\'t worry; you can always add the rest later.</string>
+    <string name="selected_vehicle">Selected vehicle</string>
+    <string name="profile">Profile</string>
+    <string name="vehicles">Vehicles</string>
+    <string name="tracks">Tracks</string>
+    <string name="subtitle_create">Create</string>
+    <string name="track_recorder">Track Recorder</string>
+    <string name="settings">Settings</string>
+    <string name="rate_this_track">Rate this track</string>
 </resources>

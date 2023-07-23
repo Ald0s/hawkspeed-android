@@ -34,7 +34,7 @@ data class VehicleStockDto(
 
     @Expose
     @SerializedName("displacement")
-    val displacement: Float,
+    val displacement: Int,
 
     @Expose
     @SerializedName("induction")

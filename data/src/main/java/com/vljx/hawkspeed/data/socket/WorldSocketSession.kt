@@ -4,6 +4,7 @@ import android.hardware.SensorManager
 import com.google.gson.Gson
 import com.vljx.hawkspeed.data.BuildConfig
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.data.di.scope.BackgroundScope
 import com.vljx.hawkspeed.data.models.race.CancelRaceResultModel
 import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
 import com.vljx.hawkspeed.data.models.world.PlayerUpdateResultModel
@@ -36,6 +37,10 @@ import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportUpdateDto
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
+import com.vljx.hawkspeed.domain.exc.socket.ConnectionBrokenException
+import com.vljx.hawkspeed.domain.exc.socket.ConnectionBrokenException.Companion.REASON_SERVER_DISAPPEARED
+import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
+import com.vljx.hawkspeed.domain.exc.socket.ServerUnavailableException
 import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
@@ -45,11 +50,13 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
+import io.socket.engineio.client.EngineIOException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
@@ -64,13 +71,14 @@ import java.net.URI
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.reflect.typeOf
 
 /**
  * The world socket session class that centralises communication with the HawkSpeed game server.
  */
 @Singleton
 class WorldSocketSession @Inject constructor(
-    private val applicationScope: ApplicationScope,
+    private val backgroundScope: BackgroundScope,
     private val cookieJar: CookieJar,
     private val gson: Gson,
 
@@ -82,10 +90,7 @@ class WorldSocketSession @Inject constructor(
     private val raceDisqualifiedDtoMapper: RaceDisqualifiedDtoMapper,
     private val raceProgressDtoMapper: RaceProgressDtoMapper,
     private val playerUpdateResultDtoMapper: PlayerUpdateResultDtoMapper,
-    private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper,
-
-    @IODispatcher
-    private val ioDispatcher: CoroutineDispatcher
+    private val viewportUpdateResultDtoMapper: ViewportUpdateResultDtoMapper
 ) {
     // Objects for the socket IO server.
     // The socket IO manager.
@@ -103,6 +108,13 @@ class WorldSocketSession @Inject constructor(
      * valid for a connection, should a connection be attempted.
      */
     private val mutableShouldConnect: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /**
+     * A state flow for the current connectivity state of the network in use.
+     * TODO: this will become something more advanced when necessary. For now, its represented as a simple boolean. This will pass true
+     * TODO: by default for now, and let the device report that network was lost later.
+     */
+    private val mutableNetworkConnectivity: MutableStateFlow<Boolean> = MutableStateFlow(true)
 
     /**
      * A state flow for the current game settings this client is configured to use while connecting to the socket server.
@@ -141,10 +153,16 @@ class WorldSocketSession @Inject constructor(
     )
 
     /**
-     * A state flow for the current state of the connection to the game server.
+     * A shared flow for the current state of the connection to the game server.
      */
     val worldSocketState: SharedFlow<WorldSocketState> =
         mutableWorldSocketState
+
+    /**
+     * A state flow for the network connectivity.
+     */
+    val networkConnectivity: StateFlow<Boolean> =
+        mutableNetworkConnectivity
 
     /**
      * The current location.
@@ -208,11 +226,12 @@ class WorldSocketSession @Inject constructor(
     private val worldSocketIntentState: Flow<WorldSocketIntentState> =
         combine(
             mutableShouldConnect,
+            mutableNetworkConnectivity,
             currentGameSettings,
             currentLocation
-        ) { shouldConnect, settings, location ->
-            // If either are null, emit can't join.
-            if(!shouldConnect || location == null || settings == null) {
+        ) { shouldConnect, networkConnectivity, settings, location ->
+            if(!shouldConnect || !networkConnectivity || location == null || settings == null) {
+                // TODO: specify a reason here for network connectivity, and also for should connect.
                 WorldSocketIntentState.CantJoinWorld
             } else {
                 // Otherwise, if settings informs us either that game is configured to not connect, or server is unavailable, same result.
@@ -240,7 +259,7 @@ class WorldSocketSession @Inject constructor(
      * The current state of this flow will then inform whether we will connect/disconnect to the game server.
      */
     init {
-        applicationScope.launch(ioDispatcher) {
+        backgroundScope.launch {
             worldSocketIntentState.collect { intentState ->
                 when(intentState) {
                     is WorldSocketIntentState.CanJoinWorld -> ensureConnectionOpen(intentState)
@@ -276,6 +295,16 @@ class WorldSocketSession @Inject constructor(
         // TODO: if we are currently connected, send a message to server letting it know we're leaving, optionally with reason.
         // Simply set gatekeeper to false.
         mutableShouldConnect.tryEmit(false)
+    }
+
+    /**
+     * Update the connectivity status for the network currently in use.
+     * TODO: make this more complicated when we look into network connectivity.
+     */
+    fun updateNetworkConnectivity(requestUpdateNetworkConnectivity: RequestUpdateNetworkConnectivity) {
+        mutableNetworkConnectivity.tryEmit(
+            requestUpdateNetworkConnectivity.isAvailable
+        )
     }
 
     /**
@@ -321,7 +350,7 @@ class WorldSocketSession @Inject constructor(
             return
         }
         // Otherwise emit a new state; connecting.
-        mutableWorldSocketState.tryEmit(WorldSocketState.Connecting)
+        mutableWorldSocketState.tryEmit(WorldSocketState.Connecting())
         Timber.d("Received intent to connect to game server.")
         // Get all applicable cookies to the HawkSpeed service URL and map them to a list of strings.
         // TODO: change this back to use account remote data, get applicable cookies once you figure out the issue here.
@@ -333,6 +362,8 @@ class WorldSocketSession @Inject constructor(
         socketManager = Manager(
             URI.create(canJoinWorld.gameServerInfo),
             IO.Options.builder()
+                .setReconnectionAttempts(canJoinWorld.reconnectionAttempts)
+                .setReconnectionDelay(canJoinWorld.reconnectionDelay)
                 .setExtraHeaders(mapOf("Cookie" to hawkSpeedCookies))
                 .build()
         ).apply {
@@ -370,12 +401,28 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
+     * Handle an event in which the server has welcomed this client to the server. The resulting object will contain all preliminary data about the position
+     * and surroundings for this client. This should be passed alongside the game server state update.
+     */
+    private fun handleWelcomeToWorld(connectAuthenticationResponseDto: ConnectAuthenticationResponseDto) {
+        Timber.d("We have received a welcome-to-world message. We are now connected & joined.")
+        mutableWorldSocketState.tryEmit(
+            WorldSocketState.Connected(
+                connectAuthenticationResponseDto.playerUid,
+                connectAuthenticationResponseDto.latitude,
+                connectAuthenticationResponseDto.longitude,
+                connectAuthenticationResponseDto.bearing
+            )
+        )
+    }
+
+    /**
      * Request a new race on the given race track, given a fresh location.
      */
     suspend fun startRace(requestStartRace: RequestStartRace): StartRaceResultModel {
         if(socket == null || socket?.connected() != true) {
-            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
-            throw NotImplementedError()
+            Timber.w("Skipped sending a request to start a race - socket is currently not connected to the server.")
+            throw NotConnectedException()
         }
         // Build a DTO for our request to start a race.
         val requestStartRaceDto = RequestStartRaceDto(requestStartRace)
@@ -390,8 +437,8 @@ class WorldSocketSession @Inject constructor(
      */
     suspend fun cancelRace(requestCancelRace: RequestCancelRace): CancelRaceResultModel {
         if(socket == null || socket?.connected() != true) {
-            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
-            throw NotImplementedError()
+            Timber.w("Skipped sending a request to cancel a race - socket is currently not connected to the server. Don't worry, the race will be cancelled on serverside.")
+            throw NotConnectedException()
         }
         // Build a DTO for our request to cancel a race.
         val requestCancelRaceDto = RequestCancelRaceDto(requestCancelRace)
@@ -415,7 +462,8 @@ class WorldSocketSession @Inject constructor(
         )
 
         if(socket == null || socket?.connected() != true) {
-            throw NotImplementedError("Handle this properly.")
+            Timber.w("Skipped sending a player update - socket is currently not connected to the server.")
+            throw NotConnectedException()
         }
         // Construct the required DTO for now.
         val requestPlayerUpdateDto = RequestPlayerLocationDto(requestPlayerUpdate)
@@ -440,8 +488,8 @@ class WorldSocketSession @Inject constructor(
         )
 
         if(socket == null || socket?.connected() != true) {
-            // TODO: if we are not connected, handle this some way. Do we raise? Or do we just do nothing?
-            throw NotImplementedError()
+            Timber.w("Skipped sending a viewport update - socket is currently not connected to the server.")
+            throw NotConnectedException()
         }
         // Construct a request for viewport update.
         val requestViewportUpdateDto = RequestViewportUpdateDto(
@@ -486,64 +534,39 @@ class WorldSocketSession @Inject constructor(
              * error wrappers being sent, which indicate a refusal by the server.
              */
             on<SocketErrorWrapperDto>("connect_error", { socketErrorWrapperDto ->
-                // Successfully read a socket error from the response, which means we were rejected from the server for a HawkSpeed reason.
-                Timber.e("Failed to connect to the world because the game server actively refused our join attempt.")
                 /**
                  * TODO: when we get a connect error, we should analyse the cause in an effort to determine exactly why the join failed, then we should inform
                  * TODO: the user of the reason and some corrective action.
                  */
+                // Successfully read a socket error from the response, which means we were rejected from the server for a HawkSpeed reason.
+                Timber.e("Failed to connect to the world because the game server actively refused our join attempt.")
                 // We will create a socket type resource error from the wrapper dto, then pass this to a connection refused state.
-                mutableWorldSocketState.tryEmit(WorldSocketState.ConnectionRefused(ResourceError.SocketError(socketErrorWrapperDto)))
-            }, { response ->
-                Timber.e("Failed to connect to the world for a non-HawkSpeed reason.")
+                //mutableWorldSocketState.tryEmit(WorldSocketState.ConnectionRefused(ResourceError.SocketError(socketErrorWrapperDto)))
+                Timber.e(ResourceError.SocketError(socketErrorWrapperDto).errorSummary)
+                throw NotImplementedError()
+            }, { eventMessages ->
                 /**
                  * TODO: connect failed for some other reason; perhaps internet dropping, permission revoked, server dying... etc
                  */
-                // For now, just print out all errors in response.
-                response.forEach {
-                    Timber.e("Non-HawkSpeed world join error: $it")
-                }
-                // Simply pass a disconnected state here for now.
-                mutableWorldSocketState.tryEmit(WorldSocketState.Disconnected())
+                Timber.e("Failed to connect to the world for a non-HawkSpeed reason.")
+                // Handle the event messages.
+                handleErrorMessage("connect_error", eventMessages)
             })
             /**
-             * Called when the socket has been disconnected.
+             * Called when the socket has been disconnected. Before we allow the handling of this error message elsewhere, we will check to ensure the current socket state is not already
+             * in a disconnected state, which may contain more important information about the disconnect.
              */
-            on("disconnect") { response ->
+            on("disconnect") { eventMessages ->
                 Timber.d("Disconnected from SocketIO server.")
-                /**
-                 * TODO: disconnected from the server, this is not necessarily an issue, we just need to collect cases for this.
-                 */
-                response.forEach {
-                    Timber.e("Disconnect response line: $it")
+                // Return if current state is disconnected.
+                if(mutableWorldSocketState.value is WorldSocketState.Disconnected) {
+                    Timber.d("Skipping parsing 'disconnect' event because the world socket state is already Disconnected.")
+                    return@on
                 }
-                // For now, all we'll do is put our socket state into disconnected mode.
-                mutableWorldSocketState.tryEmit(WorldSocketState.Disconnected())
+                // Handle the event messages.
+                handleErrorMessage("disconnect", eventMessages)
             }
         }
-    }
-
-    /**
-     * Handle an event in which the server has welcomed this client to the server. The resulting object will contain all preliminary data about the position
-     * and surroundings for this client. This should be passed alongside the game server state update.
-     */
-    private fun handleWelcomeToWorld(connectAuthenticationResponseDto: ConnectAuthenticationResponseDto) {
-        Timber.d("We have received a welcome-to-world message. We are now connected & joined.")
-        mutableWorldSocketState.tryEmit(
-            WorldSocketState.Connected(
-                connectAuthenticationResponseDto.playerUid,
-                connectAuthenticationResponseDto.latitude,
-                connectAuthenticationResponseDto.longitude,
-                connectAuthenticationResponseDto.bearing
-            )
-        )
-    }
-
-    /**
-     * Handle the case where the socket server has decided to kick this client from service.
-     */
-    private fun handleKicked(socketError: SocketErrorWrapperDto) {
-        throw NotImplementedError("handleKicked is not implemented.")
     }
 
     /**
@@ -552,21 +575,40 @@ class WorldSocketSession @Inject constructor(
     private fun attachReconnectionHandlers(manager: Manager) {
         manager.apply {
             /**
-             *
+             * The reconnect event is fired upon a successful reconnection. The reconnection attempt number should be in the first index of the given array.
              */
-            on("reconnect") { response -> throw NotImplementedError("Handler for manager event 'reconnect' not set.") }
+            on("reconnect") { eventMessages ->
+                val reconnectionAttemptNumber: Int = eventMessages.first() as Int
+                Timber.d("Reconnection to game server successful! (attempt #$reconnectionAttemptNumber)")
+            }
             /**
-             *
+             * The reconnect attempt event is fired whenever an attempt to reconnect is started. The connection attempt number is passed in the first index of the given array.
              */
-            on("reconnect_attempt") { response -> throw NotImplementedError("Handler for manager event 'reconnect_attempt' not set.") }
+            on("reconnect_attempt") { eventMessages ->
+                val reconnectionAttemptNumber: Int = eventMessages.first() as Int
+                Timber.d("Attempting reconnection to game server (attempt #$reconnectionAttemptNumber)")
+            }
             /**
-             *
+             * This event is fired when a reconnection attempt has failed. The error is passed in the first index of the array.
              */
-            on("reconnect_error") { response -> throw NotImplementedError("Handler for manager event 'reconnect_error' not set.") }
+            on("reconnect_error") { eventMessages ->
+                // First instance passed is the error in question. For now, we won't do anything with this knowledge.
+            }
             /**
-             *
+             * This event is fired when reconnection was not possible; due to reconnection attempts maxing out. In response to this, we should update socket state to no longer
+             * attempt connections at all, and inform User that server may currently not be available.
              */
-            on("reconnect_failed") { response -> throw NotImplementedError("Handler for manager event 'reconnect_failed' not set.") }
+            on("reconnect_failed") {
+                Timber.d("Reconnect failed - maximum connection attempts reached.")
+                // We will emit a disconnected world socket state letting the UI know that the server is unavailable and future attempts may be futile.
+                mutableWorldSocketState.tryEmit(
+                    WorldSocketState.Disconnected(
+                        ResourceError.GeneralError(ResourceError.GeneralError.TYPE_SOCKET, ServerUnavailableException())
+                    )
+                )
+                // Now, request that socket leaves the world.
+                requestLeaveWorld()
+            }
         }
     }
 
@@ -607,6 +649,20 @@ class WorldSocketSession @Inject constructor(
     }
 
     /**
+     * Handle the case where the socket server has decided to kick this client from service. This will be handled by disconnecting the socket
+     * session and passing the resulting socket error wrapper by socket type resource error to a disconnected state. We will regard further
+     * disconnected states as irrelevant since Kicked is the real reason for disconnection.
+     */
+    private fun handleKicked(socketError: SocketErrorWrapperDto) {
+        // Emit a disconnect state with the socket error right away. This will overwrite any current Disconnected states with the kick error wrapper.
+        mutableWorldSocketState.tryEmit(
+            WorldSocketState.Disconnected(ResourceError.SocketError(socketError))
+        )
+        // We will now ensure that our intent is to disconnect from the server. This will handle clientside disconnection logic.
+        requestLeaveWorld()
+    }
+
+    /**
      * Query for, and return a list of all cookies associated with the HawkSpeed game server.
      */
     private fun getRelevantCookies(): List<String> {
@@ -618,5 +674,64 @@ class WorldSocketSession @Inject constructor(
         return cookies.map {
             cookieToString(it, false)
         }
+    }
+
+    /**
+     * Handle the translation of a raw error message received from any of the events, to a world socket state appropriate outcome, and update the state appropriately.
+     */
+    private fun handleErrorMessage(eventType: String, eventMessages: Array<out Any>) {
+        Timber.d("Handling error messages from event type; '$eventType'")
+        when(val firstMessage = eventMessages.firstOrNull()) {
+            /**
+             * Process the incoming engine IO exception.
+             */
+            is EngineIOException ->
+                when(firstMessage.message) {
+                    ERROR_XHR_POLL_ERROR -> {
+                        // TODO: error is raised when connect has failed.
+                    }
+                    else -> {
+                        /**
+                         * TODO: this message is not handled.
+                         */
+                        throw NotImplementedError("The following EngineIOException message is not handled: ${firstMessage.message}")
+                    }
+                }
+
+            /**
+             * A transport error indicates the stream was forcibly closed. This could be because the server was killed unexpectedly. We will therefore allow
+             * reconnection attempts to take place.
+             */
+            ERROR_TRANSPORT_ERROR -> {
+                Timber.w("Received a $eventType of type 'transport error'. Server may have crashed or otherwise failed. We will continue to attempt reconnection.")
+                // Emit a connecting state to show that a reconnection is underway.
+                mutableWorldSocketState.tryEmit(
+                    WorldSocketState.Connecting(
+                        ResourceError.GeneralError(ResourceError.GeneralError.TYPE_SOCKET, ConnectionBrokenException(REASON_SERVER_DISAPPEARED))
+                    )
+                )
+            }
+            else -> {
+                /**
+                 * TODO: all other cases should print content of the event messages then raise not impl so we can recognise them.
+                 */
+                eventMessages.forEach {
+                    Timber.e("$eventType line:\n\t$it")
+                }
+                throw NotImplementedError()
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * A disconnect event error message - the server may have crashed.
+         */
+        const val ERROR_TRANSPORT_ERROR = "transport error"
+
+        /**
+         * A disconnect event error message.
+         */
+        const val ERROR_XHR_POLL_ERROR = "xhr poll error"
     }
 }

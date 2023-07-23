@@ -1,8 +1,10 @@
 package com.vljx.hawkspeed.domain.repository
 
+import androidx.paging.PagingData
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
+import com.vljx.hawkspeed.domain.requestmodels.user.RequestPageRaceHistory
 import kotlinx.coroutines.flow.Flow
 
 interface RaceLeaderboardRepository {

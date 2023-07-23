@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
@@ -140,6 +141,7 @@ fun LoginForm(
                 Spacer(modifier = Modifier.height(128.dp))
 
                 Text(
+                    letterSpacing = 3.6.sp,
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.displayMedium,
                     text = stringResource(id = R.string.app_name).uppercase()

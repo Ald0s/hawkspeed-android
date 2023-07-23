@@ -16,22 +16,36 @@ import android.hardware.SensorManager.SENSOR_DELAY_UI
 import android.location.Location
 import android.location.LocationManager
 import android.location.LocationManager.GPS_PROVIDER
+import android.net.ConnectivityManager
+import android.net.ConnectivityManager.NetworkCallback
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET
+import android.net.NetworkCapabilities.TRANSPORT_CELLULAR
+import android.net.NetworkCapabilities.TRANSPORT_WIFI
+import android.net.NetworkRequest
 import android.os.*
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.Tasks
+import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.data.di.scope.BackgroundScope
 import com.vljx.hawkspeed.data.socket.WorldSocketSession
 import com.vljx.hawkspeed.data.socket.requestmodels.*
+import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SetLocationAvailabilityUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateAccelerometerReadingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateMagnetometerReadingsUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.UpdateNetworkConnectivityUseCase
 import com.vljx.hawkspeed.ui.MainActivity
 import com.vljx.hawkspeed.util.Extension.applyLowPass
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,6 +66,9 @@ class WorldService: Service(), SensorEventListener {
     }
 
     @Inject
+    lateinit var backgroundScope: BackgroundScope
+
+    @Inject
     lateinit var sendPlayerUpdateUseCase: SendPlayerUpdateUseCase
 
     @Inject
@@ -61,6 +78,9 @@ class WorldService: Service(), SensorEventListener {
     lateinit var setLocationAvailabilityUseCase: SetLocationAvailabilityUseCase
 
     @Inject
+    lateinit var updateNetworkConnectivityUseCase: UpdateNetworkConnectivityUseCase
+
+    @Inject
     lateinit var updateAccelerometerReadingsUseCase: UpdateAccelerometerReadingsUseCase
 
     @Inject
@@ -68,12 +88,16 @@ class WorldService: Service(), SensorEventListener {
 
     // A binder to provide on bind to clients.
     private val binder = WorldServiceBinder()
-    // Sensor manager, so we can access accelerometer and magentic field etc.
+    // Sensor manager, so we can access accelerometer and magnetometer etc.
     private lateinit var sensorManager: SensorManager
+    // Get the connectivity manager.
+    private lateinit var connectivityManager: ConnectivityManager
     // Access to the location client.
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     // Provides parameters for the location request.
     private lateinit var locationRequest: LocationRequest
+    // Handler for connectivity changes.
+    private lateinit var networkCallback: NetworkCallback
     // Handlers for changes in location.
     private lateinit var locationReceived: LocationCallback
     private lateinit var serviceHandler: Handler
@@ -82,12 +106,6 @@ class WorldService: Service(), SensorEventListener {
     private lateinit var notificationManager: NotificationManager
     // The notification channel.
     private lateinit var notificationChannel: NotificationChannel
-
-    // Objects for managing asynchronous operations.
-    // Create a new job.
-    private val job = SupervisorJob()
-    // Create a new coroutine scope based on this job.
-    private val scope = CoroutineScope(Dispatchers.IO + job)
 
     // Storing our most recent accelerometer readings.
     private var accelerometerReadings = FloatArray(3)
@@ -101,6 +119,8 @@ class WorldService: Service(), SensorEventListener {
         super.onCreate()
         // Get the sensor manager.
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        // Get the connectivity manager.
+        connectivityManager = getSystemService(ConnectivityManager::class.java) as ConnectivityManager
         // Setup location client.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         // Get the notification manager.
@@ -111,17 +131,29 @@ class WorldService: Service(), SensorEventListener {
             lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         notificationManager.createNotificationChannel(notificationChannel)
+        // Setup a network callback.
+        networkCallback = object: NetworkCallback() {
+            override fun onAvailable(network: Network) =
+                onNetworkAvailable(network)
+
+            override fun onLost(network: Network) =
+                onNetworkLost(network)
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) = onNetworkCapabilitiesChanged(network, networkCapabilities)
+
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) =
+                onNetworkLinkPropertiesChanged(network, linkProperties)
+        }
         // Setup a location callback.
         locationReceived = object: LocationCallback() {
-            override fun onLocationAvailability(locationAvailability: LocationAvailability) {
+            override fun onLocationAvailability(locationAvailability: LocationAvailability) =
                 locationAvailabilityChanged(locationAvailability)
-                super.onLocationAvailability(locationAvailability)
-            }
 
-            override fun onLocationResult(locationResult: LocationResult) {
+            override fun onLocationResult(locationResult: LocationResult) =
                 newLocationReceived(locationResult)
-                super.onLocationResult(locationResult)
-            }
         }
         // Create the location request.
         locationRequest = newLocationRequest()
@@ -149,6 +181,8 @@ class WorldService: Service(), SensorEventListener {
                 // TODO: onStartCommand invoked by notification.
                 throw NotImplementedError("WorldService.onStartCommand being invoked via notification is NOT YET handled!")
             }
+            // Begin receiving network connectivity updates.
+            beginNetworkConnectivityUpdates()
             // Begin receiving sensor changes.
             beginSensorUpdates()
             // Begin receiving location updates.
@@ -183,47 +217,7 @@ class WorldService: Service(), SensorEventListener {
         Timber.d("WorldService is being destroyed...")
         // Remove all callbacks and messages from the handler.
         serviceHandler.removeCallbacksAndMessages(null)
-        // Cancel the job.
-        job.cancel()
         super.onDestroy()
-    }
-
-    /**
-     * Accuracy refers to sensor accuracy changes, not location.
-     */
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-
-    }
-
-    /**
-     * Called by the system when a sensor changes. This is where we'll copy the latest values for the given sensor, and pass them to the world socket state
-     * for further use.
-     */
-    override fun onSensorChanged(event: SensorEvent?) {
-        when(event?.sensor?.type) {
-            TYPE_ACCELEROMETER -> {
-                // Copy readings from the event into our accelerometer readings.
-                //System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
-
-                // Get accelerometer readings from the event, and send through our low pass filter.
-                accelerometerReadings = applyLowPass(event.values.clone(), accelerometerReadings)
-                // Now, call the update use case to send the latest readings off.
-                updateAccelerometerReadingsUseCase(
-                    RequestUpdateAccelerometerReadings(accelerometerReadings)
-                )
-            }
-            TYPE_MAGNETIC_FIELD -> {
-                // Copy readings from the event into our magnetometer readings.
-                //System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
-                
-                // Get magnetometer readings from the event, and send through our low pass filter.
-                magnetometerReadings = applyLowPass(event.values.clone(), magnetometerReadings)
-                // Now, call the update use case to send the latest readings off.
-                updateMagnetometerReadingsUseCase(
-                    RequestUpdateMagnetometerReadings(magnetometerReadings)
-                )
-            }
-        }
     }
 
     /**
@@ -245,6 +239,8 @@ class WorldService: Service(), SensorEventListener {
      */
     fun stopWorldService() {
         Timber.d("Stopping world service...")
+        // Stop receiving network connectivity updates.
+        stopNetworkConnectivityUpdates()
         // Stop receiving sensor changes.
         removeSensorUpdates()
         // Stop receiving location updates.
@@ -253,6 +249,20 @@ class WorldService: Service(), SensorEventListener {
         leaveWorld()
         // Finally, stop the service.
         stopSelf()
+    }
+
+    /**
+     * Register a callback for network connectivity change updates to this service.
+     */
+    private fun beginNetworkConnectivityUpdates() {
+        connectivityManager.registerNetworkCallback(newNetworkRequest(), networkCallback)
+    }
+
+    /**
+     * Remove callback from network connectivity change updates.
+     */
+    private fun stopNetworkConnectivityUpdates() {
+        connectivityManager.unregisterNetworkCallback(networkCallback)
     }
 
     /**
@@ -320,6 +330,45 @@ class WorldService: Service(), SensorEventListener {
     }
 
     /**
+     *
+     */
+    private fun onNetworkAvailable(network: Network) {
+        updateNetworkConnectivityUseCase(
+            RequestUpdateNetworkConnectivity(
+                true
+            )
+        )
+    }
+
+    /**
+     *
+     */
+    private fun onNetworkLost(network: Network) {
+        updateNetworkConnectivityUseCase(
+            RequestUpdateNetworkConnectivity(
+                false
+            )
+        )
+    }
+
+    /**
+     *
+     */
+    private fun onNetworkCapabilitiesChanged(
+        network: Network,
+        networkCapabilities: NetworkCapabilities
+    ) {
+
+    }
+
+    /**
+     *
+     */
+    private fun onNetworkLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+
+    }
+
+    /**
      * Location availability has changed, if this is false, this means we may not be receiving location updates for some unknown amount of time. If it is true, this means
      * we have regained location availability back. Both states should be communicated to both the server and the view.
      */
@@ -344,14 +393,14 @@ class WorldService: Service(), SensorEventListener {
             // Create a new player position from this.
             val playerPosition = PlayerPosition(latestLocation)
             // Whenever we get a new location from the service, pass it directly to the world socket session.
-            scope.launch {
-                // TODO: properly handle this, not implemented error will be called when sendPlayerUpdate is called but socket is not connected.
+            backgroundScope.launch {
                 try {
                     sendPlayerUpdateUseCase(
                         RequestPlayerUpdate(playerPosition)
                     )
-                } catch (iee: NotImplementedError) {
-                    Timber.w(iee)
+                } catch (nce: NotConnectedException) {
+                    // This will happen if we're not currently connected to the server.
+                    // TODO: it may be a good idea to queue these, but for now, we'll just drop them since the socket session essentially stays up to date anyway.
                 }
             }
         } catch(npe: NullPointerException) {
@@ -360,6 +409,44 @@ class WorldService: Service(), SensorEventListener {
             return
         } catch(e: Exception) {
             throw e
+        }
+    }
+
+    /**
+     * Accuracy refers to sensor accuracy changes, not location.
+     */
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+
+    }
+
+    /**
+     * Called by the system when a sensor changes. This is where we'll copy the latest values for the given sensor, and pass them to the world socket state
+     * for further use.
+     */
+    override fun onSensorChanged(event: SensorEvent?) {
+        when(event?.sensor?.type) {
+            TYPE_ACCELEROMETER -> {
+                // Copy readings from the event into our accelerometer readings.
+                //System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
+
+                // Get accelerometer readings from the event, and send through our low pass filter.
+                accelerometerReadings = applyLowPass(event.values.clone(), accelerometerReadings)
+                // Now, call the update use case to send the latest readings off.
+                updateAccelerometerReadingsUseCase(
+                    RequestUpdateAccelerometerReadings(accelerometerReadings)
+                )
+            }
+            TYPE_MAGNETIC_FIELD -> {
+                // Copy readings from the event into our magnetometer readings.
+                //System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
+
+                // Get magnetometer readings from the event, and send through our low pass filter.
+                magnetometerReadings = applyLowPass(event.values.clone(), magnetometerReadings)
+                // Now, call the update use case to send the latest readings off.
+                updateMagnetometerReadingsUseCase(
+                    RequestUpdateMagnetometerReadings(magnetometerReadings)
+                )
+            }
         }
     }
 
@@ -447,6 +534,17 @@ class WorldService: Service(), SensorEventListener {
         fun newLocationRequest(): LocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateIntervalMillis(5000)
             .build()
+
+        /**
+         * Build a new network request that will require a network with internet capability and either mobile data or wifi transport.
+         * TODO: move this elsewhere, ideally we want these checks done/running before even authentication is attempted.
+         */
+        fun newNetworkRequest(): NetworkRequest =
+            NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addTransportType(TRANSPORT_WIFI)
+                .addTransportType(TRANSPORT_CELLULAR)
+                .build()
 
         const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"
         const val CHANNEL_NAME = "HawkSpeed"

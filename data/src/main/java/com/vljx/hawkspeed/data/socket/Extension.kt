@@ -63,6 +63,9 @@ object Extension {
                 val responseJsonObject: JSONObject = responseArray[1] as JSONObject
                 val resultObject: T = gson.fromJson(responseJsonObject.toString(), T::class.java)
                 listener(resultObject)
+            } catch(aiofb: ArrayIndexOutOfBoundsException) {
+                // Failed to load incoming response, call failure handler.
+                failure(responseArray)
             } catch(jse: JsonSyntaxException) {
                 // We'll print out a warning for the exception, just to be thorough.
                 Timber.w(jse)

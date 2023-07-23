@@ -16,6 +16,7 @@ data class TrackModel(
     val length: Int,
     val isSnappedToRoads: Boolean,
     val trackType: TrackType,
+    val numLapsRequired: Int?,
     val numPositiveVotes: Int,
     val numNegativeVotes: Int,
     val yourRating: Boolean?,

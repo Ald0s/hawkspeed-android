@@ -1,6 +1,7 @@
-package com.vljx.hawkspeed.data.database.mapper
+package com.vljx.hawkspeed.data.database.mapper.vehicle
 
-import com.vljx.hawkspeed.data.database.entity.OurVehiclesEntity
+import com.vljx.hawkspeed.data.database.entity.vehicle.OurVehiclesEntity
+import com.vljx.hawkspeed.data.database.mapper.EntityMapper
 import com.vljx.hawkspeed.data.models.vehicle.OurVehiclesModel
 import javax.inject.Inject
 

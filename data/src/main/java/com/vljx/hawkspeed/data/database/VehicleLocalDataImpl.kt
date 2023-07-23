@@ -1,9 +1,9 @@
 package com.vljx.hawkspeed.data.database
 
 import com.vljx.hawkspeed.data.database.dao.VehicleDao
-import com.vljx.hawkspeed.data.database.entity.OurVehiclesEntity
-import com.vljx.hawkspeed.data.database.mapper.OurVehiclesEntityMapper
-import com.vljx.hawkspeed.data.database.mapper.VehicleEntityMapper
+import com.vljx.hawkspeed.data.database.entity.vehicle.OurVehiclesEntity
+import com.vljx.hawkspeed.data.database.mapper.vehicle.OurVehiclesEntityMapper
+import com.vljx.hawkspeed.data.database.mapper.vehicle.VehicleEntityMapper
 import com.vljx.hawkspeed.data.models.vehicle.OurVehiclesModel
 import com.vljx.hawkspeed.data.models.vehicle.VehicleModel
 import com.vljx.hawkspeed.data.source.vehicle.VehicleLocalData

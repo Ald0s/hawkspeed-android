@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.setup
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
@@ -20,15 +22,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,23 +45,43 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleStock
 import com.vljx.hawkspeed.ui.component.InputValidationResult
+import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleViewModel
+import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleViewModel.Companion.ARG_VEHICLE_STOCK_UID
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
+import com.vljx.hawkspeed.util.ExampleData
+import timber.log.Timber
 
 @Composable
 fun SetupAccountScreen(
     onAccountSetup: (Account) -> Unit,
+    onChooseVehicleClicked: () -> Unit,
 
+    navHostController: NavHostController,
     setupAccountViewModel: SetupAccountViewModel = hiltViewModel()
 ) {
+    // We need nav host controller access here because we'll collect from the selected vehicle stock UID state.
+    val selectedVehicleStockUidState: State<String?>? = navHostController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow<String?>(ARG_VEHICLE_STOCK_UID, null)
+        ?.collectAsState()
+    // Now, whenever we get a non-null value, pass it to the view model as selected vehicle stock UID, then set key to null.
+    selectedVehicleStockUidState?.value?.let { selectedVehicleStockUid ->
+        setupAccountViewModel.selectVehicleStockUid(selectedVehicleStockUid)
+    }
+    // Now collect the overall UI state.
     val setupAccountUiState: SetupAccountUiState by setupAccountViewModel.setupAccountUiState.collectAsState()
     when(setupAccountUiState) {
         is SetupAccountUiState.AccountSetup -> {
@@ -71,17 +96,17 @@ fun SetupAccountScreen(
             // Show the setup account form UI.
             val usernameState: String? by setupAccountViewModel.usernameState.collectAsState()
             val bioState: String? by setupAccountViewModel.bioState.collectAsState()
-            val vehicleInformationState: String? by setupAccountViewModel.vehicleInformationState.collectAsState()
 
             SetupAccountFormUi(
                 showSetupAccountForm = setupAccountUiState as SetupAccountUiState.ShowSetupAccountForm,
                 username = usernameState,
                 bio = bioState,
-                vehicleInformation = vehicleInformationState,
 
                 updateUsername = setupAccountViewModel::updateUsername,
                 updateBio = setupAccountViewModel::updateBio,
-                updateVehicleInformation = setupAccountViewModel::updateVehicleInformation,
+
+                onChooseVehicleClicked = onChooseVehicleClicked,
+                onClearSelectedVehicle = setupAccountViewModel::clearSelectedVehicle,
                 onSetupProfileClicked = setupAccountViewModel::setupAccountProfile
             )
         }
@@ -99,21 +124,23 @@ fun SetupAccountFormUi(
 
     username: String?,
     bio: String?,
-    vehicleInformation: String?,
 
     updateUsername: ((String) -> Unit)? = null,
     updateBio: ((String) -> Unit)? = null,
-    updateVehicleInformation: ((String) -> Unit)? = null,
 
+    onChooseVehicleClicked: (() -> Unit)? = null,
+    onClearSelectedVehicle: (() -> Unit)? = null,
     onSetupProfileClicked: (() -> Unit)? = null,
 ) {
     var usernameStatusUiState: UsernameStatusUiState by remember { mutableStateOf(UsernameStatusUiState.Idle) }
+    var selectedVehicleStock: VehicleStock? by remember { mutableStateOf(null) }
     var canAttemptSetup: Boolean by remember { mutableStateOf(false) }
     var isSettingUp: Boolean by remember { mutableStateOf(false) }
     var setupError: ResourceError? by remember { mutableStateOf(null) }
     when(val setupAccountFormUiState = showSetupAccountForm.setupAccountFormUiState) {
         is SetupAccountFormUiState.SetupAccountForm -> {
             usernameStatusUiState = setupAccountFormUiState.usernameStatusUiState
+            selectedVehicleStock = setupAccountFormUiState.selectedVehicleStock
             canAttemptSetup = setupAccountFormUiState.canAttemptSetupAccount
             isSettingUp = false
         }
@@ -175,20 +202,10 @@ fun SetupAccountFormUi(
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Build,
-                            contentDescription = "vehicle information"
-                        )
-                    },
-                    value = vehicleInformation ?: "",
-                    onValueChange = updateVehicleInformation ?: { },
-                    placeholder = {
-                        Text(text = stringResource(id = R.string.placeholder_vehicle))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
+                VehicleInformation(
+                    vehicleStock = selectedVehicleStock,
+                    onChooseVehicleClicked = onChooseVehicleClicked,
+                    onClearSelectedVehicle = onClearSelectedVehicle
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -268,6 +285,94 @@ fun UsernameAvailability(
     }
 }
 
+@Composable
+fun VehicleInformation(
+    vehicleStock: VehicleStock?,
+
+    onClearSelectedVehicle: (() -> Unit)? = null,
+    onChooseVehicleClicked: (() -> Unit)? = null
+) {
+    Surface(tonalElevation = 5.dp) {
+        Column(
+            modifier = Modifier
+                .clickable {
+                    onChooseVehicleClicked?.invoke()
+                }
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            if(vehicleStock == null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(0.9f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.choose_vehicle),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(0.1f)
+                    ) {
+                        Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = "more")
+                    }
+                }
+            } else {
+                Row {
+                    Column(
+                        modifier = Modifier
+                            .weight(0.9f)
+                    ) {
+                        Row {
+                            Text(
+                                text = stringResource(R.string.selected_vehicle),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+
+                        Row {
+                            Column(
+                                modifier = Modifier
+                                    .weight(0.9f)
+                            ) {
+                                Text(
+                                    text = vehicleStock.title,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(0.1f)
+                    ) {
+                        IconButton(
+                            onClick = onClearSelectedVehicle ?: {}
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.times_circle),
+                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSecondaryContainer),
+                                contentDescription = "clear"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Preview
 @Composable
 fun PreviewSetupAccountFrom(
@@ -277,16 +382,25 @@ fun PreviewSetupAccountFrom(
         SetupAccountFormUi(
             username = "aldos",
             bio = "Hey check me out!",
-            vehicleInformation = null,
             showSetupAccountForm = SetupAccountUiState.ShowSetupAccountForm(
                 setupAccountFormUiState = SetupAccountFormUiState.SetupAccountForm(
                     InputValidationResult(true),
                     UsernameStatusUiState.UsernameAvailable("aldos"),
-                    InputValidationResult(false),
+                    null,
                     InputValidationResult(true),
                     false
                 )
             )
         )
+    }
+}
+
+@Preview
+@Composable
+fun PreviewVehicleInformation(
+
+) {
+    HawkSpeedTheme {
+        VehicleInformation(ExampleData.getExampleVehicle().vehicleStock)
     }
 }

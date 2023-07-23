@@ -23,6 +23,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,9 @@ class WorldSocketRepositoryImpl @Inject constructor(
     override val worldSocketState: SharedFlow<WorldSocketState>
         get() = worldSocketSession.worldSocketState
 
+    override val networkConnectivity: StateFlow<Boolean>
+        get() = worldSocketSession.networkConnectivity
+
     override val currentGameSettings: StateFlow<GameSettings?>
         get() = worldSocketSession.currentGameSettings
 
@@ -61,6 +65,9 @@ class WorldSocketRepositoryImpl @Inject constructor(
 
     override fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings) =
         worldSocketSession.updateMagnetometerReadings(requestUpdateMagnetometerReadings)
+
+    override fun updateNetworkConnectivity(requestUpdateNetworkConnectivity: RequestUpdateNetworkConnectivity) =
+        worldSocketSession.updateNetworkConnectivity(requestUpdateNetworkConnectivity)
 
     override fun setLocationAvailability(available: Boolean) =
         worldSocketSession.setLocationAvailability(available)

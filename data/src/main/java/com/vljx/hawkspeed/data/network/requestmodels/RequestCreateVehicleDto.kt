@@ -6,11 +6,11 @@ import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
 
 data class RequestCreateVehicleDto(
     @Expose
-    @SerializedName("text")
-    val text: String
+    @SerializedName("vehicle_stock_uid")
+    val vehicleStockUid: String
 ) {
     constructor(requestCreateVehicle: RequestCreateVehicle):
             this(
-                requestCreateVehicle.text
+                requestCreateVehicle.vehicleStockUid
             )
 }

@@ -88,6 +88,7 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
+import com.vljx.hawkspeed.data.network.models.track.TrackRatingsDto
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
@@ -142,24 +143,32 @@ fun TrackDetailScreen(
 ) {
     // Collect the track detail UI state.
     val trackDetailUiState by trackDetailViewModel.trackDetailUiState.collectAsState()
-    // Call the track detail composable with the latest state.
-    TrackDetail(
-        trackDetailUiState = trackDetailUiState,
-        leaderboardFlow = trackDetailViewModel.leaderboard,
-        commentFlow = trackDetailViewModel.comments,
-        onViewUserDetail = onViewUserDetail,
-        onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
-        onUpvoteClicked = trackDetailViewModel::upvoteTrack,
-        onDownvoteClicked = trackDetailViewModel::downvoteTrack,
-        componentActivity = LocalContext.current.getActivity()
-    )
+    when(trackDetailUiState) {
+        is TrackDetailUiState.GotTrackDetail ->
+            TrackDetail(
+                gotTrackDetail = trackDetailUiState as TrackDetailUiState.GotTrackDetail,
+                leaderboardFlow = trackDetailViewModel.leaderboard,
+                commentFlow = trackDetailViewModel.comments,
+                onViewUserDetail = onViewUserDetail,
+                onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
+                onUpvoteClicked = trackDetailViewModel::upvoteTrack,
+                onDownvoteClicked = trackDetailViewModel::downvoteTrack,
+                componentActivity = LocalContext.current.getActivity()
+            )
+        is TrackDetailUiState.Loading ->
+            LoadingScreen()
+        is TrackDetailUiState.Failed ->
+            // TODO: some failed indicator here.
+            throw NotImplementedError()
+    }
 }
 
 @Composable
 fun TrackDetail(
-    trackDetailUiState: TrackDetailUiState,
+    gotTrackDetail: TrackDetailUiState.GotTrackDetail,
     leaderboardFlow: Flow<PagingData<RaceLeaderboard>>,
     commentFlow: Flow<PagingData<TrackComment>>,
+
     onViewUserDetail: ((User) -> Unit)? = null,
     onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
     onUpvoteClicked: ((Track) -> Unit)? = null,
@@ -175,64 +184,53 @@ fun TrackDetail(
             modifier = Modifier
                 .padding(paddingValues)
         ) {
-            // Base contents on the latest track detail UI state.
-            when(trackDetailUiState) {
-                is TrackDetailUiState.GotTrackDetail -> {
-                    val track = trackDetailUiState.track
-                    val trackPath = trackDetailUiState.trackPath
-                    // Set up a new row to contain the center aligned content.
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 32.dp, bottom = 32.dp)
-                    ) {
-                        // Setup a new column to hold the centered information; that is, the actual track path overview and the
-                        // track title and creator info.
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Set up the track path overview here. We want to provide a modifier that will size the box appropriately.
-                            TrackPathOverview(
-                                track = track,
-                                trackPath = trackPath,
-                                componentActivity = componentActivity
-                            )
-                            // Now, the title of the track.
-                            Text(
-                                text = track.name,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            // Setup a track subtitle here.
-                            TrackSubtitle(
-                                track = track
-                            )
-                        }
-                    }
-                    // Set up a row here for the remainder of the UI- the tab host and its left aligned content.
-                    Row {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            TrackTabHost(
-                                track = trackDetailUiState.track,
-                                leaderboardFlow = leaderboardFlow,
-                                commentFlow = commentFlow,
-                                onViewUserDetail = onViewUserDetail,
-                                onLeaderboardEntryClicked = onViewRaceLeaderboardDetail,
-                                onUpvoteClicked = onUpvoteClicked,
-                                onDownvoteClicked = onDownvoteClicked
-                            )
-                        }
-                    }
+            val track = gotTrackDetail.track
+            val trackPath = gotTrackDetail.trackPath
+            // Set up a new row to contain the center aligned content.
+            Row(
+                modifier = Modifier
+                    .padding(top = 32.dp, bottom = 16.dp)
+            ) {
+                // Setup a new column to hold the centered information; that is, the actual track path overview and the
+                // track title and creator info.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Set up the track path overview here. We want to provide a modifier that will size the box appropriately.
+                    TrackPathOverview(
+                        track = track,
+                        trackPath = trackPath,
+                        componentActivity = componentActivity
+                    )
+                    // Now, the title of the track.
+                    Text(
+                        text = track.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    // Setup a track subtitle here.
+                    TrackSubtitle(
+                        track = track
+                    )
                 }
-                is TrackDetailUiState.Loading -> {
-                    Loading()
-                }
-                is TrackDetailUiState.Failed -> {
-                    // TODO: some failed indicator here.
-                    throw NotImplementedError()
+            }
+            // Set up a row here for the remainder of the UI- the tab host and its left aligned content.
+            Row {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    TrackTabHost(
+                        track = gotTrackDetail.track,
+                        gotTrackRating = gotTrackDetail.gotTrackRating,
+                        leaderboardFlow = leaderboardFlow,
+                        commentFlow = commentFlow,
+                        onViewUserDetail = onViewUserDetail,
+                        onLeaderboardEntryClicked = onViewRaceLeaderboardDetail,
+                        onUpvoteClicked = onUpvoteClicked,
+                        onDownvoteClicked = onDownvoteClicked
+                    )
                 }
             }
         }
@@ -260,8 +258,8 @@ fun TrackPathOverview(
             defaultElevation = 8.dp
         ),
         modifier = modifier
-            .height(300.dp)
-            .fillMaxWidth(0.6f)
+            .height(200.dp)
+            .fillMaxWidth(0.4f)
             .padding(bottom = 24.dp)
     ) {
         Column(
@@ -340,6 +338,8 @@ fun TrackPathOverview(
 @Composable
 fun TrackTabHost(
     track: Track,
+    gotTrackRating: TrackRatingUiState.GotTrackRating,
+
     leaderboardFlow: Flow<PagingData<RaceLeaderboard>>,
     commentFlow: Flow<PagingData<TrackComment>>,
     modifier: Modifier = Modifier,
@@ -387,6 +387,7 @@ fun TrackTabHost(
                 )
                 TAB_REVIEWS -> TrackReviews(
                     track = track,
+                    gotTrackRating = gotTrackRating,
                     commentFlow = commentFlow,
                     onUpvoteClicked = onUpvoteClicked,
                     onDownvoteClicked = onDownvoteClicked
@@ -521,111 +522,36 @@ fun TrackLeaderboard(
 @Composable
 fun TrackReviews(
     track: Track,
+    gotTrackRating: TrackRatingUiState.GotTrackRating,
     commentFlow: Flow<PagingData<TrackComment>>,
     modifier: Modifier = Modifier,
 
     onUpvoteClicked: ((Track) -> Unit)? = null,
     onDownvoteClicked: ((Track) -> Unit)? = null
 ) {
-    // A mutable boolean for disabling the rating buttons on tap.
-    var ratingButtonsEnabled by remember { mutableStateOf(false) }
-
     Surface {
-        // First, a section for upvoting/downvoting the track.
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .padding(top = 24.dp, bottom = 24.dp)
-                .fillMaxWidth()
-        ) {
-            Text(
-                text = "Rate this track",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Row {
-                // A column for the upvote.
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                ) {
-                    IconButton(
-                        modifier = Modifier
-                            .size(64.dp),
-                        enabled = ratingButtonsEnabled,
-                        onClick = {
-                            onUpvoteClicked?.let {
-                                it.invoke(track)
-                                ratingButtonsEnabled = false
-                            }
-                        }
-                    ) {
-                        Image(
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(64.dp),
-                            painter = painterResource(id = when(track.yourRating) {
-                                true -> R.drawable.thumbs_up_solid
-                                else -> R.drawable.thumbs_up
-                            }),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
-                            contentDescription = "like"
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    // The current count of upvotes.
-                    Text(
-                        text = "${track.numPositiveVotes}",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Spacer(modifier = Modifier.width(56.dp))
-                // A column for the downvote.
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .wrapContentSize()
-                ) {
-                    IconButton(
-                        modifier = Modifier
-                            .size(64.dp),
-                        enabled = ratingButtonsEnabled,
-                        onClick = {
-                            onDownvoteClicked?.let {
-                                it.invoke(track)
-                                ratingButtonsEnabled = false
-                            }
-                        }
-                    ) {
-                        Image(
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(64.dp),
-                            painter = painterResource(id = when(track.yourRating) {
-                                false -> R.drawable.thumbs_down_solid
-                                else -> R.drawable.thumbs_down
-                            }),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
-                            contentDescription = "dislike"
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    // The current count of downvotes.
-                    Text(
-                        text = "${track.numNegativeVotes}",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
         // Collect as lazy paging items.
         val comments: LazyPagingItems<TrackComment> = commentFlow.collectAsLazyPagingItems()
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
+            item {
+                TrackRating(
+                    gotTrackRating = gotTrackRating,
+                    onUpvoteClicked = {
+                        onUpvoteClicked?.invoke(track)
+                    },
+                    onDownvoteClicked = {
+                        onDownvoteClicked?.invoke(track)
+                    }
+                )
+            }
+
+            item {
+
+            }
+
             items(
                 count = comments.itemCount,
                 key = comments.itemKey { it },
@@ -660,7 +586,108 @@ fun TrackReviews(
             }
         }
     }
-    LaunchedEffect(key1 = track.yourRating, block = {
+}
+
+@Composable
+fun TrackRating(
+    gotTrackRating: TrackRatingUiState.GotTrackRating,
+
+    onUpvoteClicked: (() -> Unit)? = null,
+    onDownvoteClicked: (() -> Unit)? = null
+) {
+    // A mutable boolean for disabling the rating buttons on tap.
+    var ratingButtonsEnabled by remember { mutableStateOf(false) }
+
+    // First, a section for upvoting/downvoting the track.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(top = 24.dp, bottom = 24.dp)
+            .fillMaxWidth()
+    ) {
+        Text(
+            text = stringResource(R.string.rate_this_track),
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Row {
+            // A column for the upvote.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+            ) {
+                IconButton(
+                    modifier = Modifier
+                        .size(64.dp),
+                    enabled = ratingButtonsEnabled,
+                    onClick = {
+                        onUpvoteClicked?.let {
+                            it.invoke()
+                            ratingButtonsEnabled = false
+                        }
+                    }
+                ) {
+                    Image(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(64.dp),
+                        painter = painterResource(id = when(gotTrackRating.yourRating) {
+                            true -> R.drawable.thumbs_up_solid
+                            else -> R.drawable.thumbs_up
+                        }),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                        contentDescription = "like"
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // The current count of upvotes.
+                Text(
+                    text = "${gotTrackRating.numPositiveVotes}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.width(56.dp))
+            // A column for the downvote.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .wrapContentSize()
+            ) {
+                IconButton(
+                    modifier = Modifier
+                        .size(64.dp),
+                    enabled = ratingButtonsEnabled,
+                    onClick = {
+                        onDownvoteClicked?.let {
+                            it.invoke()
+                            ratingButtonsEnabled = false
+                        }
+                    }
+                ) {
+                    Image(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(64.dp),
+                        painter = painterResource(id = when(gotTrackRating.yourRating) {
+                            false -> R.drawable.thumbs_down_solid
+                            else -> R.drawable.thumbs_down
+                        }),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                        contentDescription = "dislike"
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // The current count of downvotes.
+                Text(
+                    text = "${gotTrackRating.numNegativeVotes}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+    LaunchedEffect(key1 = gotTrackRating.yourRating, block = {
         // Every time your rating changes, we'll set the buttons to enabled.
         ratingButtonsEnabled = true
     })
@@ -689,11 +716,17 @@ fun PreviewTrackDetail(
 ) {
     HawkSpeedTheme {
         TrackDetail(
-            trackDetailUiState = TrackDetailUiState.GotTrackDetail(
+            gotTrackDetail = TrackDetailUiState.GotTrackDetail(
                 track = ExampleData.getExampleTrack(
                     description = "One of the better tracks in the Melbourne area. A few hairpins and other sharp turns. Caution! Speed is very limited here."
                 ),
                 trackPath = ExampleData.getExampleTrackPath(),
+                gotTrackRating = TrackRatingUiState.GotTrackRating(
+                    trackUid = ExampleData.getExampleTrack().trackUid,
+                    numPositiveVotes = 3,
+                    numNegativeVotes = 1,
+                    yourRating = true
+                )
             ),
             leaderboardFlow = emptyFlow<PagingData<RaceLeaderboard>>(),
             commentFlow = emptyFlow<PagingData<TrackComment>>(),
@@ -709,6 +742,12 @@ fun PreviewTrackTabHost(
     HawkSpeedTheme {
         TrackTabHost(
             track = ExampleData.getExampleTrack(),
+            gotTrackRating = TrackRatingUiState.GotTrackRating(
+                trackUid = ExampleData.getExampleTrack().trackUid,
+                numPositiveVotes = 3,
+                numNegativeVotes = 1,
+                yourRating = true
+            ),
             leaderboardFlow = emptyFlow<PagingData<RaceLeaderboard>>(),
             commentFlow = emptyFlow<PagingData<TrackComment>>(),
             modifier = Modifier
@@ -754,7 +793,16 @@ fun PreviewTrackReviews(
 
 ) {
     HawkSpeedTheme {
-        TrackReviews(track = ExampleData.getExampleTrack(), commentFlow = emptyFlow())
+        TrackReviews(
+            track = ExampleData.getExampleTrack(),
+            gotTrackRating = TrackRatingUiState.GotTrackRating(
+                trackUid = ExampleData.getExampleTrack().trackUid,
+                numPositiveVotes = 3,
+                numNegativeVotes = 1,
+                yourRating = true
+            ),
+            commentFlow = emptyFlow()
+        )
     }
 }
 

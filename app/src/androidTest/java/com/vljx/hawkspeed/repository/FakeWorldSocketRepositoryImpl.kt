@@ -27,6 +27,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import kotlinx.coroutines.channels.BufferOverflow
@@ -62,11 +63,14 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
         extraBufferCapacity = 1
     )
     private val mutableCurrentGameSettings: MutableStateFlow<GameSettings?> = MutableStateFlow(null)
+    private val mutableNetworkConnectivity: MutableStateFlow<Boolean> = MutableStateFlow(true)
     private val mutableCurrentLocation: MutableStateFlow<PlayerPosition?> = MutableStateFlow(null)
     private val mutableLatestViewport: MutableStateFlow<Viewport?> = MutableStateFlow(null)
 
     override val worldSocketState: SharedFlow<WorldSocketState>
         get() = mutableWorldSocketState
+    override val networkConnectivity: StateFlow<Boolean>
+        get() = mutableNetworkConnectivity
     override val currentGameSettings: StateFlow<GameSettings?>
         get() = mutableCurrentGameSettings
     override val currentLocation: StateFlow<PlayerPosition?>
@@ -82,6 +86,10 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
     }
 
     override fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings) {
+        TODO("Not yet implemented")
+    }
+
+    override fun updateNetworkConnectivity(requestUpdateNetworkConnectivity: RequestUpdateNetworkConnectivity) {
         TODO("Not yet implemented")
     }
 

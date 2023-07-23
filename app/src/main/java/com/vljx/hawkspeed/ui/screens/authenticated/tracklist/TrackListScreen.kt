@@ -1,4 +1,12 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.tracklist
 
-class TrackListScreen {
+import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
+
+@Composable
+fun TrackListScreen(
+
+    trackListViewModel: TrackListViewModel = hiltViewModel()
+) {
+
 }

@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.data.database.mapper
 
 import com.vljx.hawkspeed.data.database.entity.race.RaceLeaderboardEntity
+import com.vljx.hawkspeed.data.database.mapper.vehicle.VehicleEntityMapper
 import com.vljx.hawkspeed.data.models.race.RaceLeaderboardModel
 import javax.inject.Inject
 
@@ -19,7 +20,9 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             entity.percentMissed,
             userEntityMapper.mapFromEntity(entity.player),
             vehicleEntityMapper.mapFromEntity(entity.vehicle),
-            entity.trackUid
+            entity.trackUid,
+            entity.trackName,
+            entity.trackType
         )
     }
 
@@ -34,7 +37,9 @@ class RaceLeaderboardEntityMapper @Inject constructor(
             model.percentMissed,
             userEntityMapper.mapToEntity(model.player),
             vehicleEntityMapper.mapToEntity(model.vehicle),
-            model.trackUid
+            model.trackUid,
+            model.trackName,
+            model.trackType
         )
     }
 }

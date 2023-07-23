@@ -22,7 +22,9 @@ class RaceLeaderboardMapper @Inject constructor(
             model.percentMissed,
             userMapper.mapFromData(model.player),
             vehicleMapper.mapFromData(model.vehicle),
-            model.trackUid
+            model.trackUid,
+            model.trackName,
+            model.trackType
         )
     }
 
@@ -37,7 +39,9 @@ class RaceLeaderboardMapper @Inject constructor(
             domain.percentMissed,
             userMapper.mapToData(domain.player),
             vehicleMapper.mapToData(domain.vehicle),
-            domain.trackUid
+            domain.trackUid,
+            domain.trackName,
+            domain.trackType
         )
     }
 }

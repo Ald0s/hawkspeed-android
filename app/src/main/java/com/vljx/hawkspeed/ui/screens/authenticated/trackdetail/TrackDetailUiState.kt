@@ -10,7 +10,8 @@ sealed class TrackDetailUiState {
      */
     data class GotTrackDetail(
         val track: Track,
-        val trackPath: TrackPath
+        val trackPath: TrackPath,
+        val gotTrackRating: TrackRatingUiState.GotTrackRating
     ): TrackDetailUiState()
 
     /**

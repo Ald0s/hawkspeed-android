@@ -5,6 +5,7 @@ import com.vljx.hawkspeed.data.models.race.RaceLeaderboardPageModel
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageTrackLeaderboard
+import com.vljx.hawkspeed.domain.requestmodels.user.RequestPageRaceHistory
 
 interface RaceLeaderboardRemoteData {
     /**

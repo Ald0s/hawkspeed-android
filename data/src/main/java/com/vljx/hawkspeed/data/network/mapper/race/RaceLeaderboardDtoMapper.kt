@@ -22,7 +22,9 @@ class RaceLeaderboardDtoMapper @Inject constructor(
             dto.percentMissed,
             userDtoMapper.mapFromDto(dto.player),
             vehicleDtoMapper.mapFromDto(dto.vehicle),
-            dto.trackUid
+            dto.trackUid,
+            dto.trackName,
+            dto.trackType
         )
     }
 }

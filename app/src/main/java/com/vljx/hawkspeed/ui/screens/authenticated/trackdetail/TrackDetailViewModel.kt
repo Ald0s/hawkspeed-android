@@ -119,7 +119,13 @@ class TrackDetailViewModel @Inject constructor(
                     }
                     TrackDetailUiState.GotTrackDetail(
                         trackWithPath.track,
-                        trackWithPath.path!!
+                        trackWithPath.path!!,
+                        TrackRatingUiState.GotTrackRating(
+                            trackWithPath.track.trackUid,
+                            trackWithPath.track.numPositiveVotes,
+                            trackWithPath.track.numNegativeVotes,
+                            trackWithPath.track.yourRating
+                        )
                     )
                 }
                 Resource.Status.LOADING -> TrackDetailUiState.Loading

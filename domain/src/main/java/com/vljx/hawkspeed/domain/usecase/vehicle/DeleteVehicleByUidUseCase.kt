@@ -11,5 +11,5 @@ class DeleteVehicleByUidUseCase @Inject constructor(
     private val vehicleRepository: VehicleRepository
 ): BaseSuspendingUseCase<RequestDeleteVehicle, Unit> {
     override suspend fun invoke(params: RequestDeleteVehicle) =
-        vehicleRepository.deleteVehicleByUid(params)
+        vehicleRepository.deleteVehicle(params)
 }

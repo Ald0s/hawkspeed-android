@@ -9,6 +9,10 @@ class VehicleTypeDtoMapper @Inject constructor(
 
 ): DtoMapper<VehicleTypeDto, VehicleTypeModel> {
     override fun mapFromDto(dto: VehicleTypeDto): VehicleTypeModel {
-        TODO("Not yet implemented")
+        return VehicleTypeModel(
+            dto.typeId,
+            dto.typeName,
+            dto.description
+        )
     }
 }

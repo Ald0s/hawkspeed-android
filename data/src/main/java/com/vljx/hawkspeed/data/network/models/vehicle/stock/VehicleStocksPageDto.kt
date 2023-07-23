@@ -2,13 +2,12 @@ package com.vljx.hawkspeed.data.network.models.vehicle.stock
 
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
-import com.vljx.hawkspeed.data.models.vehicle.stock.VehicleStockModel
 import com.vljx.hawkspeed.domain.base.Paged
 
 data class VehicleStocksPageDto(
     @Expose
     @SerializedName("items")
-    val vehicles: List<VehicleStockModel>,
+    val vehicles: List<VehicleStockDto>,
 
     @Expose
     @SerializedName("this_page")

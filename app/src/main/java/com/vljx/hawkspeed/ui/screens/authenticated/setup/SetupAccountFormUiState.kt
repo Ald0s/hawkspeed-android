@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.setup
 
 import com.vljx.hawkspeed.domain.ResourceError
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleStock
 import com.vljx.hawkspeed.ui.component.InputValidationResult
 
 sealed class SetupAccountFormUiState {
@@ -10,7 +11,7 @@ sealed class SetupAccountFormUiState {
     data class SetupAccountForm(
         val validateUsername: InputValidationResult,
         val usernameStatusUiState: UsernameStatusUiState,
-        val validateVehicleInfo: InputValidationResult,
+        val selectedVehicleStock: VehicleStock?,
         val validateBio: InputValidationResult,
         val canAttemptSetupAccount: Boolean
     ): SetupAccountFormUiState()

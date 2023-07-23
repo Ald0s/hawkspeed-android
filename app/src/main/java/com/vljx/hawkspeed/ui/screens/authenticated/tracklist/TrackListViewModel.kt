@@ -3,11 +3,13 @@ package com.vljx.hawkspeed.ui.screens.authenticated.tracklist
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.domain.usecase.user.PageUserTracksUseCase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
 
 class TrackListViewModel @Inject constructor(
+    private val pageUserTracksUseCase: PageUserTracksUseCase,
 
     private val savedStateHandle: SavedStateHandle,
     @IODispatcher

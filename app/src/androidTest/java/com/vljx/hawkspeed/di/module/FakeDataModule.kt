@@ -10,6 +10,7 @@ import com.vljx.hawkspeed.data.database.TrackLocalDataImpl
 import com.vljx.hawkspeed.data.database.TrackPathLocalDataImpl
 import com.vljx.hawkspeed.data.database.UserLocalDataImpl
 import com.vljx.hawkspeed.data.database.VehicleLocalDataImpl
+import com.vljx.hawkspeed.data.database.VehicleStockLocalDataImpl
 import com.vljx.hawkspeed.data.di.module.DataModule
 import com.vljx.hawkspeed.data.network.AccountRemoteDataImpl
 import com.vljx.hawkspeed.data.network.RaceLeaderboardRemoteDataImpl
@@ -37,6 +38,7 @@ import com.vljx.hawkspeed.data.source.track.TrackRemoteData
 import com.vljx.hawkspeed.data.source.user.UserLocalData
 import com.vljx.hawkspeed.data.source.vehicle.VehicleLocalData
 import com.vljx.hawkspeed.data.source.vehicle.VehicleRemoteData
+import com.vljx.hawkspeed.data.source.vehicle.VehicleStockLocalData
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.repository.FakeWorldSocketRepositoryImpl
 import dagger.Binds
@@ -97,6 +99,9 @@ interface FakeDataModule {
 
     @Binds
     fun bindVehicleRemoteData(vehicleRemoteDataImpl: VehicleRemoteDataImpl): VehicleRemoteData
+
+    @Binds
+    fun bindVehicleStockLocalData(vehicleStockLocalDataImpl: VehicleStockLocalDataImpl): VehicleStockLocalData
 
     @Binds
     fun bindTrackCommentLocalData(trackCommentLocalDataImpl: TrackCommentLocalDataImpl): TrackCommentLocalData

@@ -25,6 +25,7 @@ class TrackDtoMapper @Inject constructor(
             dto.length,
             dto.isSnappedToRoads,
             dto.trackType,
+            dto.numLapsRequired,
             dto.ratings.numPositiveVotes,
             dto.ratings.numNegativeVotes,
             dto.yourRating,

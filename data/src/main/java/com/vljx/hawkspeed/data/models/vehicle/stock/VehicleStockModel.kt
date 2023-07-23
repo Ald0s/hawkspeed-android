@@ -8,7 +8,7 @@ data class VehicleStockModel(
     val version: String?,
     val badge: String?,
     val motorType: String,
-    val displacement: Float,
+    val displacement: Int,
     val induction: String?,
     val fuelType: String?,
     val power: Int?,

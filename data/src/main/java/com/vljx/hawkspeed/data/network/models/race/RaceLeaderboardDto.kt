@@ -4,6 +4,7 @@ import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.vljx.hawkspeed.data.network.models.user.UserDto
 import com.vljx.hawkspeed.data.network.models.vehicle.VehicleDto
+import com.vljx.hawkspeed.domain.enums.TrackType
 
 data class RaceLeaderboardDto(
     @Expose
@@ -44,5 +45,13 @@ data class RaceLeaderboardDto(
 
     @Expose
     @SerializedName("track_uid")
-    val trackUid: String
+    val trackUid: String,
+
+    @Expose
+    @SerializedName("track_name")
+    val trackName: String,
+
+    @Expose
+    @SerializedName("track_type")
+    val trackType: TrackType
 )

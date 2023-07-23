@@ -6,9 +6,13 @@ import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleModelsPageDto
 import javax.inject.Inject
 
 class VehicleModelsPageDtoMapper @Inject constructor(
-
+    private val vehicleModelDtoMapper: VehicleModelDtoMapper
 ): DtoMapper<VehicleModelsPageDto, VehicleModelsPageModel> {
     override fun mapFromDto(dto: VehicleModelsPageDto): VehicleModelsPageModel {
-        TODO("Not yet implemented")
+        return VehicleModelsPageModel(
+            vehicleModelDtoMapper.mapFromDtoList(dto.models),
+            dto.thisPage,
+            dto.nextPage
+        )
     }
 }

@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.account.CheckName
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleStock
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestSetupProfile
 import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
 import com.vljx.hawkspeed.domain.usecase.account.CheckNameUseCase
 import com.vljx.hawkspeed.domain.usecase.account.SetupAccountProfileUseCase
+import com.vljx.hawkspeed.domain.usecase.vehicle.stock.GetVehicleStockFromCacheUseCase
 import com.vljx.hawkspeed.ui.component.InputValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -24,7 +26,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -34,14 +35,16 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
 class SetupAccountViewModel @Inject constructor(
-    private val savedStateHandle: SavedStateHandle,
     private val setupAccountProfileUseCase: SetupAccountProfileUseCase,
     private val checkNameUseCase: CheckNameUseCase,
+    private val getVehicleStockFromCacheUseCase: GetVehicleStockFromCacheUseCase,
 
+    private val savedStateHandle: SavedStateHandle,
     @IODispatcher
     private val ioDispatcher: CoroutineDispatcher
 ): ViewModel() {
@@ -65,14 +68,13 @@ class SetupAccountViewModel @Inject constructor(
     // TODO: profile image.
     private val mutableUsername: MutableStateFlow<String?> = MutableStateFlow(null)
     private val mutableBio: MutableStateFlow<String?> = MutableStateFlow(null)
-    private val mutableVehicleInformation: MutableStateFlow<String?> = MutableStateFlow(null)
+    private val mutableSelectedVehicleStockUid: MutableStateFlow<String?> = MutableStateFlow(null)
 
     /**
      * Expose arguments for UI updates.
      */
     val usernameState: StateFlow<String?> = mutableUsername
     val bioState: StateFlow<String?> = mutableBio
-    val vehicleInformationState: StateFlow<String?> = mutableVehicleInformation
 
     /**
      * A clientside validator for the Username. This is a required precursor to checking availability.
@@ -94,13 +96,14 @@ class SetupAccountViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
 
     /**
-     * We require something to be given for the vehicle info.
+     * Flat map the latest selected vehicle stock UID to to a query for that vehicle stock from cache. Configure this as a state flow with null
+     * as the default value, so emissions begin immediately.
      */
-    private val validateVehicleInformationResult: StateFlow<InputValidationResult> =
-        mutableVehicleInformation.map { vehicleInfo ->
-            // TODO: more complex validation.
-            InputValidationResult(!vehicleInfo.isNullOrBlank())
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputValidationResult(false))
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val selectedVehicleStock: StateFlow<VehicleStock?> =
+        mutableSelectedVehicleStockUid.flatMapLatest { vehicleStockUid ->
+            getVehicleStockFromCacheUseCase(vehicleStockUid ?: "")
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * A state that will eventually emit a username status for the currently entered username. The flow must not actually execute until clientside validation for
@@ -151,10 +154,10 @@ class SetupAccountViewModel @Inject constructor(
         combine(
             validateUsernameResult,
             usernameStatusUiState,
-            validateVehicleInformationResult,
+            selectedVehicleStock,
             validateBioResult
-        ) { validateUsername, usernameStatus, validateVehicle, validateBio ->
-            validateUsername.second.isValid && usernameStatus is UsernameStatusUiState.UsernameAvailable && validateVehicle.isValid && validateBio.isValid
+        ) { validateUsername, usernameStatus, vehicleStock, validateBio ->
+            validateUsername.second.isValid && usernameStatus is UsernameStatusUiState.UsernameAvailable && vehicleStock != null && validateBio.isValid
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /**
@@ -164,14 +167,14 @@ class SetupAccountViewModel @Inject constructor(
         combine(
             validateUsernameResult,
             usernameStatusUiState,
-            validateVehicleInformationResult,
+            selectedVehicleStock,
             validateBioResult,
             canSetupProfile
-        ) { validateUsername, usernameStatus, validateVehicleInfo, validateBio, canSetup ->
+        ) { validateUsername, usernameStatus, vehicleStock, validateBio, canSetup ->
             SetupAccountFormUiState.SetupAccountForm(
                 validateUsername.second,
                 usernameStatus,
-                validateVehicleInfo,
+                vehicleStock,
                 validateBio,
                 canSetup
             )
@@ -198,14 +201,14 @@ class SetupAccountViewModel @Inject constructor(
             // Get all required arguments.
             val username: String = mutableUsername.value
                 ?: throw NotImplementedError("Failed to setupAccountProfile(), username can't be null.")
-            val vehicleInformation: String = mutableVehicleInformation.value
-                ?: throw NotImplementedError("Failed to setupAccountProfile(), vehicle info can't be null.")
+            val selectedVehicleStockUid: String = mutableSelectedVehicleStockUid.value
+                ?: throw NotImplementedError("Failed to setupAccountProfile(), vehicle stock uid can't be null.")
             val bio: String? = mutableBio.value
 
             // Now, perform the creation request, emitting all results to our mutable shared state.
             mutableSetupAccountUiState.emitAll(
                 setupAccountProfileUseCase(
-                    RequestSetupProfile(username, RequestCreateVehicle(vehicleInformation), bio)
+                    RequestSetupProfile(username, RequestCreateVehicle(selectedVehicleStockUid), bio)
                 )
                     .flowOn(ioDispatcher)
                     .map { accountResource ->
@@ -238,10 +241,17 @@ class SetupAccountViewModel @Inject constructor(
     }
 
     /**
-     * Update the chosen vehicle information.
+     * Update the chosen vehicle stock UID.
      */
-    fun updateVehicleInformation(vehicleInformation: String) {
-        mutableVehicleInformation.value = vehicleInformation
+    fun selectVehicleStockUid(vehicleStockUid: String) {
+        mutableSelectedVehicleStockUid.value = vehicleStockUid
+    }
+
+    /**
+     * Clear the selected vehicle.
+     */
+    fun clearSelectedVehicle() {
+        mutableSelectedVehicleStockUid.value = null
     }
 
     companion object {

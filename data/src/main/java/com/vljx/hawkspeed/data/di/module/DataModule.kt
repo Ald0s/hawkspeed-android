@@ -28,6 +28,7 @@ import com.vljx.hawkspeed.data.source.track.TrackRemoteData
 import com.vljx.hawkspeed.data.source.user.UserLocalData
 import com.vljx.hawkspeed.data.source.vehicle.VehicleLocalData
 import com.vljx.hawkspeed.data.source.vehicle.VehicleRemoteData
+import com.vljx.hawkspeed.data.source.vehicle.VehicleStockLocalData
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import dagger.Binds
 import dagger.Module
@@ -84,6 +85,9 @@ interface DataModule {
 
     @Binds
     fun bindVehicleRemoteData(vehicleRemoteDataImpl: VehicleRemoteDataImpl): VehicleRemoteData
+
+    @Binds
+    fun bindVehicleStockLocalData(vehicleStockLocalDataImpl: VehicleStockLocalDataImpl): VehicleStockLocalData
 
     @Binds
     fun bindTrackCommentLocalData(trackCommentLocalDataImpl: TrackCommentLocalDataImpl): TrackCommentLocalData

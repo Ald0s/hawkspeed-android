@@ -52,6 +52,10 @@ data class TrackDto(
     val trackType: TrackType,
 
     @Expose
+    @SerializedName("num_laps_required")
+    val numLapsRequired: Int?,
+
+    @Expose
     @SerializedName("ratings")
     val ratings: TrackRatingsDto,
 

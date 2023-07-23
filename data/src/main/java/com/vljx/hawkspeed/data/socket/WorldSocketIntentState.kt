@@ -10,7 +10,9 @@ sealed class WorldSocketIntentState {
         val deviceIdentifier: String,
         val entryToken: String,
         val gameServerInfo: String,
-        val location: PlayerPosition
+        val location: PlayerPosition,
+        val reconnectionAttempts: Int = 10,
+        val reconnectionDelay: Long = 10000
     ): WorldSocketIntentState()
 
     /**

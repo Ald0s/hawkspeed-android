@@ -5,7 +5,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.Expose
 import com.vljx.hawkspeed.data.database.entity.UserEntity
-import com.vljx.hawkspeed.data.database.entity.VehicleEntity
+import com.vljx.hawkspeed.data.database.entity.vehicle.VehicleEntity
+import com.vljx.hawkspeed.domain.enums.TrackType
 
 /**
  * A race entity that holds the outcome of a race. Consider this a leaderboard entry, only completed races can be used with this entity. Cancelled or
@@ -35,5 +36,9 @@ data class RaceLeaderboardEntity(
     @Expose
     val vehicle: VehicleEntity,
     @Expose
-    val trackUid: String
+    val trackUid: String,
+    @Expose
+    val trackName: String,
+    @Expose
+    val trackType: TrackType
 )

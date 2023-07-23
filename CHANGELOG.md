@@ -78,3 +78,17 @@
 * Changed RaceLeaderboardDetailUiState to also show the Track and its Path and associated view model flows,
 * Implemented basic low pass filter for device rotation, yet untested,
 * Added stub for user's race list, vehicle list, vehicle detail and track list.
+
+## Version 1.10.15
+* Changed world socket state to collect on background scope,
+* Added access to network connectivity manager to better monitor ongoing connection,
+* Implemented mappers for stock vehicle objects,
+* Implemented vehicle remote data functions for querying stock vehicle objects,
+* Implemented PagingSource derivative for paging without local cache mediation,
+* Created a choose vehicle screen that allows section by section selection of a new vehicle stock; make->type->model->year->vehicle to use; this is also done with Paging3,
+* Added missing 'num_laps_required' to Track model for supporting circuits,
+* Added track name and track type to race leaderboard outcomes,
+* Decided to use navigation drawer on world map standard screen for the primary menu,
+* Added current cached account consideration to world map view model- to be better informed on the User's capabilities,
+* Fixed track rating system not working correctly. Introduced slight issue where since player is sending location updates, track is being reinserted into cache and is causing constant recomps; can fix by moving track rating to sep state flow & apply distinct,
+* Removed track rating from track preview modal.

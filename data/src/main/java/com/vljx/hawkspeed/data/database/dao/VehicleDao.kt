@@ -2,7 +2,7 @@ package com.vljx.hawkspeed.data.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import com.vljx.hawkspeed.data.database.entity.VehicleEntity
+import com.vljx.hawkspeed.data.database.entity.vehicle.VehicleEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -18,7 +18,7 @@ abstract class VehicleDao: BaseDao<VehicleEntity>() {
     @Query("""
         SELECT *
         FROM vehicle
-        WHERE vehicle.belongsToYou = 1
+        WHERE vehicle.user_isYou = 1
     """)
     abstract fun selectOurVehicles(): Flow<List<VehicleEntity>>
 

@@ -15,6 +15,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
+import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,11 @@ interface WorldSocketRepository {
      * Return the world socket's state shared flow. Use this to receive updates about the socket's connection.
      */
     val worldSocketState: SharedFlow<WorldSocketState>
+
+    /**
+     * Return the world socket's current network connectivity.
+     */
+    val networkConnectivity: StateFlow<Boolean>
 
     /**
      * Return the current game settings state flow. If User changes applicable settings, emissions can be viewed here.
@@ -56,6 +62,11 @@ interface WorldSocketRepository {
      * Update magnetometer readings to the most recent.
      */
     fun updateMagnetometerReadings(requestUpdateMagnetometerReadings: RequestUpdateMagnetometerReadings)
+
+    /**
+     * Update the network connectivity for the default network.
+     */
+    fun updateNetworkConnectivity(requestUpdateNetworkConnectivity: RequestUpdateNetworkConnectivity)
 
     /**
      * Inform the socket state of changes to location availability.

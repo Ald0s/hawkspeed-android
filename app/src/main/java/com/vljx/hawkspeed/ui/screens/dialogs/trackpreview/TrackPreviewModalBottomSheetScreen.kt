@@ -235,13 +235,7 @@ fun PreviewTrackPreviewBottomSheet(
                 TrackPreviewModalBottomSheet(
                     trackPreviewUiState = TrackPreviewUiState.TrackPreview(
                         track = track,
-                        raceModePromptUiState = RaceModePromptUiState.CantEnterRaceMode,
-                        ratingUiState = TrackRatingUiState.GotTrackRating(
-                            trackUid = track.trackUid,
-                            numPositiveVotes = track.numPositiveVotes,
-                            numNegativeVotes = track.numNegativeVotes,
-                            yourRating = track.yourRating
-                        )
+                        raceModePromptUiState = RaceModePromptUiState.CantEnterRaceMode
                     )
                 )
             }
@@ -260,13 +254,7 @@ fun PreviewTrackPreview(
         TrackPreview(
             trackPreviewUi = TrackPreviewUiState.TrackPreview(
                 track = track,
-                raceModePromptUiState = RaceModePromptUiState.CantEnterRaceMode,
-                ratingUiState = TrackRatingUiState.GotTrackRating(
-                    trackUid = track.trackUid,
-                    numPositiveVotes = track.numPositiveVotes,
-                    numNegativeVotes = track.numNegativeVotes,
-                    yourRating = track.yourRating
-                )
+                raceModePromptUiState = RaceModePromptUiState.CantEnterRaceMode
             ),
             modifier = Modifier
                 .padding(top = 32.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)

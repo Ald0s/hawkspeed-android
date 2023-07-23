@@ -3,6 +3,7 @@ package com.vljx.hawkspeed.domain.models.race
 import android.annotation.SuppressLint
 import android.os.Parcelable
 import com.vljx.hawkspeed.domain.Extension.toRaceTime
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
 import kotlinx.parcelize.IgnoredOnParcel
@@ -27,7 +28,9 @@ data class RaceLeaderboard(
     val percentMissed: Int,
     val player: User,
     val vehicle: Vehicle,
-    val trackUid: String
+    val trackUid: String,
+    val trackName: String,
+    val trackType: TrackType
 ): Parcelable {
     /**
      * Converts stopwatch, which is a count of milliseconds for the duration of the race, to a format like: 13:23:421 for minutes, seconds and milliseconds.

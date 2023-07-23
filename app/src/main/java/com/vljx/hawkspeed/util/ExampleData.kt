@@ -13,6 +13,10 @@ import com.vljx.hawkspeed.domain.models.track.TrackPoint
 import com.vljx.hawkspeed.domain.models.track.TrackPointDraft
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleMake
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleModel
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleStock
+import com.vljx.hawkspeed.domain.models.vehicle.stock.VehicleType
 
 /**
  * TODO: exclude this entire file from production code.
@@ -56,13 +60,30 @@ object ExampleData {
 
     fun getExampleVehicle(
         vehicleUid: String = "VEHICLE01",
-        text: String = "1994 Toyota Supra",
-        belongsToYou: Boolean = true
+        title: String = "1994 Toyota Supra",
+        vehicleStock: VehicleStock = VehicleStock(
+            "VEHICLESTOCK01",
+            VehicleMake("MAKE01", "Toyota"),
+            VehicleModel("MODEL01", "Supra", "MAKE01", VehicleType("CAR", "Car", "A vehicle.")),
+            1994,
+            "JZA80",
+            null,
+            "piston",
+            3000,
+            "NA",
+            "P",
+            null,
+            null,
+            "M",
+            5
+        ),
+        user: User = getExampleUser()
     ): Vehicle =
         Vehicle(
             vehicleUid,
-            text,
-            belongsToYou
+            title,
+            vehicleStock,
+            user
         )
 
     fun getExampleTrack(
@@ -80,6 +101,8 @@ object ExampleData {
         isVerified: Boolean = true,
         length: Int = 7623,
         isSnappedToRoads: Boolean = true,
+        trackType: TrackType = TrackType.SPRINT,
+        numLapsRequired: Int? = null,
         numPositiveVotes: Int = 6,
         numNegativeVotes: Int = 2,
         yourRating: Boolean? = null,
@@ -100,7 +123,8 @@ object ExampleData {
             isVerified,
             length,
             isSnappedToRoads,
-            TrackType.SPRINT,
+            trackType,
+            numLapsRequired,
             numPositiveVotes,
             numNegativeVotes,
             yourRating,
@@ -158,10 +182,10 @@ object ExampleData {
 
     ): List<RaceLeaderboard> =
         listOf(
-            RaceLeaderboard("RACE01", finishingPlace = 1, 1672882465000, 1672882609000, 144000, 19, 0, getExampleUser(), Vehicle("VEHICLE01", "1994 Toyota Supra", true), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE02", finishingPlace = 2, 1673007209000, 1673007371000,162000, 19, 0, User("USER02", "user1", "This is user1's bio", 0, false, false), Vehicle("VEHICLE02", "1994 Toyota Supra", false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE03", finishingPlace = 3, 1673003429000, 1673003603000,174000, 19, 0, User("USER03", "user2", "This is user2's bio", 0, false, false), Vehicle("VEHICLE03", "1994 Toyota Supra", false), "YARRABOULEVARD"),
-            RaceLeaderboard("RACE04", finishingPlace = 4, 1672954990000, 1672955176000,186000, 19, 0, User("USER04", "user3", "This is user3's bio", 0, false, false), Vehicle("VEHICLE04", "1994 Toyota Supra", false), "YARRABOULEVARD")
+            RaceLeaderboard("RACE01", finishingPlace = 1, 1672882465000, 1672882609000, 144000, 19, 0, getExampleUser(), getExampleVehicle(vehicleUid = "VEHICLE01"), "YARRABOULEVARD", "Yarra Boulevard", TrackType.SPRINT),
+            RaceLeaderboard("RACE02", finishingPlace = 2, 1673007209000, 1673007371000,162000, 19, 0, User("USER02", "user1", "This is user1's bio", 0, false, false), getExampleVehicle(vehicleUid = "VEHICLE02"), "YARRABOULEVARD", "Yarra Boulevard", TrackType.SPRINT),
+            RaceLeaderboard("RACE03", finishingPlace = 3, 1673003429000, 1673003603000,174000, 19, 0, User("USER03", "user2", "This is user2's bio", 0, false, false), getExampleVehicle(vehicleUid = "VEHICLE03"), "YARRABOULEVARD", "Yarra Boulevard", TrackType.SPRINT),
+            RaceLeaderboard("RACE04", finishingPlace = 4, 1672954990000, 1672955176000,186000, 19, 0, User("USER04", "user3", "This is user3's bio", 0, false, false), getExampleVehicle(vehicleUid = "VEHICLE04"), "YARRABOULEVARD", "Yarra Boulevard", TrackType.SPRINT)
         )
 
     fun getExampleRacingRace(
@@ -201,7 +225,9 @@ object ExampleData {
         percentMissed: Int = 0,
         player: User = getExampleUser(),
         vehicle: Vehicle = getExampleVehicle(),
-        trackUid: String = "YARRABOULEVARD"
+        trackUid: String = "YARRABOULEVARD",
+        trackName: String = "Yarra Boulevard",
+        trackType: TrackType = TrackType.SPRINT
     ): RaceLeaderboard =
         RaceLeaderboard(
             raceUid = raceUid,
@@ -213,7 +239,9 @@ object ExampleData {
             percentMissed = percentMissed,
             player = player,
             vehicle = vehicle,
-            trackUid = trackUid
+            trackUid = trackUid,
+            trackName = trackName,
+            trackType = trackType
         )
 
     fun getExampleCancelledRace(

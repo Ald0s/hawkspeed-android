@@ -1,4 +1,6 @@
 package com.vljx.hawkspeed.data.models.vehicle.stock
-
-class VehicleTypeModel {
-}
+data class VehicleTypeModel(
+    val typeId: String,
+    val typeName: String,
+    val description: String
+)

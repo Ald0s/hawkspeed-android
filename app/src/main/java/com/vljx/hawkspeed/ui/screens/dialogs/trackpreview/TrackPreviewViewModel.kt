@@ -39,10 +39,6 @@ import javax.inject.Inject
 class TrackPreviewViewModel @Inject constructor(
     private val getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     private val getTrackUseCase: GetTrackUseCase,
-    private val upvoteTrackUseCase: UpvoteTrackUseCase,
-    private val downvoteTrackUseCase: DownvoteTrackUseCase,
-    private val clearTrackRatingUseCase: ClearTrackRatingUseCase,
-    private val getTrackLatestCommentsUseCase: GetTrackLatestCommentsUseCase,
 
     @IODispatcher
     private val ioDispatcher: CoroutineDispatcher
@@ -114,16 +110,7 @@ class TrackPreviewViewModel @Inject constructor(
                                  */
                                 else -> RaceModePromptUiState.CantEnterRaceMode
                             }
-                        } ?: RaceModePromptUiState.CantEnterRaceMode,
-                        // Transform the track into a track rating state here.
-                        resource.data!!.let { track ->
-                            TrackRatingUiState.GotTrackRating(
-                                track.trackUid,
-                                track.numPositiveVotes,
-                                track.numNegativeVotes,
-                                track.yourRating
-                            )
-                        }
+                        } ?: RaceModePromptUiState.CantEnterRaceMode
                     )
 
                 /**
@@ -154,35 +141,5 @@ class TrackPreviewViewModel @Inject constructor(
     fun selectTrack(trackUid: String) {
         Timber.d("Selecting track: $trackUid")
         mutableSelectedTrackUid.tryEmit(trackUid)
-    }
-
-    /**
-     * Called when the upvote button is clicked.
-     */
-    fun upvoteTrack(trackUid: String) {
-        // Run the upvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch(ioDispatcher) {
-            upvoteTrackUseCase(trackUid)
-        }
-    }
-
-    /**
-     * Called when the downvote button is clicked.
-     */
-    fun downvoteTrack(trackUid: String) {
-        // Run the downvote use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch(ioDispatcher) {
-            downvoteTrackUseCase(trackUid)
-        }
-    }
-
-    /**
-     * Called when an already-selected rating state is clicked again. This will clear the rating.
-     */
-    fun clearTrackRating(trackUid: String) {
-        // Run the clear rating use case on view model scope. We shouldn't have to do anything with the result, since latest should come from cache.
-        viewModelScope.launch(ioDispatcher) {
-            clearTrackRatingUseCase(trackUid)
-        }
     }
 }

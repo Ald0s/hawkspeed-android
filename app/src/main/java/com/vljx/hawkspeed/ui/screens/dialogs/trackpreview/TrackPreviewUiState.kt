@@ -10,8 +10,7 @@ sealed class TrackPreviewUiState {
      */
     data class TrackPreview(
         val track: Track,
-        val raceModePromptUiState: RaceModePromptUiState,
-        val ratingUiState: TrackRatingUiState
+        val raceModePromptUiState: RaceModePromptUiState
     ): TrackPreviewUiState()
 
     /**

@@ -14,6 +14,7 @@ import com.vljx.hawkspeed.data.database.dao.TrackPointDao
 import com.vljx.hawkspeed.data.database.dao.TrackPointDraftDao
 import com.vljx.hawkspeed.data.database.dao.UserDao
 import com.vljx.hawkspeed.data.database.dao.VehicleDao
+import com.vljx.hawkspeed.data.database.dao.VehicleStockDao
 import com.vljx.hawkspeed.data.di.module.DatabaseModule
 import dagger.Module
 import dagger.Provides
@@ -73,6 +74,10 @@ class FakeDatabaseModule {
     @Provides
     fun provideVehicleDao(appDatabase: AppDatabase): VehicleDao =
         appDatabase.vehicleDao()
+
+    @Provides
+    fun provideVehicleStockDao(appDatabase: AppDatabase): VehicleStockDao =
+        appDatabase.vehicleStockDao()
 
     @Provides
     fun provideTrackCommentDao(appDatabase: AppDatabase): TrackCommentDao =

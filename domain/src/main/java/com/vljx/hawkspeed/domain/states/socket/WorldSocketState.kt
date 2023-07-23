@@ -14,21 +14,16 @@ sealed class WorldSocketState {
     ): WorldSocketState()
 
     /**
-     * A state for when the socket is attempting a connection.
+     * A state for when the socket is attempting a connection or for when the socket is attempting a reconnection. Supply the resource error only in the latter case.
      */
-    object Connecting: WorldSocketState()
-
-    /**
-     * A state for when connection to the game server was actively terminated by the server. This different from the disconnected state because when this state
-     * is used, the implication is that the problem isn't as simple to solve as just 'retrying'.
-     */
-    data class ConnectionRefused(
+    data class Connecting(
         val resourceError: ResourceError? = null
     ): WorldSocketState()
 
     /**
-     * A state for when the socket has been disconnected, optionally given an error. A null error object may indicate that the disconnection was prompted by the
-     * client itself. This disconnection state will allow reconnection.
+     * A state for when the socket is in the disconnected state. This can be invoked for one of two reasons; when 'resourceError' is null, this is the natural default disconnected
+     * state and essentially invites a connection attempt. If resourceError is not null, this disconnection has been actively invoked and therefore must be cleared by setting the
+     * state back to a blank disconnected state to proceed.
      */
     data class Disconnected(
         val resourceError: ResourceError? = null

@@ -1,4 +1,10 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.racelist
 
-class RaceListScreen {
+import androidx.compose.runtime.Composable
+
+@Composable
+fun RaceListScreen(
+
+) {
+
 }

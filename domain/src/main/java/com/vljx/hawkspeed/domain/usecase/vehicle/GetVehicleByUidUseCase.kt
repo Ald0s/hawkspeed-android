@@ -14,5 +14,5 @@ class GetVehicleByUidUseCase @Inject constructor(
     private val vehicleRepository: VehicleRepository
 ): BaseUseCase<RequestGetVehicle, Flow<Resource<Vehicle>>> {
     override fun invoke(params: RequestGetVehicle): Flow<Resource<Vehicle>> =
-        vehicleRepository.getVehicleByUid(params)
+        vehicleRepository.getUserVehicleByUid(params)
 }

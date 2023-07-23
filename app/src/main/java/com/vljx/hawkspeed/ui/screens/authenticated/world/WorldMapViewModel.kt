@@ -5,6 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.VisibleRegion
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
+import com.vljx.hawkspeed.domain.ResourceError
+import com.vljx.hawkspeed.domain.ResourceError.GeneralError.Companion.TYPE_DEVICE
+import com.vljx.hawkspeed.domain.exc.socket.NetworkConnectivityException
+import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
+import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import com.vljx.hawkspeed.domain.models.world.GameSettings
@@ -16,8 +21,10 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.world.RequestGetWorldObjects
+import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.GetNetworkConnectivityUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetWorldSocketStateUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.RequestJoinWorldUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
@@ -50,7 +57,9 @@ import javax.inject.Inject
 class WorldMapViewModel @Inject constructor(
     getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     getWorldSocketStateUseCase: GetWorldSocketStateUseCase,
+    getNetworkConnectivityUseCase: GetNetworkConnectivityUseCase,
 
+    private val getCachedAccountUseCase: GetCachedAccountUseCase,
     private val getWorldObjectsUseCase: GetWorldObjectsUseCase,
     private val getTrackWithPathUseCase: GetTrackWithPathUseCase,
 
@@ -67,8 +76,24 @@ class WorldMapViewModel @Inject constructor(
     data class DeviceAptitude(
         val locationPermissionState: LocationPermissionState,
         val locationSettingsState: LocationSettingsState,
-        val sensorState: SensorState
+        val sensorState: SensorState,
+        val networkConnectivity: Boolean
     )
+
+    /**
+     * A data class for containing all world socket related objects and emissions.
+     */
+    data class WorldSocketData(
+        val locationWithOrientation: PlayerPositionWithOrientation?,
+        val socketState: WorldSocketState
+    )
+
+    /**
+     * Get the current account cached in storage. We'll configure this as a state flow.
+     */
+    private val currentCachedAccount: StateFlow<Account?> =
+        getCachedAccountUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Get the current location from world socket session.
@@ -82,6 +107,35 @@ class WorldMapViewModel @Inject constructor(
      */
     private val currentSocketSessionState: SharedFlow<WorldSocketState> =
         getWorldSocketStateUseCase(Unit)
+
+    /**
+     * Will only allow emissions if the old is no longer null; which means this flow will not emit anything except the first
+     * non-null location after a null location.
+     */
+    private val currentLocationWithOrientationDistinctOnNull: StateFlow<PlayerPositionWithOrientation?> =
+        innerCurrentLocationWithOrientation.distinctUntilChanged { old, new ->
+            old != null
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Collapse both the current location with orientation and the world socket state into a single object.
+     */
+    private val latestWorldSocketData: StateFlow<WorldSocketData?> =
+        combine(
+            currentLocationWithOrientationDistinctOnNull,
+            currentSocketSessionState
+        ) { locationWithOrientation, worldSocketState ->
+            WorldSocketData(
+                locationWithOrientation,
+                worldSocketState
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Get the network connectivity.
+     */
+    private val networkConnectivity: StateFlow<Boolean> =
+        getNetworkConnectivityUseCase(Unit)
 
     /**
      * The current request for world objects. Emitting to this state flow will cause a revision of world objects currently
@@ -102,15 +156,6 @@ class WorldMapViewModel @Inject constructor(
                 "http://192.168.0.44:5000"
             )
         )
-
-    /**
-     * Will only allow emissions if the old is no longer null; which means this flow will not emit anything except the first
-     * non-null location after a null location.
-     */
-    private val currentLocationWithOrientationDistinctOnNull: StateFlow<PlayerPositionWithOrientation?> =
-        innerCurrentLocationWithOrientation.distinctUntilChanged { old, new ->
-            old != null
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * A shared flow for the latest location permission state, we will replay a single value.
@@ -146,12 +191,14 @@ class WorldMapViewModel @Inject constructor(
             mutableLocationSettingsState
                 .distinctUntilChanged(),
             mutableSensorsState
-                .distinctUntilChanged()
-        ) { permissionState, settingsState, sensorState ->
+                .distinctUntilChanged(),
+            networkConnectivity
+        ) { permissionState, settingsState, sensorState, network ->
             DeviceAptitude(
                 permissionState,
                 settingsState,
-                sensorState
+                sensorState,
+                network
             )
         }
 
@@ -181,31 +228,43 @@ class WorldMapViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WorldObjectsUiState.Loading)
 
     /**
-     * Combine all parameters required in determining what UI state the world should currently be displaying.
-     *
-     * TODO: world map action states that are non-standard such as race mode and record track mode should not work with approximate only location. This check ideally should
-     * TODO: be performed much sooner, such as disabling related buttons that trigger race mode/record track mode for approximate only states. But its also a good idea to
-     * TODO: support a mini check thereof in this flow; perhaps like an Error state that displays a dialog with grayed boundaries, that lets the Player know this action is
-     * TODO: not supported until fine location access given, and with a dialog button that emits standard mode to be used on click.
+     * Combine all parameters to determine the current state of the world map display. This is the central flow that will change the entire UI.
      */
     val worldMapUiState: StateFlow<WorldMapUiState> =
         combine(
+            currentCachedAccount,
             gameSettings,
             mutableWorldActionState,
             currentDeviceAptitude,
-            currentLocationWithOrientationDistinctOnNull,
-            currentSocketSessionState
-        ) { settings, worldAction, deviceAptitude, locationWithOrientation, socketState ->
+            latestWorldSocketData
+        ) { account, settings, worldAction, deviceAptitude, worldSocketData ->
             val permissionState = deviceAptitude.locationPermissionState
             val settingsState = deviceAptitude.locationSettingsState
             val sensorState = deviceAptitude.sensorState
+            val network = deviceAptitude.networkConnectivity
 
             return@combine when {
+                /**
+                 * If account or world socket data is null, we are in a loading state.
+                 */
+                account == null || worldSocketData == null ->
+                    WorldMapUiState.Loading
+
                 /**
                  * If the current device does not have the required sensors, or there's an issue with them, fail.
                  */
                 sensorState is SensorState.MissingSensors ->
                     WorldMapUiState.DeviceSensorsIneptFailure(sensorState)
+
+                /**
+                 * If the current device does not have network connectivity, emit a ConnectionFailure state with an appropriate reason.
+                 * TODO: here's where we can analyse specifics of the network connectivity state, when we augment the value passed from world socket.
+                 * TODO: our specifics should then be passed to network connectivity exception.
+                 */
+                !network ->
+                    WorldMapUiState.ConnectionFailure(
+                        ResourceError.GeneralError(TYPE_DEVICE, NetworkConnectivityException())
+                    )
 
                 /**
                  * Fail with game settings failure if either the User has decided against connecting to game server (canConnectGame is false) or if server has reported
@@ -224,32 +283,29 @@ class WorldMapViewModel @Inject constructor(
                 /**
                  * Fail with no location failure if there is no current location. This will prompt world service to start receiving location updates if not already.
                  */
-                locationWithOrientation == null ->
+                worldSocketData.locationWithOrientation == null ->
                     WorldMapUiState.NoLocation(null)
 
                 /**
-                 * If socket state is disconnected and resource error is not null, or socket state is connection refused, emit a connection failure error which will deal
-                 * with whatever the problem was.
+                 * If socket state is disconnected, check the value of resource error. A null resource error means that socket is simply in its natural disconnect state,
+                 * and a connection attempt can be attempted. Otherwise, a non-null resource error indicates there is a specific reason disconnection was triggered.
                  */
-                socketState is WorldSocketState.Disconnected && socketState.resourceError != null ->
-                    WorldMapUiState.ConnectionFailure(socketState.resourceError)
-                socketState is WorldSocketState.ConnectionRefused ->
-                    WorldMapUiState.ConnectionFailure(socketState.resourceError)
-
-                /**
-                 * Otherwise, if socket state is disconnected, we're simply not yet connected.
-                 */
-                socketState is WorldSocketState.Disconnected ->
-                    WorldMapUiState.NotConnected(
-                        settings,
-                        locationWithOrientation
-                    )
+                worldSocketData.socketState is WorldSocketState.Disconnected ->
+                    when(worldSocketData.socketState.resourceError) {
+                        null -> WorldMapUiState.NotConnected(
+                            settings,
+                            worldSocketData.locationWithOrientation
+                        )
+                        else -> WorldMapUiState.ConnectionFailure(worldSocketData.socketState.resourceError)
+                    }
 
                 /**
                  * Emit the loading state if we are currently connecting to the server.
                  */
-                socketState is WorldSocketState.Connecting ->
-                    WorldMapUiState.Connecting
+                worldSocketData.socketState is WorldSocketState.Connecting ->
+                    WorldMapUiState.Connecting(
+                        worldSocketData.socketState.resourceError
+                    )
 
                 /**
                  * If world action requests standard mode, emit the standard mode UI state with all applicable arguments. Coarse location access is allowed
@@ -257,11 +313,12 @@ class WorldMapViewModel @Inject constructor(
                  */
                 worldAction is WorldActionState.StandardMode ->
                     WorldMapUiState.WorldMapLoadedStandardMode(
-                    (socketState as WorldSocketState.Connected).playerUid,
-                    settings,
-                    locationWithOrientation,
-                    permissionState is LocationPermissionState.OnlyCoarseGranted
-                )
+                        (worldSocketData.socketState as WorldSocketState.Connected).playerUid,
+                        account,
+                        settings,
+                        worldSocketData.locationWithOrientation,
+                        permissionState is LocationPermissionState.OnlyCoarseGranted
+                    )
 
                 /**
                  * If world action is either record track or race mode, and we only have coarse location access, fail with the error world state communicating that
@@ -278,9 +335,10 @@ class WorldMapViewModel @Inject constructor(
                  */
                 worldAction is WorldActionState.RecordTrackMode ->
                     WorldMapUiState.WorldMapLoadedRecordTrackMode(
-                        (socketState as WorldSocketState.Connected).playerUid,
+                        (worldSocketData.socketState as WorldSocketState.Connected).playerUid,
+                        account,
                         settings,
-                        locationWithOrientation
+                        worldSocketData.locationWithOrientation
                     )
 
                 /**
@@ -288,9 +346,10 @@ class WorldMapViewModel @Inject constructor(
                  */
                 worldAction is WorldActionState.RaceMode ->
                     WorldMapUiState.WorldMapLoadedRaceMode(
-                        (socketState as WorldSocketState.Connected).playerUid,
+                        (worldSocketData.socketState as WorldSocketState.Connected).playerUid,
+                        account,
                         settings,
-                        locationWithOrientation,
+                        worldSocketData.locationWithOrientation,
                         worldAction.trackUid
                     )
 
@@ -333,15 +392,19 @@ class WorldMapViewModel @Inject constructor(
      */
     fun updateViewport(visibleRegion: VisibleRegion, zoom: Float) {
         viewModelScope.launch(ioDispatcher) {
-            sendViewportUpdateUseCase(
-                RequestViewportUpdate(
-                    visibleRegion.latLngBounds.southwest.longitude,
-                    visibleRegion.latLngBounds.southwest.latitude,
-                    visibleRegion.latLngBounds.northeast.longitude,
-                    visibleRegion.latLngBounds.northeast.latitude,
-                    zoom
+            try {
+                sendViewportUpdateUseCase(
+                    RequestViewportUpdate(
+                        visibleRegion.latLngBounds.southwest.longitude,
+                        visibleRegion.latLngBounds.southwest.latitude,
+                        visibleRegion.latLngBounds.northeast.longitude,
+                        visibleRegion.latLngBounds.northeast.latitude,
+                        zoom
+                    )
                 )
-            )
+            } catch(nce: NotConnectedException) {
+                // Nothing to actually do here, we'll just ignore this.
+            }
         }
     }
 

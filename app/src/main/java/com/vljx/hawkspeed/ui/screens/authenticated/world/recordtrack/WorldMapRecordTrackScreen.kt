@@ -746,6 +746,7 @@ fun PreviewWorldMapRecordTrack(
         RecordTrack(
             recordTrackMode = WorldMapUiState.WorldMapLoadedRecordTrackMode(
                 "PLAYER01",
+                account = ExampleData.getExampleAccount(),
                 GameSettings(true, null, null),
                 locationWithOrientation = PlayerPositionWithOrientation(
                     PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),

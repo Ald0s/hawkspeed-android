@@ -1,18 +1,28 @@
 package com.vljx.hawkspeed.data.network.api
 
 import com.vljx.hawkspeed.data.network.models.vehicle.OurVehiclesDto
+import com.vljx.hawkspeed.data.network.models.vehicle.VehicleDto
 import com.vljx.hawkspeed.data.network.models.vehicle.VehiclesDto
 import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleMakesPageDto
 import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleModelsPageDto
 import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleStocksPageDto
 import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleTypesPageDto
 import com.vljx.hawkspeed.data.network.models.vehicle.stock.VehicleYearsPageDto
+import com.vljx.hawkspeed.data.network.requestmodels.RequestCreateVehicleDto
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface VehicleService {
+    @GET("api/v1/user/{userUid}/vehicles/{vehicleUid}")
+    suspend fun queryUserVehicle(
+        @Path(value = "userUid") userUid: String,
+        @Path(value = "vehicleUid") vehicleUid: String
+    ): Response<VehicleDto>
+
     @GET("api/v1/vehicles")
     suspend fun queryOurVehicles(): Response<OurVehiclesDto>
 
@@ -20,6 +30,11 @@ interface VehicleService {
     suspend fun queryVehiclesFor(
         @Path(value = "userUid") userUid: String
     ): Response<VehiclesDto>
+
+    @POST("api/v1/vehicles/new")
+    suspend fun createNewVehicle(
+        @Body requestCreateVehicleDto: RequestCreateVehicleDto
+    ): Response<VehicleDto>
 
     @GET("api/v1/vehicles/stock")
     suspend fun vehicleMakeSearch(

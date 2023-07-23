@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world
 
 import com.vljx.hawkspeed.domain.ResourceError
+import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
@@ -11,6 +12,7 @@ sealed class WorldMapUiState {
      */
     data class WorldMapLoadedRecordTrackMode(
         val playerUid: String,
+        val account: Account,
         val gameSettings: GameSettings,
         val locationWithOrientation: PlayerPositionWithOrientation
     ): WorldMapUiState()
@@ -20,6 +22,7 @@ sealed class WorldMapUiState {
      */
     data class WorldMapLoadedRaceMode(
         val playerUid: String,
+        val account: Account,
         val gameSettings: GameSettings,
         val locationWithOrientation: PlayerPositionWithOrientation,
         val trackUid: String
@@ -30,6 +33,7 @@ sealed class WorldMapUiState {
      */
     data class WorldMapLoadedStandardMode(
         val playerUid: String,
+        val account: Account,
         val gameSettings: GameSettings,
         val locationWithOrientation: PlayerPositionWithOrientation,
         val approximateOnly: Boolean
@@ -92,9 +96,12 @@ sealed class WorldMapUiState {
     ): WorldMapUiState()
 
     /**
-     * A state that indicates a connection to the game server is in progress.
+     * A state that indicates a connection to the game server is in progress. If the resource error is not null, that means the error
+     * provided is the reason for the current attempt at connecting. For example, lost connection to server.
      */
-    object Connecting: WorldMapUiState()
+    data class Connecting(
+        val resourceError: ResourceError? = null
+    ): WorldMapUiState()
 
     /**
      * A failure state that reports a failure to connect to the server.

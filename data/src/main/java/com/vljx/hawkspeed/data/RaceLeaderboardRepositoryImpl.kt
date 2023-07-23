@@ -1,5 +1,6 @@
 package com.vljx.hawkspeed.data
 
+import androidx.paging.PagingData
 import com.vljx.hawkspeed.data.mapper.race.RaceLeaderboardMapper
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardLocalData
 import com.vljx.hawkspeed.data.source.race.RaceLeaderboardRemoteData
@@ -7,6 +8,7 @@ import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.repository.RaceLeaderboardRepository
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
+import com.vljx.hawkspeed.domain.requestmodels.user.RequestPageRaceHistory
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 

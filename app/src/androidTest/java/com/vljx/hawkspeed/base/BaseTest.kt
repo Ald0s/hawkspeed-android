@@ -81,10 +81,10 @@ open class BaseTest {
             trackUid,
             trackJsonObject.getString("name"),
             trackJsonObject.getString("description"),
-            UserModel("USER01", "aldos", 0, false, true),
+            UserModel("USER01", "aldos", "bio", 0, false, true),
             listOf(),
             trackPathModel.points[0],
-            true, true, TrackType.SPRINT,
+            180f, true,1893, true, TrackType.SPRINT,
             0, 0, null, 0, true, true, true, true
         )
 

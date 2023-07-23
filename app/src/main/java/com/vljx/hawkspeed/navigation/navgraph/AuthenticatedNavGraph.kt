@@ -1,5 +1,8 @@
 package com.vljx.hawkspeed.navigation.navgraph
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -8,12 +11,17 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import com.vljx.hawkspeed.navigation.AppDestination
 import com.vljx.hawkspeed.ui.screens.authenticated.authenticatedmain.AuthenticatedMainScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleViewModel.Companion.ARG_VEHICLE_STOCK_UID
 import com.vljx.hawkspeed.ui.screens.authenticated.leaderboarddetail.RaceLeaderboardDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setup.SetupAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setuptrack.SetupTrackDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackDetailScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.userdetail.UserDetailScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.vehicledetail.VehicleDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.verify.VerifyAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapScreen
+import timber.log.Timber
 
 const val AUTHENTICATED_GRAPH_ROUTE = "authenticated"
 
@@ -49,6 +57,15 @@ object SetupAccountDestination: AppDestination("setup_account_destination") {
 }
 
 /**
+ * This is the choose vehicle screen; to be used to select a new vehicle stock for use.
+ */
+object ChooseVehicleDestination: AppDestination("choose_vehicle_destination") {
+    /**
+     * TODO: there's a few arguments to define here; existing make UID, type Id, model UID, year etc.
+     */
+}
+
+/**
  * This is the verify account screen; to be used if the account requires verification. This requires a User's UID.
  */
 object VerifyAccountDestination: AppDestination("verify_account_destination") {
@@ -75,6 +92,25 @@ object UserDetailDestination: AppDestination("user_detail_destination") {
     val routeWithArgs = "$route/{${userUidArg}}"
     val arguments = listOf(
         navArgument(userUidArg) {
+            type = NavType.StringType
+            nullable = false
+        }
+    )
+}
+
+/**
+ * Viewing a Vehicle's detail.
+ */
+object VehicleDetailDestination: AppDestination("vehicle_detail_destination") {
+    const val userUidArg = "userUid"
+    const val vehicleUidArg = "vehicleUid"
+    val routeWithArgs = "$route/{${userUidArg}}/{${vehicleUidArg}}"
+    val arguments = listOf(
+        navArgument(userUidArg) {
+            type = NavType.StringType
+            nullable = false
+        },
+        navArgument(vehicleUidArg) {
             type = NavType.StringType
             nullable = false
         }
@@ -202,6 +238,28 @@ fun NavGraphBuilder.authenticatedNavGraph(
                     ) {
                         launchSingleTop = true
                     }
+                },
+                onChooseVehicleClicked = {
+                    // When choose vehicle is requested, navigate to the ChooseVehicleScreen.
+                    navHostController.navigate(
+                        ChooseVehicleDestination.route
+                    )
+                },
+                navHostController = navHostController
+            )
+        }
+
+        composable(
+            route = ChooseVehicleDestination.route
+        ) { navBackStackEntry ->
+            ChooseVehicleScreen(
+                onVehicleStockChosen = { vehicleStock ->
+                    // Now set the chosen vehicle stock UID in saved state handle.
+                    navHostController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(ARG_VEHICLE_STOCK_UID, vehicleStock.vehicleStockUid)
+                    // Pop back stack to return to previous screen.
+                    navHostController.popBackStack()
                 }
             )
         }
@@ -218,6 +276,10 @@ fun NavGraphBuilder.authenticatedNavGraph(
                         UserDetailDestination.withArgs(currentUserUid)
                     )
                 },
+                onViewVehiclesClicked = { userUid -> /* TODO: view all vehicles for this user. */ },
+                onViewTracksClicked = { userUid -> /* TODO: view all tracks for this user. */ },
+                onSettingsClicked = { /* TODO: navigate to our settings. */ },
+
                 onViewUserDetail = { user ->
                     // Navigate to User detail, with the given user's UID.
                     navHostController.navigate(
@@ -225,7 +287,7 @@ fun NavGraphBuilder.authenticatedNavGraph(
                     )
                 },
                 onViewTrackDetail = { track ->
-                    // Navigate to track detail, with the given track's UID, and false for both viewing leaderboard and wanting to comment.
+                    // Navigate to track detail, with the given track's UID.
                     navHostController.navigate(
                         TrackDetailDestination.withArgs(track.trackUid)
                     )
@@ -249,7 +311,8 @@ fun NavGraphBuilder.authenticatedNavGraph(
             route = UserDetailDestination.routeWithArgs,
             arguments = UserDetailDestination.arguments
         ) { navBackStackEntry ->
-            // TODO: show the user detail screen.
+            // Show the user detail screen.
+            UserDetailScreen()
         }
 
         composable(
@@ -257,7 +320,35 @@ fun NavGraphBuilder.authenticatedNavGraph(
             arguments = TrackDetailDestination.arguments
         ) { navBackStackEntry ->
             // Show the track detail screen.
-            TrackDetailScreen()
+            TrackDetailScreen(
+                onViewUserDetail = { user ->
+                    // Navigate to the user detail screen.
+                    navHostController.navigate(
+                        UserDetailDestination.withArgs(user.userUid)
+                    )
+                },
+                onViewRaceLeaderboardDetail = { raceLeaderboard ->
+                    // Navigate to the leaderboard detail.
+                    navHostController.navigate(
+                        RaceLeaderboardDetailDestination.withArgs(raceLeaderboard.raceUid, raceLeaderboard.trackUid)
+                    )
+                }
+            )
+        }
+
+        composable(
+            route = VehicleDetailDestination.routeWithArgs,
+            arguments = VehicleDetailDestination.arguments
+        ) { navBackStackEntry ->
+            // Show the vehicle detail screen.
+            VehicleDetailScreen(
+                onViewUserDetail = { user ->
+                    // Navigate to the user detail screen.
+                    navHostController.navigate(
+                        UserDetailDestination.withArgs(user.userUid)
+                    )
+                }
+            )
         }
 
         composable(
@@ -267,16 +358,22 @@ fun NavGraphBuilder.authenticatedNavGraph(
             // Show the race leaderboard detail screen.
             RaceLeaderboardDetailScreen(
                 onViewUserDetailClicked = { user ->
-                    // TODO: when we click on something that should show another user's detail, navigate there now.
-                    throw NotImplementedError("onViewUserDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                    // Navigate to the user detail screen.
+                    navHostController.navigate(
+                        UserDetailDestination.withArgs(user.userUid)
+                    )
                 },
                 onViewTrackDetailClicked = { track ->
-                    // TODO: when we click on something that should show a track's detail, navigate there now.
-                    throw NotImplementedError("onViewTrackDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                    // Navigate to track detail, with the given track's UID.
+                    navHostController.navigate(
+                        TrackDetailDestination.withArgs(track.trackUid)
+                    )
                 },
                 onViewVehicleDetailClicked = { vehicle ->
-                    // TODO: when we click on something that should show a vehicle's detail, navigate there now.
-                    throw NotImplementedError("onViewVehicleDetailClicked in RaceLeaderboardDetailDestination composable not yet properly implemented.")//
+                    // Navigate to vehicle detail for the vehicle's UID and owner's UID.
+                    navHostController.navigate(
+                        VehicleDetailDestination.withArgs(vehicle.user.userUid, vehicle.vehicleUid)
+                    )
                 }
             )
         }
