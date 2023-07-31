@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Registration
@@ -46,7 +47,7 @@ fun RegisterScreen(
     onRegistered: (Registration) -> Unit,
     registerViewModel: RegisterViewModel = hiltViewModel()
 ) {
-    val registerUiState by registerViewModel.registerUiState.collectAsState()
+    val registerUiState by registerViewModel.registerUiState.collectAsStateWithLifecycle()
     when(registerUiState) {
         is RegisterUiState.RegistrationSuccessful -> {
             // When registration succeeds, we'll invoke our callback from a launched side effect.
@@ -55,9 +56,9 @@ fun RegisterScreen(
             })
         }
         is RegisterUiState.ShowRegistrationForm -> {
-            val emailAddress: String? by registerViewModel.emailAddress.collectAsState()
-            val password: String? by registerViewModel.password.collectAsState()
-            val confirmPassword: String? by registerViewModel.confirmPassword.collectAsState()
+            val emailAddress: String? by registerViewModel.emailAddress.collectAsStateWithLifecycle()
+            val password: String? by registerViewModel.password.collectAsStateWithLifecycle()
+            val confirmPassword: String? by registerViewModel.confirmPassword.collectAsStateWithLifecycle()
 
             RegisterFormUi(
                 registerFormUiState = (registerUiState as RegisterUiState.ShowRegistrationForm).registerFormUiState,
@@ -93,21 +94,23 @@ fun RegisterFormUi(
     var canAttemptRegistration: Boolean by remember { mutableStateOf(false) }
     var registrationError: ResourceError? by remember { mutableStateOf(null) }
 
-    isAttemptingRegistration = registerFormUiState is RegisterFormUiState.AttemptingRegistration
-    canAttemptRegistration = registerFormUiState is RegisterFormUiState.RegistrationForm && registerFormUiState.canAttemptRegistration
-    when(registerFormUiState) {
-        is RegisterFormUiState.RegistrationForm ->  {
-            validateEmailAddress = registerFormUiState.validateEmailAddress
-            validatePassword = registerFormUiState.validatePassword
-            validateConfirmPassword = registerFormUiState.validateConfirmPassword
+    LaunchedEffect(key1 = registerFormUiState, block = {
+        isAttemptingRegistration = registerFormUiState is RegisterFormUiState.AttemptingRegistration
+        canAttemptRegistration = registerFormUiState is RegisterFormUiState.RegistrationForm && registerFormUiState.canAttemptRegistration
+        when(registerFormUiState) {
+            is RegisterFormUiState.RegistrationForm ->  {
+                validateEmailAddress = registerFormUiState.validateEmailAddress
+                validatePassword = registerFormUiState.validatePassword
+                validateConfirmPassword = registerFormUiState.validateConfirmPassword
+            }
+            is RegisterFormUiState.AttemptingRegistration -> {
+                registrationError = null
+            }
+            is RegisterFormUiState.RegistrationFailed -> {
+                registrationError = registerFormUiState.resourceError
+            }
         }
-        is RegisterFormUiState.AttemptingRegistration -> {
-            registrationError = null
-        }
-        is RegisterFormUiState.RegistrationFailed -> {
-            registrationError = registerFormUiState.resourceError
-        }
-    }
+    })
 
     Scaffold(
         modifier = Modifier

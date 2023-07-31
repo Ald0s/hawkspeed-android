@@ -17,6 +17,12 @@ data class TrackDraftWithPoints(
     val pointDrafts: List<TrackPointDraft>
 ) {
     /**
+     * Returns the number of points in point drafts.
+     */
+    val numRecordedPoints: Int
+        get() = pointDrafts.size
+
+    /**
      * A property that will return true if this draft has a proper track recorded.
      * For now, this is any track where point drafts is greater than 0 items in length.
      */
@@ -52,15 +58,15 @@ data class TrackDraftWithPoints(
      * A function that will determine whether the given player position should be added as a new point to this track, considering the last point
      * added.
      */
-    fun shouldTakePosition(locationWithOrientation: PlayerPositionWithOrientation): Boolean {
-        // Return false if there is under 5 meters between given location and latest point.
+    fun shouldTakePosition(location: PlayerPosition): Boolean {
+        // Return false if there is under 3 meters between given location and latest point.
         val lastPoint = lastPointDraft
         if(lastPoint != null) {
             val results = FloatArray(5)
 
             Location.distanceBetween(
-                locationWithOrientation.position.latitude,
-                locationWithOrientation.position.longitude,
+                location.latitude,
+                location.longitude,
                 lastPoint.latitude,
                 lastPoint.longitude,
                 results

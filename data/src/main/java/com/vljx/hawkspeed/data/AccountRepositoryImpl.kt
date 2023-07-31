@@ -14,12 +14,14 @@ import com.vljx.hawkspeed.domain.exc.ResourceErrorException
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.account.CheckName
 import com.vljx.hawkspeed.domain.models.account.Registration
+import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.repository.AccountRepository
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestLogin
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestRegisterLocalAccount
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestSetupProfile
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 class AccountRepositoryImpl @Inject constructor(
@@ -45,6 +47,19 @@ class AccountRepositoryImpl @Inject constructor(
             accountMapper,
             databaseQuery = { accountLocalData.selectCurrentAccount() }
         )
+
+    override fun getCurrentSettings(): Flow<GameSettings?> = flow {
+        /**
+         * TODO: improve getting current settings. For now, simply emit a default game settings.
+         */
+        emit(
+            GameSettings(
+                true,
+                "ENTRY TOKEN",
+                "http://192.168.0.44:5000"
+            )
+        )
+    }
 
     override fun attemptAuthentication(): Flow<Resource<Account>> =
         flowQueryNetworkAndCache(

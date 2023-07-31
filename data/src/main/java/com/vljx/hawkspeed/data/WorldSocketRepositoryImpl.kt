@@ -20,8 +20,10 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
+import com.vljx.hawkspeed.domain.models.world.LocationUpdateRate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.models.world.ActivityTransitionUpdates
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
@@ -71,6 +73,12 @@ class WorldSocketRepositoryImpl @Inject constructor(
 
     override fun setLocationAvailability(available: Boolean) =
         worldSocketSession.setLocationAvailability(available)
+
+    override fun setActivityTransitionUpdate(activityTransitionUpdates: ActivityTransitionUpdates) =
+        worldSocketSession.setActivityTransitionUpdate(activityTransitionUpdates)
+
+    override fun setLocationUpdateRate(locationUpdateRate: LocationUpdateRate) =
+        worldSocketSession.setLocationUpdateRate(locationUpdateRate)
 
     override fun requestJoinWorld(requestJoinWorld: RequestJoinWorld) =
         worldSocketSession.requestJoinWorld(

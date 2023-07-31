@@ -9,10 +9,13 @@ import com.vljx.hawkspeed.domain.exc.race.NoLocationException
 import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException
 import com.vljx.hawkspeed.domain.exc.race.NoTrackPathException.Companion.NO_TRACK_PATH
 import com.vljx.hawkspeed.domain.exc.race.StartRaceFailedException
+import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.models.vehicle.OurVehicles
 import com.vljx.hawkspeed.domain.models.vehicle.Vehicle
+import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
+import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
@@ -20,6 +23,8 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
+import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
+import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetCachedLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
@@ -44,6 +49,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -53,12 +59,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class WorldMapRaceViewModel @Inject constructor(
+    getCachedAccountUseCase: GetCachedAccountUseCase,
+    getSettingsUseCase: GetSettingsUseCase,
+    getOurVehiclesUseCase: GetOurVehiclesUseCase,
+    getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
+
     private val getRaceUseCase: GetRaceUseCase,
     private val getCachedLeaderboardEntryForRaceUseCase: GetCachedLeaderboardEntryForRaceUseCase,
-    private val getOurVehiclesUseCase: GetOurVehiclesUseCase,
     private val getTrackWithPathUseCase: GetTrackWithPathUseCase,
-
-    private val getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     private val sendStartRaceRequestUseCase: SendStartRaceRequestUseCase,
     private val sendCancelRaceRequestUseCase: SendCancelRaceRequestUseCase,
 
@@ -88,16 +96,68 @@ class WorldMapRaceViewModel @Inject constructor(
     )
 
     /**
+     * A mutable state flow for an intent to start a new race. Setting this to NewCountdown will immediately begin a new race,
+     * so ensure there are no ongoing races prior to allowing this.
+     */
+    private val mutableNewRaceIntentState: MutableStateFlow<NewRaceIntentState> = MutableStateFlow(NewRaceIntentState.Idle)
+
+    /**
      * Get the current User's full list of Vehicles.
      */
     private val ourVehicles: Flow<Resource<OurVehicles>> =
         getOurVehiclesUseCase(Unit)
 
     /**
-     * A mutable state flow for an intent to start a new race. Setting this to NewCountdown will immediately begin a new race,
-     * so ensure there are no ongoing races prior to allowing this.
+     * Get the current account cached in storage. We'll configure this as a state flow.
      */
-    private val mutableNewRaceIntentState: MutableStateFlow<NewRaceIntentState> = MutableStateFlow(NewRaceIntentState.Idle)
+    private val currentCachedAccount: StateFlow<Account?> =
+        getCachedAccountUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * A flow that will collect all game settings.
+     */
+    private val gameSettings: StateFlow<GameSettings?> =
+        getSettingsUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Get changes for the device's current position, and orientation angles. Configure this as a shared flow.
+     */
+    private val innerCurrentLocationWithOrientation: SharedFlow<PlayerPositionWithOrientation?> =
+        getCurrentLocationAndOrientationUseCase(Unit)
+            .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
+
+    /**
+     * Now, map all location+orientation updates to be distinct on only the player position changing, and then also mapping orientation values out.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val innerCurrentLocation: StateFlow<PlayerPosition?> =
+        innerCurrentLocationWithOrientation
+            .distinctUntilChanged { old, new -> old?.position == new?.position }
+            .mapLatest { it?.position }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * A state flow for the current player's complete state. This is where we'll package the User in use, their changing location (according to world socket state)
+     * and any other game settings relevant to drawing them.
+     */
+    private val innerCurrentPlayer: StateFlow<CurrentPlayer?> =
+        combine(
+            currentCachedAccount,
+            gameSettings,
+            innerCurrentLocation
+        ) { account, settings, playerPosition ->
+            if(account != null && playerPosition != null && settings != null) {
+                CurrentPlayer(
+                    account,
+                    settings,
+                    playerPosition
+                )
+            } else {
+                null
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Map the ongoing race UID to a Race instance. If null is returned, there is no race at all. Otherwise, if the race is cancelled or disqualified, this is
@@ -176,13 +236,6 @@ class WorldMapRaceViewModel @Inject constructor(
         }
 
     /**
-     * Get changes for the device's current position, and orientation angles.
-     */
-    val currentLocationWithOrientation: StateFlow<PlayerPositionWithOrientation?> =
-        getCurrentLocationAndOrientationUseCase(Unit)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /**
      * Flat map the selected track's UID to a resource for the track in question, and its path. We'll also share this flow, since we will refer to it
      * in multiple dependant flows.
      */
@@ -202,7 +255,7 @@ class WorldMapRaceViewModel @Inject constructor(
      */
     private val startLineState: StateFlow<StartLineState> =
         combine(
-            currentLocationWithOrientation,
+            innerCurrentLocationWithOrientation,
             trackWithPathResource
         ) { locationWithOrientation, resource ->
             val location = locationWithOrientation?.position
@@ -256,6 +309,11 @@ class WorldMapRaceViewModel @Inject constructor(
     /**
      * Now, combine the race state, track+path, the start line indicator and the user's current vehicles to a single flow that indicates the state
      * of the world map race.
+     *
+     * TODO: this should react to the case where a User has no vehicles. This should cause a supplementary state which requires the User to first create a new Vehicle. We can't just check
+     * TODO: for an empty vehicles list here, because cache might be empty if query hasn't been completed before. One option is to change repository method for querying our vehicles to
+     * TODO: flowQueryNetworkAndCache which will not observe the database. We can then take an empty list as indication there's really no vehicles. This however has the disadvantage that
+     * TODO: changes to those vehicles will not be immediately reflected.
      */
     private val innerWorldMapRaceUiState: SharedFlow<WorldMapRaceUiState> =
         combineTransform(
@@ -281,7 +339,7 @@ class WorldMapRaceViewModel @Inject constructor(
                  * If start line state is inconclusive, or either track/our vehicles resources are loading, or vehicles have loaded but there are 0 in the list, emit loading state.
                  */
                 startLine is StartLineState.Inconclusive || resource.status == Resource.Status.LOADING || vehiclesResource.status == Resource.Status.LOADING ||
-                        (vehiclesResource.status == Resource.Status.SUCCESS && vehiclesResource.data!!.vehicles.isEmpty())->
+                        (vehiclesResource.status == Resource.Status.SUCCESS && vehiclesResource.data!!.vehicles.isEmpty()) ->
                     emit(WorldMapRaceUiState.Loading)
 
                 /**
@@ -323,7 +381,7 @@ class WorldMapRaceViewModel @Inject constructor(
                     try {
                         if(race.currentSecond == 1) {
                             // We require a current location to continue. Disqualify the countdown if this does not exist.
-                            val location: PlayerPosition = currentLocationWithOrientation.value?.position
+                            val location: PlayerPosition = innerCurrentLocation.value
                                 ?: throw NoLocationException()
                             // Current second is 1, just before GO. This is where we'll send for a new race and emit the result to the mutable state flow for ongoing race UID.
                             Timber.d("Requesting to begin the new race NOW!")
@@ -464,6 +522,12 @@ class WorldMapRaceViewModel @Inject constructor(
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WorldMapRaceUiState.Loading)
 
     /**
+     * Publicise the current player.
+     */
+    val currentPlayer: StateFlow<CurrentPlayer?> =
+        innerCurrentPlayer
+
+    /**
      * Set the track UID for the track we want to race.
      */
     fun setTrackUid(trackUid: String) {
@@ -479,7 +543,7 @@ class WorldMapRaceViewModel @Inject constructor(
         track: Track,
         countdownPositionWithOrientation: PlayerPositionWithOrientation
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Emit a new countdown state to the mutable start countdown flow.
             mutableNewRaceIntentState.emit(
                 NewRaceIntentState.NewCountdown(

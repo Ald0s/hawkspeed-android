@@ -15,29 +15,21 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.IntentSender
 import android.content.pm.PackageManager
-import android.hardware.Sensor.TYPE_ACCELEROMETER
-import android.hardware.Sensor.TYPE_GYROSCOPE
-import android.hardware.Sensor.TYPE_MAGNETIC_FIELD
-import android.hardware.Sensor.TYPE_ROTATION_VECTOR
+import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.hardware.SensorManager
-import android.location.Location
-import android.location.LocationManager
-import android.os.SystemClock
+import android.os.Build
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.SettingsClient
-import com.google.android.gms.maps.model.LatLng
-import com.vljx.hawkspeed.BuildConfig
 import com.vljx.hawkspeed.WorldService
-import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.navigation.SetupNavGraph
-import com.vljx.hawkspeed.ui.screens.authenticated.world.PermissionSettingsCallback
+import com.vljx.hawkspeed.ui.screens.authenticated.world.ActivityRecognitionPermissionCallback
+import com.vljx.hawkspeed.ui.screens.authenticated.world.LocationPermissionSettingsCallback
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
@@ -51,8 +43,8 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
     private lateinit var locationRequest: LocationRequest
     private lateinit var sensorManager: SensorManager
 
-    // TODO: this isn't the best, or even a good way to do this.
-    var permissionSettingsCallback: PermissionSettingsCallback? = null
+    private var locationPermissionSettingsCallback: LocationPermissionSettingsCallback? = null
+    private var activityRecognitionPermissionCallback: ActivityRecognitionPermissionCallback? = null
 
     private val serviceConnection: ServiceConnection = object: ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -108,16 +100,43 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
     }
 
     override fun checkSensors(typesToCheck: List<Int>): Map<Int, MainCheckSensors.SensorReport> =
-        typesToCheck.map { typeId ->
+        typesToCheck.associateWith { typeId ->
             // TODO: we can get other info for each type here.
-            Pair(typeId, MainCheckSensors.SensorReport(typeId, sensorManager.getDefaultSensor(typeId) != null))
-        }.toMap()
+            MainCheckSensors.SensorReport(typeId, sensorManager.getDefaultSensor(typeId) != null)
+        }
 
-    override fun resolveLocationPermission(permissionSettingsCallback: PermissionSettingsCallback) {
+    override fun resolveLocationPermission(locationPermissionSettingsCallback: LocationPermissionSettingsCallback) {
         // Set the current permission settings callback, then begin a location permission resolution flow.
-        this.permissionSettingsCallback = permissionSettingsCallback
+        this.locationPermissionSettingsCallback = locationPermissionSettingsCallback
         // Start permission resolution flow.
         resolveLocationPermission()
+    }
+
+    override fun resolveActivityRecognitionPermission(activityRecognitionPermissionCallback: ActivityRecognitionPermissionCallback) {
+        // Set the current recog permission callback.
+        this.activityRecognitionPermissionCallback = activityRecognitionPermissionCallback
+        // Now, begin a resolution flow.
+        resolveActivityRecognitionPermission()
+    }
+
+    /**
+     * Check to ensure activity recognition permission has been granted, and attempt to resolve if not.
+     */
+    private fun resolveActivityRecognitionPermission() {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) == PERMISSION_GRANTED) {
+                // Granted.
+                activityRecognitionPermissionCallback?.activityRecognitionPermissionGranted()
+            } else {
+                // Request permissions.
+                requestActivityTransitionUpdatesPermissionLauncher.launch(
+                    Manifest.permission.ACTIVITY_RECOGNITION
+                )
+            }
+        } else {
+            // Immediately granted.
+            activityRecognitionPermissionCallback?.activityRecognitionPermissionGranted()
+        }
     }
 
     /**
@@ -129,7 +148,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
         Timber.d("Checking location permission workflow called...")
         // An inline function to actually perform a request for the permission.
         fun requestLocationPermission() {
-            requestPermissionLauncher.launch(
+            requestLocationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_COARSE_LOCATION,
                     Manifest.permission.ACCESS_FINE_LOCATION
@@ -145,9 +164,9 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
         }
         when {
             // If we have permission granted to both COARSE and FINE location, set both as true in view model.
-            checkAllPermissions[0] == PackageManager.PERMISSION_GRANTED && checkAllPermissions[1] == PackageManager.PERMISSION_GRANTED -> {
+            checkAllPermissions[0] == PERMISSION_GRANTED && checkAllPermissions[1] == PERMISSION_GRANTED -> {
                 Timber.d("We have permission granted for BOTH coarse and fine location!")
-                permissionSettingsCallback?.locationPermissionsUpdated(
+                locationPermissionSettingsCallback?.locationPermissionsUpdated(
                     coarseAccessGranted = true,
                     fineAccessGranted = true
                 )
@@ -155,9 +174,9 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
                 ensureLocationSettingsCompatible()
             }
             // If we have only coarse access granted, inform view model.
-            checkAllPermissions[0] == PackageManager.PERMISSION_GRANTED -> {
+            checkAllPermissions[0] == PERMISSION_GRANTED -> {
                 Timber.d("We have permission granted ONLY for coarse location.")
-                permissionSettingsCallback?.locationPermissionsUpdated(
+                locationPermissionSettingsCallback?.locationPermissionsUpdated(
                     coarseAccessGranted = true,
                     fineAccessGranted = false
                 )
@@ -188,17 +207,29 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
     /**
      * A launcher for the contract from which permission to access the required location data is requested.
      */
-    private val requestPermissionLauncher = registerForActivityResult(
+    private val requestLocationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         // Get the outcome of granting permissions to FINE and COARSE location.
         val preciseGiven = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
         val coarseGiven = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
         // Set in view model.
-        permissionSettingsCallback?.locationPermissionsUpdated(
+        locationPermissionSettingsCallback?.locationPermissionsUpdated(
             coarseAccessGranted = preciseGiven,
             fineAccessGranted = coarseGiven
         )
+    }
+
+    /**
+     * A launcher for the contract from which permission to access activity transition updates is requested.
+     */
+    private val requestActivityTransitionUpdatesPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        when(granted) {
+            true -> activityRecognitionPermissionCallback?.activityRecognitionPermissionGranted()
+            else -> activityRecognitionPermissionCallback?.activityRecognitionPermissionRefused()
+        }
     }
 
     /**
@@ -216,7 +247,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
             settingsClient.checkLocationSettings(locationSettingsRequest)
                 .addOnSuccessListener { locationSettingsResponse ->
                     Timber.d("Location settings have been determined to be compatible with HawkSpeed.")
-                    permissionSettingsCallback?.locationSettingsAppropriate(true)
+                    locationPermissionSettingsCallback?.locationSettingsAppropriate(true)
                 }
                 .addOnFailureListener { exc ->
                     if (exc is ResolvableApiException) {
@@ -234,7 +265,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
                 }
         } catch(e: Exception) {
             Timber.e("Failed to ensure location settings are appropriate!")
-            permissionSettingsCallback?.locationSettingsAppropriate(false)
+            locationPermissionSettingsCallback?.locationSettingsAppropriate(false)
             Timber.e(e)
         }
     }
@@ -251,7 +282,7 @@ class MainActivity : ComponentActivity(), MainWorldService, MainConfigurePermiss
             ensureLocationSettingsCompatible()
         } else {
             Timber.e("Failed to resolve invalid location settings, setting NOT APPROPRIATE.")
-            permissionSettingsCallback?.locationSettingsAppropriate(false)
+            locationPermissionSettingsCallback?.locationSettingsAppropriate(false)
         }
     }
 }

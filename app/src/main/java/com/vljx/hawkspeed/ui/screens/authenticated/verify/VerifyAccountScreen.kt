@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.account.Account
@@ -47,8 +48,8 @@ fun VerifyAccountScreen(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
     val currentOnAccountVerified by rememberUpdatedState(onAccountVerified)
-    val verifyAccountUiState: VerifyAccountUiState by verifyAccountViewModel.verifyAccountUiState.collectAsState(
-        initial = VerifyAccountUiState.Loading
+    val verifyAccountUiState: VerifyAccountUiState by verifyAccountViewModel.verifyAccountUiState.collectAsStateWithLifecycle(
+        initialValue = VerifyAccountUiState.Loading
     )
 
     when(verifyAccountUiState) {
@@ -60,7 +61,7 @@ fun VerifyAccountScreen(
         }
         is VerifyAccountUiState.AccountNotVerified, is VerifyAccountUiState.Loading, is VerifyAccountUiState.Failed -> {
             // Can we resend verification email?
-            val canResendEmail by verifyAccountViewModel.canResendVerificationEmail.collectAsState()
+            val canResendEmail by verifyAccountViewModel.canResendVerificationEmail.collectAsStateWithLifecycle()
             // For all other outcomes, call the composable.
             VerifyAccountForm(
                 onResendEmailClicked = verifyAccountViewModel::resendVerificationEmail,

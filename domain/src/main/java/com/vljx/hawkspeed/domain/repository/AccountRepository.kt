@@ -4,6 +4,7 @@ import com.vljx.hawkspeed.domain.Resource
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.account.CheckName
 import com.vljx.hawkspeed.domain.models.account.Registration
+import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestCheckName
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestLogin
 import com.vljx.hawkspeed.domain.requestmodels.account.RequestRegisterLocalAccount
@@ -21,6 +22,11 @@ interface AccountRepository {
      * account instance currently entered in cache.
      */
     fun getCurrentCachedAccount(): Flow<Account?>
+
+    /**
+     * Open a flow for the current User's settings. This will construct a settings state from relevant data in both cache and preferences.
+     */
+    fun getCurrentSettings(): Flow<GameSettings?>
 
     /**
      * Attempt a (re)authentication of the current User's account. This will first use the cookie currently stored for HawkSpeed, and only

@@ -5,13 +5,11 @@ import com.vljx.hawkspeed.data.mapper.race.StartRaceResultMapper
 import com.vljx.hawkspeed.data.mapper.world.PlayerUpdateResultMapper
 import com.vljx.hawkspeed.data.mapper.world.ViewportUpdateResultMapper
 import com.vljx.hawkspeed.data.models.race.RaceModel
-import com.vljx.hawkspeed.data.socket.WorldSocketIntentState
 import com.vljx.hawkspeed.data.source.race.RaceLocalData
 import com.vljx.hawkspeed.data.source.track.TrackLocalData
 import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
 import com.vljx.hawkspeed.domain.models.race.CancelRaceResult
 import com.vljx.hawkspeed.domain.models.race.Race
-import com.vljx.hawkspeed.domain.models.race.RaceUpdate
 import com.vljx.hawkspeed.domain.models.race.StartRaceResult
 import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
@@ -24,8 +22,10 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
+import com.vljx.hawkspeed.domain.models.world.LocationUpdateRate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.models.world.ActivityTransitionUpdates
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
@@ -35,13 +35,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -163,6 +157,14 @@ class FakeWorldSocketRepositoryImpl @Inject constructor(
     }
 
     override suspend fun sendViewportUpdate(requestViewportUpdate: RequestViewportUpdate): ViewportUpdateResult {
+        TODO("Not yet implemented")
+    }
+
+    override fun setActivityTransitionUpdate(activityTransitionUpdates: ActivityTransitionUpdates) {
+        TODO("Not yet implemented")
+    }
+
+    override fun setLocationUpdateRate(locationUpdateRate: LocationUpdateRate) {
         TODO("Not yet implemented")
     }
 

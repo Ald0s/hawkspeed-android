@@ -9,6 +9,8 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.repository.WorldSocketRepository
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
+import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
+import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
@@ -56,7 +58,11 @@ class WorldMapRecordTrackViewModelTest {
     lateinit var appDatabase: AppDatabase
 
     @Inject
-    lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
+    lateinit var getCachedAccountUseCase: GetCachedAccountUseCase
+    @Inject
+    lateinit var getSettingsUseCase: GetSettingsUseCase
+    @Inject
+    lateinit var getCurrentLocationUseCase: GetCurrentLocationUseCase
     @Inject
     lateinit var newTrackDraftUseCase: NewTrackDraftUseCase
     @Inject
@@ -84,7 +90,7 @@ class WorldMapRecordTrackViewModelTest {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRecordTrackViewModel = WorldMapRecordTrackViewModel(
-            getCurrentLocationAndOrientationUseCase, newTrackDraftUseCase, getTrackDraftUseCase, saveTrackDraftUseCase, deleteTrackDraftUseCase, addTrackPointDraftUseCase, resetTrackDraftPointsUseCase, testDispatcher
+            getCachedAccountUseCase, getSettingsUseCase, getCurrentLocationUseCase, newTrackDraftUseCase, getTrackDraftUseCase, saveTrackDraftUseCase, deleteTrackDraftUseCase, addTrackPointDraftUseCase, resetTrackDraftPointsUseCase, testDispatcher
         )
     }
 

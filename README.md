@@ -44,7 +44,7 @@ Alongside receiving world objects via proximity, the Player may also move their 
 Upon tapping a track from the world map, that track's path will be downloaded and immediately available for preview. The preview modal contains functionality to enter race mode, which will be described later. Tapping the track's information allows the viewing of the track in full detail.
 
 <p align="center">
-    <img width="300px" src="https://user-images.githubusercontent.com/13589397/255379771-b0447354-ba17-4996-8f3b-9dad3e85cd1d.png">
+    <img width="300px" src="https://user-images.githubusercontent.com/13589397/257121030-fc00a44d-b68e-4fd0-8d67-e63a7ec78508.png">
     &emsp;&emsp;&emsp;&emsp;
     <img width="300px" src="https://user-images.githubusercontent.com/13589397/255379769-ad4c07e1-a226-4c72-87d8-15db375130ea.png">
 </p>
@@ -59,9 +59,15 @@ Once a Player successfully completes a race; as judged by the server, they are a
     <img width="300px" src="https://user-images.githubusercontent.com/13589397/255379756-2515c2cf-e5ef-4831-ba9b-5f018134d112.png">
 </p>
 
-### World / Racing
+### Racing
 
-If a Player moves within acceptable distance and rotation to a track's start point, the opportunity to race the track will be offered to the player. This can be viewed on the track preview image displayed above. Once tapped, the race screen will become available; which will demand a stricter adherence to the track's start point. Once a race is initiated, this intent will become a request for a new race, sent as soon as the countdown is complete. From the time the race starts, until the server determines a finished, cancelled or disqualified outcome, time is recorded from each update sent and calculations are performed to ensure the player does not drastically deviate from the course. Once the race has an outcome, it is saved and can be viewed from the track's leaderboard.
+If a Player moves within acceptable distance and rotation to a track's start point, the opportunity to race the track will be offered to the player. This can be viewed on the track preview image displayed above. Once tapped, the race screen will become available; which will demand a stricter adherence to the track's start point. Moving too far from this point will automatically revoke race mode.
+
+<p align="center">
+    <img width="300px" src="https://user-images.githubusercontent.com/13589397/257121022-9a32fd4a-6b3f-4bbe-9f50-49620929f46c.png">
+</p>
+
+Once a race is initiated, this intent will become a request for a new race, sent as soon as the countdown is complete. From the time the race starts, until the server determines a finished, cancelled or disqualified outcome, time is recorded from each update sent and calculations are performed to ensure the player does not drastically deviate from the course. Once the race has an outcome, it is saved and can be viewed from the track's leaderboard.
 
 ### Recording
 
@@ -73,6 +79,7 @@ As part of the normalisation process, HawkSpeed may optionally utilise the Googl
 
 This project is the Android app platform. I have designed the app based on the Clean Architecture principles, in a multi-module configuration. I am making significant use of the following packages and extensions:
 * Jetpack Compose,
+* Google Maps Android SDK,
 * Flows,
 * Dagger Hilt for dependency injection,
 * Room,
@@ -93,4 +100,6 @@ Obviously don't attempt to turn this app into anything more than a cool project.
 
 ## Special Thanks
 
-1. https://gpx.studio/ - A great help in the formulation of race tracks and player races.
+1. https://gpx.studio/ - A great help in the formulation of race tracks and player races,
+2. https://github.com/MigoTiti/Android-Google-Maps-3D-markers - Used as base for constructing 3D player markers used in the Android app,
+3. https://free3d.com/3d-model/low-poly-car-40967.html - 3D Car used (currently.)

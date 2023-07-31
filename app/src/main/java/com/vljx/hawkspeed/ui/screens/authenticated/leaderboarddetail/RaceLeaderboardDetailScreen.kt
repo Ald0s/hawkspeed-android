@@ -32,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
@@ -54,7 +55,7 @@ fun RaceLeaderboardDetailScreen(
 
     raceLeaderboardDetailViewModel: RaceLeaderboardDetailViewModel = hiltViewModel()
 ) {
-    val raceLeaderboardDetailUiState: RaceLeaderboardDetailUiState by raceLeaderboardDetailViewModel.raceLeaderboardDetailUiState.collectAsState()
+    val raceLeaderboardDetailUiState: RaceLeaderboardDetailUiState by raceLeaderboardDetailViewModel.raceLeaderboardDetailUiState.collectAsStateWithLifecycle()
     when(raceLeaderboardDetailUiState) {
         is RaceLeaderboardDetailUiState.RaceTrackLeaderboardDetail ->
             RaceLeaderboardDetail(

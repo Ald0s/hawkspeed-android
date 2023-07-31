@@ -92,3 +92,16 @@
 * Added current cached account consideration to world map view model- to be better informed on the User's capabilities,
 * Fixed track rating system not working correctly. Introduced slight issue where since player is sending location updates, track is being reinserted into cache and is causing constant recomps; can fix by moving track rating to sep state flow & apply distinct,
 * Removed track rating from track preview modal.
+
+## Version 1.10.16
+* Fixed UserEntity accidentally switching isBot and isYou flags during the mapping process,
+* Added 3D marker support for drawing stuff to map,
+* Fixed glitch where navigation drawer consuming all google map gestures,
+* Improved compose optimisation on standard map screen,
+* Refactored to use collectAsStateWithLifecycle instead of collectAsState as per Android recommendations,
+* Changed camera's tilt to always be a set value to support 3D-style overlay markers - this will change with improvement to how we transform/present the image,
+* Removed a few backward state writes,
+* Added requirement for choosing track type prior to new track draft being created,
+* Added use of activity recognition to better keep track of when User is potentially driving or walking etc for purposes of scaling update frequency,
+* Implemented system to scale rate of location updates to world service by current activity, described above also,
+* Changed SetupTrackDetail* to SetupSprintTrackDetail* to allow Circuit types at some stage, too.

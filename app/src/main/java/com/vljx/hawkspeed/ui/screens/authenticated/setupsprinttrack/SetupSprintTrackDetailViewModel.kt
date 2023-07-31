@@ -1,4 +1,4 @@
-package com.vljx.hawkspeed.ui.screens.authenticated.setuptrack
+package com.vljx.hawkspeed.ui.screens.authenticated.setupsprinttrack
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -35,7 +34,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SetupTrackDetailViewModel @Inject constructor(
+class SetupSprintTrackDetailViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val getTrackDraftUseCase: GetTrackDraftUseCase,
     private val submitTrackUseCase: SubmitTrackUseCase,
@@ -53,7 +52,7 @@ class SetupTrackDetailViewModel @Inject constructor(
     /**
      * A mutable shared flow, representing the current UI state for the setup track detail screen.
      */
-    private val mutableSetupTrackDetailUiState: MutableSharedFlow<SetupTrackDetailUiState> = MutableSharedFlow(
+    private val mutableSetupSprintTrackDetailUiState: MutableSharedFlow<SetupSprintTrackDetailUiState> = MutableSharedFlow(
         replay = 0,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
         extraBufferCapacity = 1
@@ -118,13 +117,13 @@ class SetupTrackDetailViewModel @Inject constructor(
      * Combine the latest track name, description and whether we can attempt to create the track being completed into a UI state for the form in
      * its current position.
      */
-    private val setupTrackDetailFormUiState: SharedFlow<SetupTrackDetailFormUiState> =
+    private val setupSprintTrackDetailFormUiState: SharedFlow<SetupSprintTrackDetailFormUiState> =
         combine(
             validateTrackNameResult,
             validateTrackDescriptionResult,
             canAttemptCreateTrack
         ) { name, description, canAttempt ->
-            SetupTrackDetailFormUiState.TrackDetailForm(
+            SetupSprintTrackDetailFormUiState.SprintTrackDetailForm(
                 name,
                 description,
                 canAttempt
@@ -136,15 +135,15 @@ class SetupTrackDetailViewModel @Inject constructor(
      * will be deleted from cache, which will trigger this flow to once again emit the Loading state. This isn't a big deal since the track created state
      * will cause the detail form to exit anyway.
      */
-    private val innerSetupTrackDetailUiState: Flow<SetupTrackDetailUiState> =
+    private val innerSetupSprintTrackDetailUiState: Flow<SetupSprintTrackDetailUiState> =
         combine(
-            setupTrackDetailFormUiState,
+            setupSprintTrackDetailFormUiState,
             selectedTrackDraft
         ) { formUiState, trackDraftWithPoints ->
             when (trackDraftWithPoints) {
                 null ->
-                    SetupTrackDetailUiState.Loading
-                else -> SetupTrackDetailUiState.ShowDetailForm(
+                    SetupSprintTrackDetailUiState.Loading
+                else -> SetupSprintTrackDetailUiState.ShowSprintDetailForm(
                     trackDraftWithPoints,
                     formUiState
                 )
@@ -154,11 +153,11 @@ class SetupTrackDetailViewModel @Inject constructor(
     /**
      * Publicise the track detail's UI state.
      */
-    val setupTrackDetailUiState: StateFlow<SetupTrackDetailUiState> =
+    val setupSprintTrackDetailUiState: StateFlow<SetupSprintTrackDetailUiState> =
         merge(
-            innerSetupTrackDetailUiState,
-            mutableSetupTrackDetailUiState
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SetupTrackDetailUiState.Loading)
+            innerSetupSprintTrackDetailUiState,
+            mutableSetupSprintTrackDetailUiState
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SetupSprintTrackDetailUiState.Loading)
 
     /**
      * Perform a submission in an attempt to create this track.
@@ -184,7 +183,7 @@ class SetupTrackDetailViewModel @Inject constructor(
             )
             // Now, collect a flow for the submit track use case; mapping it to a setup track detail UI state, but inside a call to emit all, with the target
             // being the manual UI state.
-            mutableSetupTrackDetailUiState.emitAll(
+            mutableSetupSprintTrackDetailUiState.emitAll(
                 submitTrackUseCase(requestSubmitTrack)
                     .flowOn(ioDispatcher)
                     .map { trackResource ->
@@ -193,15 +192,15 @@ class SetupTrackDetailViewModel @Inject constructor(
                                 // Successfully created the track on the server. Delete the draft.
                                 deleteTrackDraftUseCase(selectedTrackDraft.trackDraftId)
                                 // Return the created track with optional path.
-                                SetupTrackDetailUiState.TrackCreated(trackResource.data!!)
+                                SetupSprintTrackDetailUiState.SprintTrackCreated(trackResource.data!!)
                             }
-                            Resource.Status.LOADING -> SetupTrackDetailUiState.ShowDetailForm(
+                            Resource.Status.LOADING -> SetupSprintTrackDetailUiState.ShowSprintDetailForm(
                                 selectedTrackDraft,
-                                SetupTrackDetailFormUiState.Submitting
+                                SetupSprintTrackDetailFormUiState.Submitting
                             )
-                            Resource.Status.ERROR -> SetupTrackDetailUiState.ShowDetailForm(
+                            Resource.Status.ERROR -> SetupSprintTrackDetailUiState.ShowSprintDetailForm(
                                 selectedTrackDraft,
-                                SetupTrackDetailFormUiState.ServerRefused(
+                                SetupSprintTrackDetailFormUiState.ServerRefused(
                                     trackResource.resourceError!!
                                 )
                             )

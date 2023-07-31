@@ -1,27 +1,25 @@
 package com.vljx.hawkspeed.navigation.navgraph
 
-import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
+import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.navigation.AppDestination
 import com.vljx.hawkspeed.ui.screens.authenticated.authenticatedmain.AuthenticatedMainScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.choosevehicle.ChooseVehicleViewModel.Companion.ARG_VEHICLE_STOCK_UID
 import com.vljx.hawkspeed.ui.screens.authenticated.leaderboarddetail.RaceLeaderboardDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.setup.SetupAccountScreen
-import com.vljx.hawkspeed.ui.screens.authenticated.setuptrack.SetupTrackDetailScreen
+import com.vljx.hawkspeed.ui.screens.authenticated.setupsprinttrack.SetupSprintTrackDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.trackdetail.TrackDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.userdetail.UserDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.vehicledetail.VehicleDetailScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.verify.VerifyAccountScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapScreen
-import timber.log.Timber
+import com.vljx.hawkspeed.ui.screens.authenticated.world.recordtrack.WorldMapRecordTrackViewModel.Companion.ARG_UID_TRACK_CREATED
 
 const val AUTHENTICATED_GRAPH_ROUTE = "authenticated"
 
@@ -153,9 +151,24 @@ object RaceLeaderboardDetailDestination: AppDestination("race_leaderboard_detail
 }
 
 /**
- * Finalising the setup of a track, by entering its detail such as name and description.
+ * Finalising the setup of a sprint track, by entering its detail such as name and description.
  */
-object SetupTrackDetailDestination: AppDestination("setup_track_detail_destination") {
+object SetupSprintTrackDetailDestination: AppDestination("setup_sprint_track_detail_destination") {
+    const val trackDraftIdArg = "trackDraftId"
+    val routeWithArgs = "$route/{${trackDraftIdArg}}"
+
+    val arguments = listOf(
+        navArgument(trackDraftIdArg) {
+            type = NavType.LongType
+            nullable = false
+        }
+    )
+}
+
+/**
+ * Finalising the setup of a circuit track, by entering its detail such as name, description and number of laps.
+ */
+object SetupCircuitTrackDetailDestination: AppDestination("setup_circuit_track_detail_destination") {
     const val trackDraftIdArg = "trackDraftId"
     val routeWithArgs = "$route/{${trackDraftIdArg}}"
 
@@ -298,11 +311,18 @@ fun NavGraphBuilder.authenticatedNavGraph(
                         RaceLeaderboardDetailDestination.withArgs(raceLeaderboard.raceUid, raceLeaderboard.trackUid)
                     )
                 },
-                onSetupTrackDetails = { trackDraftId ->
-                    // Navigate to setup track detail, with the given Id.
-                    navHostController.navigate(
-                        SetupTrackDetailDestination.withArgs(trackDraftId)
-                    )
+                onSetupTrackDetails = { trackDraftWithPoints ->
+                    // Depending on the type of track to setup, we'll navigate to the appropriate screen.
+                    when(trackDraftWithPoints.trackType) {
+                        TrackType.SPRINT ->
+                            navHostController.navigate(
+                                SetupSprintTrackDetailDestination.withArgs(trackDraftWithPoints.trackDraftId)
+                            )
+                        TrackType.CIRCUIT ->
+                            navHostController.navigate(
+                                SetupCircuitTrackDetailDestination.withArgs(trackDraftWithPoints.trackDraftId)
+                            )
+                    }
                 }
             )
         }
@@ -379,16 +399,36 @@ fun NavGraphBuilder.authenticatedNavGraph(
         }
 
         composable(
-            route = SetupTrackDetailDestination.routeWithArgs,
-            arguments = SetupTrackDetailDestination.arguments
+            route = SetupSprintTrackDetailDestination.routeWithArgs,
+            arguments = SetupSprintTrackDetailDestination.arguments
         ) { navBackStackEntry ->
             // Show the setup track detail screen.
-            SetupTrackDetailScreen(
+            SetupSprintTrackDetailScreen(
                 onTrackCreated = { trackWithPath ->
-                    // TODO: when we have successfully created a path, we now want to navigate all the way back to world map.
-                    throw NotImplementedError("onTrackCreated in SetupTrackDetailDestination composable not yet properly implemented.")
+                    // Now we've successfully created a new sprint track, we'll navigate back to the main screen.
+                    // Set ARG_UID_TRACK_CREATED key to the UID for the new track in previous back stack entry.
+                    navHostController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(ARG_UID_TRACK_CREATED, trackWithPath.track.trackUid)
+                    // Pop back stack until world screen.
+                    navHostController.popBackStack()
+                    /**
+                     * TODO: complete a track being successfully created.
+                     */
+                    throw NotImplementedError()
                 }
             )
+        }
+
+        composable(
+            route = SetupCircuitTrackDetailDestination.routeWithArgs,
+            arguments = SetupCircuitTrackDetailDestination.arguments
+        ) { navBackStackEntry ->
+            /**
+             * TODO: implement circuit track type.
+             * TODO: remember to set ARG_TRACK_CREATED to true in previous back stack entry.
+             */
+            throw NotImplementedError("SetupCircuitTrackDetail navigation composable is not yet implemented.")
         }
     }
 }

@@ -51,14 +51,6 @@ class TrackPreviewViewModelTest: BaseTest() {
     lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
     @Inject
     lateinit var getTrackUseCase: GetTrackUseCase
-    @Inject
-    lateinit var upvoteTrackUseCase: UpvoteTrackUseCase
-    @Inject
-    lateinit var downvoteTrackUseCase: DownvoteTrackUseCase
-    @Inject
-    lateinit var clearTrackRatingUseCase: ClearTrackRatingUseCase
-    @Inject
-    lateinit var getTrackLatestCommentsUseCase: GetTrackLatestCommentsUseCase
 
     @Inject
     lateinit var sendPlayerUpdateUseCase: SendPlayerUpdateUseCase
@@ -74,7 +66,7 @@ class TrackPreviewViewModelTest: BaseTest() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         trackPreviewViewModel = TrackPreviewViewModel(
-            getCurrentLocationAndOrientationUseCase, getTrackUseCase, upvoteTrackUseCase, downvoteTrackUseCase, clearTrackRatingUseCase, getTrackLatestCommentsUseCase, testDispatcher
+            getCurrentLocationAndOrientationUseCase, getTrackUseCase, testDispatcher
         )
     }
 

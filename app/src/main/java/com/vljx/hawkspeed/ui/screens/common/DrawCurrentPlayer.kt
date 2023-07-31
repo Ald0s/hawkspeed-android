@@ -11,6 +11,7 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.util.ThirdParty
 
+@Deprecated("Non-overlay functions are no longer used. Please use mapoverlay.")
 @Composable
 fun DrawCurrentPlayer(
     newPlayerPositionWithOrientation: PlayerPositionWithOrientation,

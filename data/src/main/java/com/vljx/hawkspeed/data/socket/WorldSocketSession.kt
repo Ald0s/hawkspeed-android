@@ -3,7 +3,6 @@ package com.vljx.hawkspeed.data.socket
 import android.hardware.SensorManager
 import com.google.gson.Gson
 import com.vljx.hawkspeed.data.BuildConfig
-import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.data.di.scope.BackgroundScope
 import com.vljx.hawkspeed.data.models.race.CancelRaceResultModel
 import com.vljx.hawkspeed.data.models.race.StartRaceResultModel
@@ -36,7 +35,6 @@ import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportDto
 import com.vljx.hawkspeed.data.socket.requestmodels.RequestViewportUpdateDto
 import com.vljx.hawkspeed.data.source.account.AccountRemoteData
 import com.vljx.hawkspeed.domain.ResourceError
-import com.vljx.hawkspeed.domain.di.scope.ApplicationScope
 import com.vljx.hawkspeed.domain.exc.socket.ConnectionBrokenException
 import com.vljx.hawkspeed.domain.exc.socket.ConnectionBrokenException.Companion.REASON_SERVER_DISAPPEARED
 import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
@@ -47,8 +45,10 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.Viewport
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
+import com.vljx.hawkspeed.domain.models.world.LocationUpdateRate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.models.world.ActivityTransitionUpdates
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
@@ -57,7 +57,6 @@ import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
 import io.socket.engineio.client.EngineIOException
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -71,7 +70,6 @@ import java.net.URI
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.reflect.typeOf
 
 /**
  * The world socket session class that centralises communication with the HawkSpeed game server.
@@ -130,6 +128,20 @@ class WorldSocketSession @Inject constructor(
      * A state flow for the current location availability.
      */
     private val mutableLocationAvailability: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /**
+     * A state flow for the current status of activity transition updates receiver.
+     */
+    private val mutableActivityTransitionUpdates: MutableStateFlow<ActivityTransitionUpdates> = MutableStateFlow(
+        ActivityTransitionUpdates(false)
+    )
+
+    /**
+     * A state flow for the current location update rate.
+     */
+    private val mutableCurrentLocationUpdateRate: MutableStateFlow<LocationUpdateRate> = MutableStateFlow(
+        LocationUpdateRate.Default
+    )
 
     /**
      * A state flow for the latest viewport.
@@ -330,6 +342,22 @@ class WorldSocketSession @Inject constructor(
      */
     fun setLocationAvailability(availability: Boolean) {
         mutableLocationAvailability.tryEmit(availability)
+    }
+
+    /**
+     * Set current location update rate.
+     */
+    fun setLocationUpdateRate(locationUpdateRate: LocationUpdateRate) {
+        mutableCurrentLocationUpdateRate.tryEmit(locationUpdateRate)
+    }
+
+    /**
+     * Set activity transition updates status.
+     */
+    fun setActivityTransitionUpdate(activityTransitionUpdates: ActivityTransitionUpdates) {
+        mutableActivityTransitionUpdates.tryEmit(
+            activityTransitionUpdates
+        )
     }
 
     /**

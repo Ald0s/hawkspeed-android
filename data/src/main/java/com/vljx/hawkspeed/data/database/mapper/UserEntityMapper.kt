@@ -24,8 +24,8 @@ class UserEntityMapper @Inject constructor(
             model.userName,
             model.bio,
             model.privilege,
-            model.isYou,
-            model.isBot
+            model.isBot,
+            model.isYou
         )
     }
 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
@@ -40,7 +41,7 @@ import com.vljx.hawkspeed.util.ExampleData
 fun UserDetailScreen(
     userDetailViewModel: UserDetailViewModel = hiltViewModel()
 ) {
-    val userDetailUiState by userDetailViewModel.userDetailUiState.collectAsState()
+    val userDetailUiState by userDetailViewModel.userDetailUiState.collectAsStateWithLifecycle()
 
     when(userDetailUiState) {
         is UserDetailUiState.GotUser ->

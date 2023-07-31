@@ -17,4 +17,10 @@ sealed class SelectTrackDraftState {
     data class SelectTrackDraft(
         val trackDraftId: Long
     ) : SelectTrackDraftState()
+
+    /**
+     * A state that indicates there is no currently selected track, nor is there any intention to create a new track. This will request the User select a type of track,
+     * which will then invoke the create track draft intent.
+     */
+    object NoTrackDraft: SelectTrackDraftState()
 }

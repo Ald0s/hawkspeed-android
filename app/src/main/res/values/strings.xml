@@ -109,13 +109,13 @@
     <string name="record_track_recording">Recording…</string>
     <string name="record_record_new_sprint">New sprint</string>
     <string name="record_record_new_circuit">New circuit</string>
-    <string name="record_track_length">Distance: 2.4km</string>
+    <string name="record_track_length">Distance: %1$s</string>
     <string name="record_start_recording">Record</string>
     <string name="record_stop_recording">Stop</string>
     <string name="record_reset_track">Reset</string>
     <string name="record_use_track">Use Track</string>
     <string name="record_cancel">Cancel &amp; Exit</string>
-    <string name="record_distance">%1$d</string>
+    <!--<string name="record_distance">%1$d</string>-->
     <string name="choose_make">Which make?</string>
     <string name="choose_type">What kind of vehicle?</string>
     <string name="choose_model">Which model?</string>

@@ -1,10 +1,6 @@
-package com.vljx.hawkspeed.ui.screens.authenticated.setuptrack
+package com.vljx.hawkspeed.ui.screens.authenticated.setupsprinttrack
 
 import androidx.activity.ComponentActivity
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,27 +10,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,72 +32,55 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
-import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
-import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import com.vljx.hawkspeed.ui.component.InputValidationResult
-import com.vljx.hawkspeed.ui.screens.authenticated.setup.UsernameAvailability
-import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrackDraft
-import com.vljx.hawkspeed.ui.screens.common.Loading
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
+import com.vljx.hawkspeed.ui.screens.common.TrackDraftPathOverview
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import com.vljx.hawkspeed.util.Extension.getActivity
 
-/**
- * TODO: split the detail screen into two subscreens depending on the track type; sprint or circuit.
- * if sprint, we really have no extra options to set. If a circuit, we must select the number of laps
- */
 @Composable
-fun SetupTrackDetailScreen(
+fun SetupSprintTrackDetailScreen(
     onTrackCreated: (TrackWithPath) -> Unit,
 
-    setupTrackDetailViewModel: SetupTrackDetailViewModel = hiltViewModel()
+    setupSprintTrackDetailViewModel: SetupSprintTrackDetailViewModel = hiltViewModel()
 ) {
-    val setupTrackDetailUiState: SetupTrackDetailUiState by setupTrackDetailViewModel.setupTrackDetailUiState.collectAsState()
+    val setupSprintTrackDetailUiState: SetupSprintTrackDetailUiState by setupSprintTrackDetailViewModel.setupSprintTrackDetailUiState.collectAsStateWithLifecycle()
 
-    when(setupTrackDetailUiState) {
-        is SetupTrackDetailUiState.TrackCreated -> {
+    when(setupSprintTrackDetailUiState) {
+        is SetupSprintTrackDetailUiState.SprintTrackCreated -> {
             LaunchedEffect(key1 = Unit, block = {
                 onTrackCreated(
-                    (setupTrackDetailUiState as SetupTrackDetailUiState.TrackCreated).trackWithPath
+                    (setupSprintTrackDetailUiState as SetupSprintTrackDetailUiState.SprintTrackCreated).trackWithPath
                 )
             })
         }
-        is SetupTrackDetailUiState.ShowDetailForm -> {
-            val trackNameState: String? by setupTrackDetailViewModel.trackNameState.collectAsState()
-            val trackDescriptionState: String? by setupTrackDetailViewModel.trackDescriptionState.collectAsState()
+        is SetupSprintTrackDetailUiState.ShowSprintDetailForm -> {
+            val trackNameState: String? by setupSprintTrackDetailViewModel.trackNameState.collectAsStateWithLifecycle()
+            val trackDescriptionState: String? by setupSprintTrackDetailViewModel.trackDescriptionState.collectAsStateWithLifecycle()
 
-            SetupTrackDetail(
-                showDetailForm = setupTrackDetailUiState as SetupTrackDetailUiState.ShowDetailForm,
+            SetupSprintTrackDetail(
+                showDetailForm = setupSprintTrackDetailUiState as SetupSprintTrackDetailUiState.ShowSprintDetailForm,
 
                 trackName = trackNameState,
                 trackDescription = trackDescriptionState,
 
-                updateTrackName = setupTrackDetailViewModel::updateTrackName,
-                updateTrackDescription = setupTrackDetailViewModel::updateTrackDescription,
-                onSubmitTrackClicked = setupTrackDetailViewModel::createTrack,
+                updateTrackName = setupSprintTrackDetailViewModel::updateTrackName,
+                updateTrackDescription = setupSprintTrackDetailViewModel::updateTrackDescription,
+                onSubmitTrackClicked = setupSprintTrackDetailViewModel::createTrack,
 
                 componentActivity = LocalContext.current.getActivity()
             )
         }
-        is SetupTrackDetailUiState.Loading -> {
+        is SetupSprintTrackDetailUiState.Loading ->
             // The initial loading state, simply call loading screen composable.
             LoadingScreen()
-        }
-        is SetupTrackDetailUiState.LoadFailed -> {
+
+        is SetupSprintTrackDetailUiState.LoadFailed -> {
             /**
              * TODO: load failed means the initial load process could not be completed. This is for things like, the indicated track draft id did not
              * TODO: correspond to an actual track draft. For this, we will require a separate UI composable.
@@ -123,8 +91,8 @@ fun SetupTrackDetailScreen(
 }
 
 @Composable
-fun SetupTrackDetail(
-    showDetailForm: SetupTrackDetailUiState.ShowDetailForm,
+fun SetupSprintTrackDetail(
+    showDetailForm: SetupSprintTrackDetailUiState.ShowSprintDetailForm,
 
     trackName: String?,
     trackDescription: String?,
@@ -140,22 +108,28 @@ fun SetupTrackDetail(
     var canAttemptSubmitTrack: Boolean by remember { mutableStateOf(false) }
     var setupTrackError: ResourceError? by remember { mutableStateOf(null) }
     var isSubmitting: Boolean by remember { mutableStateOf(false) }
-    when(val setupTrackDetailFormUiState = showDetailForm.setupTrackDetailFormUiState) {
-        is SetupTrackDetailFormUiState.TrackDetailForm -> {
-            validateTrackNameResult = setupTrackDetailFormUiState.validateTrackName
-            validateTrackDescriptionResult = setupTrackDetailFormUiState.validateTrackDescription
-            canAttemptSubmitTrack = setupTrackDetailFormUiState.canAttemptSubmitTrack
-            isSubmitting = false
+
+    LaunchedEffect(
+        key1 = showDetailForm,
+        block = {
+            when(val setupTrackDetailFormUiState = showDetailForm.setupSprintTrackDetailFormUiState) {
+                is SetupSprintTrackDetailFormUiState.SprintTrackDetailForm -> {
+                    validateTrackNameResult = setupTrackDetailFormUiState.validateTrackName
+                    validateTrackDescriptionResult = setupTrackDetailFormUiState.validateTrackDescription
+                    canAttemptSubmitTrack = setupTrackDetailFormUiState.canAttemptSubmitTrack
+                    isSubmitting = false
+                }
+                SetupSprintTrackDetailFormUiState.Submitting -> {
+                    isSubmitting = true
+                    setupTrackError = null
+                }
+                is SetupSprintTrackDetailFormUiState.ServerRefused -> {
+                    setupTrackError = setupTrackDetailFormUiState.resourceError
+                    isSubmitting = false
+                }
+            }
         }
-        SetupTrackDetailFormUiState.Submitting -> {
-            isSubmitting = true
-            setupTrackError = null
-        }
-        is SetupTrackDetailFormUiState.ServerRefused -> {
-            setupTrackError = setupTrackDetailFormUiState.resourceError
-            isSubmitting = false
-        }
-    }
+    )
 
     // Set up a scaffold. For all the content.
     Scaffold(
@@ -186,7 +160,7 @@ fun SetupTrackDetail(
                 }
             }
             // Set up a row here for the remainder of the UI- the form.
-            SetupTrackDetailForm(
+            SetupSprintTrackDetailForm(
                 trackName = trackName,
                 validateTrackNameResult = validateTrackNameResult,
                 trackDescription = trackDescription,
@@ -203,106 +177,7 @@ fun SetupTrackDetail(
 }
 
 @Composable
-fun TrackDraftPathOverview(
-    trackDraftWithPoints: TrackDraftWithPoints,
-    modifier: Modifier = Modifier,
-    componentActivity: ComponentActivity? = null
-) {
-    // If there are 0 points (has recorded track returns false), this will throw an illegal state exc.
-    if(!trackDraftWithPoints.hasRecordedTrack) {
-        throw IllegalStateException()
-    }
-    // The track draft path overview's camera position state, set to first point in the track as default...
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(
-            LatLng(trackDraftWithPoints.firstPointDraft!!.latitude, trackDraftWithPoints.firstPointDraft!!.longitude),
-            15f
-        )
-    }
-    var isMapLoaded by remember { mutableStateOf<Boolean>(false) }
-
-    Card(
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 8.dp
-        ),
-        modifier = modifier
-            .height(300.dp)
-            .fillMaxWidth(0.6f)
-            .padding(bottom = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            var uiSettings by remember {
-                mutableStateOf(MapUiSettings(
-                    compassEnabled = false,
-                    myLocationButtonEnabled = false,
-                    indoorLevelPickerEnabled = false,
-                    mapToolbarEnabled = false,
-                    rotationGesturesEnabled = false,
-                    scrollGesturesEnabled = false,
-                    tiltGesturesEnabled = false,
-                    zoomGesturesEnabled = false,
-                    zoomControlsEnabled = false
-                ))
-            }
-            var mapProperties by remember {
-                mutableStateOf(MapProperties(
-                    isBuildingEnabled = false,
-                    isIndoorEnabled = false,
-                    isMyLocationEnabled = false,
-                    minZoomPreference = 3.0f,
-                    maxZoomPreference = 21.0f,
-                    mapStyleOptions = componentActivity?.let { activity ->
-                        MapStyleOptions.loadRawResourceStyle(
-                            activity,
-                            R.raw.worldstyle
-                        )
-                    }
-                ))
-            }
-            // We will draw a Google Map composable, with position locked on the track's path above. And some padding, too.
-            GoogleMap(
-                modifier = Modifier
-                    .fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = mapProperties,
-                uiSettings = uiSettings,
-                onMapLoaded = {
-                    // When map is loaded, cause a change to the camera such that we move to the draft track path's bounds.
-                    val boundingBox: BoundingBox = trackDraftWithPoints.getBoundingBox()
-                    cameraPositionState.move(boundingBox.toOverviewCameraUpdate())
-                    isMapLoaded = true
-                }
-            ) {
-                // Draw the race track.
-                DrawRaceTrackDraft(
-                    trackDraftWithPoints = trackDraftWithPoints
-                )
-            }
-            // If map is not yet loaded, overlay an animated visibility over the top.
-            if(!isMapLoaded) {
-                AnimatedVisibility(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    visible = true,
-                    enter = EnterTransition.None,
-                    exit = fadeOut()
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.background)
-                            .wrapContentSize()
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SetupTrackDetailForm(
+fun SetupSprintTrackDetailForm(
     trackName: String?,
     validateTrackNameResult: InputValidationResult,
     trackDescription: String?,
@@ -369,7 +244,7 @@ fun SetupTrackDetailForm(
                 if(!isSubmitting) {
                     Button(
                         onClick = onSubmitTrackClicked ?: { },
-                        enabled = canAttemptSubmitTrack && !isSubmitting,
+                        enabled = canAttemptSubmitTrack,
                         shape = RectangleShape,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -390,7 +265,7 @@ fun PreviewSetupTrackDetailForm(
 
 ) {
     HawkSpeedTheme {
-        SetupTrackDetailForm(
+        SetupSprintTrackDetailForm(
             "yarra b",
             InputValidationResult(true),
             "this is a cool track!",
@@ -407,10 +282,10 @@ fun PreviewSetupTrackDetail(
 
 ) {
     HawkSpeedTheme {
-        SetupTrackDetail(
-            showDetailForm = SetupTrackDetailUiState.ShowDetailForm(
+        SetupSprintTrackDetail(
+            showDetailForm = SetupSprintTrackDetailUiState.ShowSprintDetailForm(
                 trackDraftWithPoints = ExampleData.getTrackDraftWithPoints(),
-                setupTrackDetailFormUiState = SetupTrackDetailFormUiState.TrackDetailForm(
+                setupSprintTrackDetailFormUiState = SetupSprintTrackDetailFormUiState.SprintTrackDetailForm(
                     InputValidationResult(true),
                     InputValidationResult(true),
                     true

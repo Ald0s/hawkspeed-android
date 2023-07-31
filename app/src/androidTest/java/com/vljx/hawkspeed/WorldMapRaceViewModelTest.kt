@@ -13,6 +13,8 @@ import com.vljx.hawkspeed.data.source.track.TrackPathLocalData
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestGetRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.vehicle.RequestCreateVehicle
+import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
+import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetCachedLeaderboardEntryForRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.race.GetRaceUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
@@ -62,6 +64,10 @@ class WorldMapRaceViewModelTest: BaseTest() {
     lateinit var raceLocalData: RaceLocalData
 
     @Inject
+    lateinit var getCachedAccountUseCase: GetCachedAccountUseCase
+    @Inject
+    lateinit var getSettingsUseCase: GetSettingsUseCase
+    @Inject
     lateinit var getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase
     @Inject
     lateinit var getCurrentLocationUseCase: GetCurrentLocationUseCase
@@ -94,7 +100,7 @@ class WorldMapRaceViewModelTest: BaseTest() {
         hiltRule.inject()
         appDatabase.clearAllTables()
         worldMapRaceViewModel = WorldMapRaceViewModel(
-            getRaceUseCase, getCachedLeaderboardEntryForRaceUseCase, getOurVehiclesUseCase, getTrackWithPathUseCase, getCurrentLocationAndOrientationUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase, testDispatcher
+            getCachedAccountUseCase, getSettingsUseCase, getOurVehiclesUseCase, getCurrentLocationAndOrientationUseCase, getRaceUseCase, getCachedLeaderboardEntryForRaceUseCase, getTrackWithPathUseCase, sendStartRaceRequestUseCase, sendCancelRaceRequestUseCase, testDispatcher
         )
     }
 

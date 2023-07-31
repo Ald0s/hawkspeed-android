@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Account
@@ -57,7 +58,7 @@ fun LoginScreen(
     onRegisterLocalAccountClicked: () -> Unit,
     loginViewModel: LoginViewModel = hiltViewModel()
 ) {
-    val loginUiState: LoginUiState by loginViewModel.loginUiState.collectAsState()
+    val loginUiState: LoginUiState by loginViewModel.loginUiState.collectAsStateWithLifecycle()
     when(loginUiState) {
         is LoginUiState.SuccessfulLogin -> {
             // Login was successful, invoke success callback on launched side effect.
@@ -69,8 +70,8 @@ fun LoginScreen(
         }
 
         is LoginUiState.ShowLoginForm -> {
-            val emailAddressState: String? by loginViewModel.emailAddressState.collectAsState()
-            val passwordState: String? by loginViewModel.passwordState.collectAsState()
+            val emailAddressState: String? by loginViewModel.emailAddressState.collectAsStateWithLifecycle()
+            val passwordState: String? by loginViewModel.passwordState.collectAsStateWithLifecycle()
 
             LoginForm(
                 showLoginForm = loginUiState as LoginUiState.ShowLoginForm,
@@ -107,20 +108,22 @@ fun LoginForm(
     var isLoggingIn: Boolean by remember { mutableStateOf(false) }
     var loginError: ResourceError? by remember { mutableStateOf(null) }
 
-    when(val loginFormUiState = showLoginForm.loginFormUiState) {
-        is LoginFormUiState.LoginForm -> {
-            canAttemptLogin = loginFormUiState.canAttemptLogin
-            isLoggingIn = false
+    LaunchedEffect(key1 = showLoginForm, block = {
+        when(val loginFormUiState = showLoginForm.loginFormUiState) {
+            is LoginFormUiState.LoginForm -> {
+                canAttemptLogin = loginFormUiState.canAttemptLogin
+                isLoggingIn = false
+            }
+            is LoginFormUiState.LoggingIn -> {
+                isLoggingIn = true
+                loginError = null
+            }
+            is LoginFormUiState.LoginFailed -> {
+                isLoggingIn = false
+                loginError = loginFormUiState.resourceError
+            }
         }
-        is LoginFormUiState.LoggingIn -> {
-            isLoggingIn = true
-            loginError = null
-        }
-        is LoginFormUiState.LoginFailed -> {
-            isLoggingIn = false
-            loginError = loginFormUiState.resourceError
-        }
-    }
+    })
 
     Scaffold(
         modifier = Modifier

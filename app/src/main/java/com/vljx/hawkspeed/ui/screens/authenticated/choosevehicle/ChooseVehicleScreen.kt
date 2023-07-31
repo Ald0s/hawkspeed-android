@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
@@ -44,7 +45,7 @@ fun ChooseVehicleScreen(
 
     chooseVehicleViewModel: ChooseVehicleViewModel = hiltViewModel()
 ) {
-    val chooseVehicleUiState by chooseVehicleViewModel.chooseVehicleUiState.collectAsState()
+    val chooseVehicleUiState by chooseVehicleViewModel.chooseVehicleUiState.collectAsStateWithLifecycle()
     when(chooseVehicleUiState) {
         is ChooseVehicleUiState.Loading ->
             LoadingScreen()

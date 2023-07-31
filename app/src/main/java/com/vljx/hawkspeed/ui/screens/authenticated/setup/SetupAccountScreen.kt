@@ -50,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.ResourceError
@@ -76,13 +77,13 @@ fun SetupAccountScreen(
     val selectedVehicleStockUidState: State<String?>? = navHostController.currentBackStackEntry
         ?.savedStateHandle
         ?.getStateFlow<String?>(ARG_VEHICLE_STOCK_UID, null)
-        ?.collectAsState()
+        ?.collectAsStateWithLifecycle()
     // Now, whenever we get a non-null value, pass it to the view model as selected vehicle stock UID, then set key to null.
     selectedVehicleStockUidState?.value?.let { selectedVehicleStockUid ->
         setupAccountViewModel.selectVehicleStockUid(selectedVehicleStockUid)
     }
     // Now collect the overall UI state.
-    val setupAccountUiState: SetupAccountUiState by setupAccountViewModel.setupAccountUiState.collectAsState()
+    val setupAccountUiState: SetupAccountUiState by setupAccountViewModel.setupAccountUiState.collectAsStateWithLifecycle()
     when(setupAccountUiState) {
         is SetupAccountUiState.AccountSetup -> {
             // Account has been set up, we'll invoke our callback on a launched side effect.
@@ -94,8 +95,8 @@ fun SetupAccountScreen(
         }
         is SetupAccountUiState.ShowSetupAccountForm -> {
             // Show the setup account form UI.
-            val usernameState: String? by setupAccountViewModel.usernameState.collectAsState()
-            val bioState: String? by setupAccountViewModel.bioState.collectAsState()
+            val usernameState: String? by setupAccountViewModel.usernameState.collectAsStateWithLifecycle()
+            val bioState: String? by setupAccountViewModel.bioState.collectAsStateWithLifecycle()
 
             SetupAccountFormUi(
                 showSetupAccountForm = setupAccountUiState as SetupAccountUiState.ShowSetupAccountForm,
@@ -137,22 +138,25 @@ fun SetupAccountFormUi(
     var canAttemptSetup: Boolean by remember { mutableStateOf(false) }
     var isSettingUp: Boolean by remember { mutableStateOf(false) }
     var setupError: ResourceError? by remember { mutableStateOf(null) }
-    when(val setupAccountFormUiState = showSetupAccountForm.setupAccountFormUiState) {
-        is SetupAccountFormUiState.SetupAccountForm -> {
-            usernameStatusUiState = setupAccountFormUiState.usernameStatusUiState
-            selectedVehicleStock = setupAccountFormUiState.selectedVehicleStock
-            canAttemptSetup = setupAccountFormUiState.canAttemptSetupAccount
-            isSettingUp = false
+
+    LaunchedEffect(key1 = showSetupAccountForm, block = {
+        when(val setupAccountFormUiState = showSetupAccountForm.setupAccountFormUiState) {
+            is SetupAccountFormUiState.SetupAccountForm -> {
+                usernameStatusUiState = setupAccountFormUiState.usernameStatusUiState
+                selectedVehicleStock = setupAccountFormUiState.selectedVehicleStock
+                canAttemptSetup = setupAccountFormUiState.canAttemptSetupAccount
+                isSettingUp = false
+            }
+            is SetupAccountFormUiState.SettingUp -> {
+                setupError = null
+                isSettingUp = true
+            }
+            is SetupAccountFormUiState.SetupAccountFailed -> {
+                setupError = setupAccountFormUiState.resourceError
+                isSettingUp = false
+            }
         }
-        is SetupAccountFormUiState.SettingUp -> {
-            setupError = null
-            isSettingUp = true
-        }
-        is SetupAccountFormUiState.SetupAccountFailed -> {
-            setupError = setupAccountFormUiState.resourceError
-            isSettingUp = false
-        }
-    }
+    })
 
     Scaffold(
         modifier = Modifier

@@ -84,7 +84,7 @@ open class BaseTest {
             UserModel("USER01", "aldos", "bio", 0, false, true),
             listOf(),
             trackPathModel.points[0],
-            180f, true,1893, true, TrackType.SPRINT,
+            180f, true,1893, true, TrackType.SPRINT,null,
             0, 0, null, 0, true, true, true, true
         )
 

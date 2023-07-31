@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
 
 @Composable
@@ -19,7 +20,7 @@ fun AuthenticatedMainScreen(
     val currentOnVerificationRequired by rememberUpdatedState(onVerificationRequired)
     val currentOnSetupRequired by rememberUpdatedState(onSetupRequired)
     val currentOnLostAuthentication by rememberUpdatedState(onLostAuthentication)
-    val authenticatedMainUiState: AuthenticatedMainUiState by authenticatedMainViewModel.authenticatedMainUiState.collectAsState()
+    val authenticatedMainUiState: AuthenticatedMainUiState by authenticatedMainViewModel.authenticatedMainUiState.collectAsStateWithLifecycle()
 
     when(authenticatedMainUiState) {
         is AuthenticatedMainUiState.Authenticated -> {

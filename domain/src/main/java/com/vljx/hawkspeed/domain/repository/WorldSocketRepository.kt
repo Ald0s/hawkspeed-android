@@ -12,8 +12,10 @@ import com.vljx.hawkspeed.domain.requestmodels.race.RequestCancelRace
 import com.vljx.hawkspeed.domain.requestmodels.race.RequestStartRace
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestJoinWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
+import com.vljx.hawkspeed.domain.models.world.LocationUpdateRate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateAccelerometerReadings
+import com.vljx.hawkspeed.domain.models.world.ActivityTransitionUpdates
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerReadings
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
@@ -72,6 +74,16 @@ interface WorldSocketRepository {
      * Inform the socket state of changes to location availability.
      */
     fun setLocationAvailability(available: Boolean)
+
+    /**
+     * Set whether activity transition updates are being monitored.
+     */
+    fun setActivityTransitionUpdate(activityTransitionUpdates: ActivityTransitionUpdates)
+
+    /**
+     * Set the current location rate being used.
+     */
+    fun setLocationUpdateRate(locationUpdateRate: LocationUpdateRate)
 
     /**
      * Put socket state in a position where User approves a connection, if one is possible. This will not actually perform connection

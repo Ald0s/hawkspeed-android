@@ -71,6 +71,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
@@ -142,7 +143,7 @@ fun TrackDetailScreen(
     trackDetailViewModel: TrackDetailViewModel = hiltViewModel()
 ) {
     // Collect the track detail UI state.
-    val trackDetailUiState by trackDetailViewModel.trackDetailUiState.collectAsState()
+    val trackDetailUiState by trackDetailViewModel.trackDetailUiState.collectAsStateWithLifecycle()
     when(trackDetailUiState) {
         is TrackDetailUiState.GotTrackDetail ->
             TrackDetail(

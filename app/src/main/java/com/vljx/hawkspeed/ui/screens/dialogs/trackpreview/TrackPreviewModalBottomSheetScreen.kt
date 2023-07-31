@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.enums.TrackType
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
@@ -67,7 +68,7 @@ fun TrackPreviewModalBottomSheetScreen(
     sheetState: SheetState = rememberModalBottomSheetState(),
     trackPreviewViewModel: TrackPreviewViewModel = hiltViewModel(),
 ) {
-    val trackPreviewUiState: TrackPreviewUiState by trackPreviewViewModel.trackPreviewUiState.collectAsState()
+    val trackPreviewUiState: TrackPreviewUiState by trackPreviewViewModel.trackPreviewUiState.collectAsStateWithLifecycle()
 
     // Call the bottom sheet composable to set that up.
     TrackPreviewModalBottomSheet(

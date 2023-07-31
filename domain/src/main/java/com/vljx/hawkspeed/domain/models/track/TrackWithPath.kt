@@ -1,6 +1,7 @@
 package com.vljx.hawkspeed.domain.models.track
 
 import android.os.Parcelable
+import com.vljx.hawkspeed.domain.models.world.BoundingBox
 import kotlinx.parcelize.Parcelize
 
 @Parcelize

@@ -1,35 +1,34 @@
-package com.vljx.hawkspeed.ui.screens.authenticated.setuptrack
+package com.vljx.hawkspeed.ui.screens.authenticated.setupsprinttrack
 
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
-import com.vljx.hawkspeed.ui.component.InputValidationResult
 
-sealed class SetupTrackDetailUiState {
+sealed class SetupSprintTrackDetailUiState {
     /**
      * The success state; the track was successfully submitted and created.
      */
-    data class TrackCreated(
+    data class SprintTrackCreated(
         val trackWithPath: TrackWithPath
-    ): SetupTrackDetailUiState()
+    ): SetupSprintTrackDetailUiState()
 
     /**
      * The state that indicates the setup track detail UI can be shown.
      */
-    data class ShowDetailForm(
+    data class ShowSprintDetailForm(
         val trackDraftWithPoints: TrackDraftWithPoints,
-        val setupTrackDetailFormUiState: SetupTrackDetailFormUiState
-    ): SetupTrackDetailUiState()
+        val setupSprintTrackDetailFormUiState: SetupSprintTrackDetailFormUiState
+    ): SetupSprintTrackDetailUiState()
 
     /**
      * The initial loading state.
      */
-    object Loading: SetupTrackDetailUiState()
+    object Loading: SetupSprintTrackDetailUiState()
 
     /**
      * The failure state, used when there as an issue with the initial loading process.
      */
     data class LoadFailed(
         val resourceError: ResourceError
-    ): SetupTrackDetailUiState()
+    ): SetupSprintTrackDetailUiState()
 }

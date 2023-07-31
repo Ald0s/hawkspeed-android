@@ -2,8 +2,10 @@ package com.vljx.hawkspeed
 
 import android.annotation.SuppressLint
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.Sensor.TYPE_ACCELEROMETER
@@ -14,8 +16,6 @@ import android.hardware.SensorManager
 import android.hardware.SensorManager.SENSOR_DELAY_NORMAL
 import android.hardware.SensorManager.SENSOR_DELAY_UI
 import android.location.Location
-import android.location.LocationManager
-import android.location.LocationManager.GPS_PROVIDER
 import android.net.ConnectivityManager
 import android.net.ConnectivityManager.NetworkCallback
 import android.net.LinkProperties
@@ -28,12 +28,19 @@ import android.net.NetworkRequest
 import android.os.*
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
+import com.google.android.gms.location.DetectedActivity.IN_VEHICLE
+import com.google.android.gms.location.DetectedActivity.ON_BICYCLE
+import com.google.android.gms.location.DetectedActivity.ON_FOOT
+import com.google.android.gms.location.DetectedActivity.STILL
 import com.google.android.gms.tasks.Tasks
+import com.vljx.hawkspeed.Extension.addDetectedActivity
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.data.di.scope.BackgroundScope
 import com.vljx.hawkspeed.data.socket.WorldSocketSession
 import com.vljx.hawkspeed.data.socket.requestmodels.*
 import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
+import com.vljx.hawkspeed.domain.models.world.ActivityTransitionUpdates
+import com.vljx.hawkspeed.domain.models.world.LocationUpdateRate
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestPlayerUpdate
@@ -42,7 +49,9 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateMagnetometerR
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestUpdateNetworkConnectivity
 import com.vljx.hawkspeed.domain.usecase.socket.RequestLeaveWorldUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SendPlayerUpdateUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.SetActivityTransitionUpdatesUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.SetLocationAvailabilityUseCase
+import com.vljx.hawkspeed.domain.usecase.socket.SetLocationUpdateRateUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateAccelerometerReadingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateMagnetometerReadingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.UpdateNetworkConnectivityUseCase
@@ -67,27 +76,29 @@ class WorldService: Service(), SensorEventListener {
 
     @Inject
     lateinit var backgroundScope: BackgroundScope
-
     @Inject
     lateinit var sendPlayerUpdateUseCase: SendPlayerUpdateUseCase
-
     @Inject
     lateinit var requestLeaveWorldUseCase: RequestLeaveWorldUseCase
-
     @Inject
     lateinit var setLocationAvailabilityUseCase: SetLocationAvailabilityUseCase
-
+    @Inject
+    lateinit var setLocationUpdateRateUseCase: SetLocationUpdateRateUseCase
+    @Inject
+    lateinit var setActivityTransitionUpdatesUseCase: SetActivityTransitionUpdatesUseCase
     @Inject
     lateinit var updateNetworkConnectivityUseCase: UpdateNetworkConnectivityUseCase
-
     @Inject
     lateinit var updateAccelerometerReadingsUseCase: UpdateAccelerometerReadingsUseCase
-
     @Inject
     lateinit var updateMagnetometerReadingsUseCase: UpdateMagnetometerReadingsUseCase
 
     // A binder to provide on bind to clients.
     private val binder = WorldServiceBinder()
+    // Access to the activity recognition client.
+    private lateinit var activityRecognitionClient: ActivityRecognitionClient
+    // Construct a new pending intent for receiving broadcast updates about activity transition changes.
+    private lateinit var transitionPendingIntent: PendingIntent
     // Sensor manager, so we can access accelerometer and magnetometer etc.
     private lateinit var sensorManager: SensorManager
     // Get the connectivity manager.
@@ -101,6 +112,8 @@ class WorldService: Service(), SensorEventListener {
     // Handlers for changes in location.
     private lateinit var locationReceived: LocationCallback
     private lateinit var serviceHandler: Handler
+    // Receiver for transitions.
+    private lateinit var transitionBroadcastReceiver: BroadcastReceiver
 
     // The notification manager service.
     private lateinit var notificationManager: NotificationManager
@@ -144,8 +157,10 @@ class WorldService: Service(), SensorEventListener {
                 networkCapabilities: NetworkCapabilities
             ) = onNetworkCapabilitiesChanged(network, networkCapabilities)
 
-            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) =
-                onNetworkLinkPropertiesChanged(network, linkProperties)
+            override fun onLinkPropertiesChanged(
+                network: Network,
+                linkProperties: LinkProperties
+            ) = onNetworkLinkPropertiesChanged(network, linkProperties)
         }
         // Setup a location callback.
         locationReceived = object: LocationCallback() {
@@ -155,13 +170,28 @@ class WorldService: Service(), SensorEventListener {
             override fun onLocationResult(locationResult: LocationResult) =
                 newLocationReceived(locationResult)
         }
-        // Create the location request.
-        locationRequest = newLocationRequest()
         // Now, create a new thread to handle the location updates.
         val serviceHandlerThread = HandlerThread(WorldService::class.java.simpleName)
             .apply {
                 start()
             }
+        // Setup activity recognition client.
+        activityRecognitionClient = ActivityRecognition.getClient(this)
+        // Setup broadcast receiver for activity transitions.
+        transitionBroadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                // Attempt to do something with activity transition result; but first ensure one was even sent.
+                if(ActivityTransitionResult.hasResult(intent)) {
+                    val activityTransitionResult = ActivityTransitionResult.extractResult(
+                        intent ?: throw Exception("Intent is NULL, yet passed hasResult call?")
+                    ) ?: throw NotImplementedError("When getting an activity transition result, extractResult() returned null and this is not yet handled.")
+                    // Now, pass these to world service handler.
+                    activityTransitionEventsReceived(
+                        activityTransitionResult.transitionEvents
+                    )
+                }
+            }
+        }
         // Instantiate the service handler toward this thread.
         serviceHandler = Handler(serviceHandlerThread.looper)
     }
@@ -175,12 +205,15 @@ class WorldService: Service(), SensorEventListener {
             Timber.d("World service has received a start command...")
             // Determine whether the start command was invoked by the notification.
             val startedFromNotification: Boolean = intent?.getBooleanExtra(
-                ARG_STARTED_FROM_NOTIFICATION, false) ?: false
-            if(startedFromNotification) {
+                ARG_STARTED_FROM_NOTIFICATION, false
+            ) ?: false
+            if (startedFromNotification) {
                 Timber.d("WorldService has been started from the notification!")
                 // TODO: onStartCommand invoked by notification.
                 throw NotImplementedError("WorldService.onStartCommand being invoked via notification is NOT YET handled!")
             }
+            // Begin receiving activity transition updates.
+            beginActivityTransitionUpdates()
             // Begin receiving network connectivity updates.
             beginNetworkConnectivityUpdates()
             // Begin receiving sensor changes.
@@ -189,7 +222,7 @@ class WorldService: Service(), SensorEventListener {
             beginLocationUpdates()
             // Start the service in the foreground now.
             startForeground(ONGOING_NOTIFICATION_ID, getNotification())
-        } catch(se: SecurityException) {
+        } catch (se: SecurityException) {
             // TODO: emit a world service failure status indicating that there's a locational permission error.
             Timber.e(se)
             throw NotImplementedError()
@@ -228,9 +261,7 @@ class WorldService: Service(), SensorEventListener {
         Timber.d("Leaving the world...")
         // Instructed to leave world, we'll revoke intent to connect to the game server.
         // TODO: can add reason here.
-        requestLeaveWorldUseCase(
-            RequestLeaveWorld()
-        )
+        requestLeaveWorldUseCase(RequestLeaveWorld())
     }
 
     /**
@@ -239,6 +270,8 @@ class WorldService: Service(), SensorEventListener {
      */
     fun stopWorldService() {
         Timber.d("Stopping world service...")
+        // Stop receiving activity transition updates.
+        stopActivityTransitionUpdates()
         // Stop receiving network connectivity updates.
         stopNetworkConnectivityUpdates()
         // Stop receiving sensor changes.
@@ -249,6 +282,64 @@ class WorldService: Service(), SensorEventListener {
         leaveWorld()
         // Finally, stop the service.
         stopSelf()
+    }
+
+    /**
+     * Begin receiving activity transition updates.
+     */
+    @SuppressLint("MissingPermission")
+    private fun beginActivityTransitionUpdates() {
+        try {
+            // Register a receiver for receiver action.
+            registerReceiver(
+                transitionBroadcastReceiver,
+                IntentFilter(TRANSITIONS_RECEIVER_ACTION)
+            )
+            // Setup the pending intent for activity transitions.
+            transitionPendingIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                Intent(TRANSITIONS_RECEIVER_ACTION),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            // Create a new request for activity transition changes.
+            val transitionRequest = ActivityTransitionRequest(getActivityTransitionList())
+            // Actually register for updates now.
+            activityRecognitionClient.requestActivityTransitionUpdates(transitionRequest, transitionPendingIntent)
+                .addOnSuccessListener {
+                    Timber.d("WorldService successfully began receiving activity transition updates...")
+                    setActivityTransitionUpdatesUseCase(
+                        ActivityTransitionUpdates(true)
+                    )
+                }
+                .addOnFailureListener { exception ->
+                    Timber.e("WorldService could NOT begin receiving activity transition updates.")
+                    throw exception
+                }
+        } catch(se: SecurityException) {
+            Timber.d("SecurityException thrown when trying to request activity transition updates. Permission has probably not been granted. We'll set a static update rate.")
+            // Not receiving activity transition updates.
+            setActivityTransitionUpdatesUseCase(ActivityTransitionUpdates(false))
+            // Restart location updates with the Static location update rate.
+            changeLocationUpdateRate(LocationUpdateRate.Static)
+        }
+    }
+
+    /**
+     * Stop receiving activity transition updates.
+     */
+    private fun stopActivityTransitionUpdates() {
+        try {
+            // Unregister receiver.
+            unregisterReceiver(transitionBroadcastReceiver)
+            // Remove transition updates.
+            activityRecognitionClient.removeActivityTransitionUpdates(transitionPendingIntent)
+            setActivityTransitionUpdatesUseCase(ActivityTransitionUpdates(false))
+            Timber.d("Activity transition updates are no longer being received.")
+        } catch(se: SecurityException) {
+            // Failed to stop updates because of permission, but surely that means they were never started in the first place.
+            setActivityTransitionUpdatesUseCase(ActivityTransitionUpdates(false))
+        }
     }
 
     /**
@@ -290,17 +381,29 @@ class WorldService: Service(), SensorEventListener {
     /**
      * Commence location updates. This requests updates toward the location callback and performs initialisation operations.
      */
-    @SuppressLint("MissingPermission") // TODO: suppressing MissingPermission warning, probably not a good idea.
-    private fun beginLocationUpdates() {
+    @SuppressLint("MissingPermission")
+    private fun beginLocationUpdates(
+        desiredLocationUpdateRate: LocationUpdateRate = LocationUpdateRate.Default
+    ) {
         Timber.d("WorldService now beginning location updates...")
         try {
+            // Set new location request.
+            locationRequest = newLocationRequest(
+                locationPriority = desiredLocationUpdateRate.priority,
+                desiredIntervalMillis = desiredLocationUpdateRate.updateIntervalMillis,
+                minUpdateDistanceMeters = desiredLocationUpdateRate.minUpdateMeters,
+                minUpdateDistanceIntervalMillis = desiredLocationUpdateRate.minUpdateIntervalMillis
+            )
             // Now, request location updates.
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationReceived,
                 serviceHandler.looper
             )
+            // Set receiving location updates to true.
             receivingLocationUpdates = true
+            // Update world socket state with latest location update rate.
+            setLocationUpdateRateUseCase(desiredLocationUpdateRate)
         } catch (npe: java.lang.NullPointerException) {
             // TODO: this can be caused by 'invalid null looper' which is when the looper is actually running but the activity has finished underneath it.
             Timber.e(npe)
@@ -310,6 +413,17 @@ class WorldService: Service(), SensorEventListener {
             // TODO: security exception
             throw NotImplementedError("beginLocationUpdates throwing SecurityException (permissions no longer compatible) is not yet handled!")
         }
+    }
+
+    /**
+     * Restart location updates with a new location request.
+     */
+    private fun changeLocationUpdateRate(desiredLocationUpdateRate: LocationUpdateRate) {
+        Timber.d("Changing location request for getting updates...")
+        // First, stop location updates.
+        removeLocationUpdates()
+        // Restart location updates.
+        beginLocationUpdates(desiredLocationUpdateRate = desiredLocationUpdateRate)
     }
 
     /**
@@ -330,7 +444,31 @@ class WorldService: Service(), SensorEventListener {
     }
 
     /**
-     *
+     * A list of activity transition events have been received, this function will parse them and modify service running configuration accordingly. Essentially, if device reports the user
+     * is in a vehicle; the fastest location updates will be requested. Then bicycle, then on foot and finally, still; which is just 'keep alive' updates honestly.
+     */
+    private fun activityTransitionEventsReceived(transitionEvents: List<ActivityTransitionEvent>) {
+        for(event in transitionEvents) {
+            Timber.d("Device recognises current activity: ${event.activityType}")
+            when(event.activityType) {
+                /**
+                 * We can reset back to default location request.
+                 */
+                STILL -> changeLocationUpdateRate(LocationUpdateRate.Default)
+                /**
+                 * Set location request to request updates slightly faster, this time with high priority accuracy.
+                 */
+                ON_FOOT -> changeLocationUpdateRate(LocationUpdateRate.SlowMoving)
+                /**
+                 * Get fastest location updates possible.
+                 */
+                ON_BICYCLE, IN_VEHICLE -> changeLocationUpdateRate(LocationUpdateRate.Fast)
+            }
+        }
+    }
+
+    /**
+     * Called when the current network in use has become available.
      */
     private fun onNetworkAvailable(network: Network) {
         updateNetworkConnectivityUseCase(
@@ -341,7 +479,7 @@ class WorldService: Service(), SensorEventListener {
     }
 
     /**
-     *
+     * Called when the network in use has been lost.
      */
     private fun onNetworkLost(network: Network) {
         updateNetworkConnectivityUseCase(
@@ -352,7 +490,8 @@ class WorldService: Service(), SensorEventListener {
     }
 
     /**
-     *
+     * Called when the capabilities list for the network in use has changed. We should verify that we are still able to communicate within
+     * minimum requirements for HawkSpeed.
      */
     private fun onNetworkCapabilitiesChanged(
         network: Network,
@@ -395,12 +534,9 @@ class WorldService: Service(), SensorEventListener {
             // Whenever we get a new location from the service, pass it directly to the world socket session.
             backgroundScope.launch {
                 try {
-                    sendPlayerUpdateUseCase(
-                        RequestPlayerUpdate(playerPosition)
-                    )
+                    sendPlayerUpdateUseCase(RequestPlayerUpdate(playerPosition))
                 } catch (nce: NotConnectedException) {
-                    // This will happen if we're not currently connected to the server.
-                    // TODO: it may be a good idea to queue these, but for now, we'll just drop them since the socket session essentially stays up to date anyway.
+                    // Do nothing, update wasn't sent to server, but current location was stored within socket stat.e
                 }
             }
         } catch(npe: NullPointerException) {
@@ -426,9 +562,6 @@ class WorldService: Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         when(event?.sensor?.type) {
             TYPE_ACCELEROMETER -> {
-                // Copy readings from the event into our accelerometer readings.
-                //System.arraycopy(event.values, 0, accelerometerReadings, 0, accelerometerReadings.size)
-
                 // Get accelerometer readings from the event, and send through our low pass filter.
                 accelerometerReadings = applyLowPass(event.values.clone(), accelerometerReadings)
                 // Now, call the update use case to send the latest readings off.
@@ -437,9 +570,6 @@ class WorldService: Service(), SensorEventListener {
                 )
             }
             TYPE_MAGNETIC_FIELD -> {
-                // Copy readings from the event into our magnetometer readings.
-                //System.arraycopy(event.values, 0, magnetometerReadings, 0, magnetometerReadings.size)
-
                 // Get magnetometer readings from the event, and send through our low pass filter.
                 magnetometerReadings = applyLowPass(event.values.clone(), magnetometerReadings)
                 // Now, call the update use case to send the latest readings off.
@@ -447,59 +577,6 @@ class WorldService: Service(), SensorEventListener {
                     RequestUpdateMagnetometerReadings(magnetometerReadings)
                 )
             }
-        }
-    }
-
-    /**
-     * Get the location availability and return it. This will run the task blocking.
-     */
-    @SuppressLint("MissingPermission")
-    private suspend fun getCurrentLocationAvailability(): Boolean {
-        // Get the most recent location availability status.
-        try {
-            // We'll check our location availability now.
-            val locationAvailability: LocationAvailability = Tasks.await(
-                fusedLocationClient.locationAvailability
-            )
-            return locationAvailability.isLocationAvailable
-        } catch (ee: ExecutionException) {
-            // TODO: exception occurred whilst running task.
-            // TODO: This is the same exception we'd get in the handler.
-            Timber.e(ee)
-            throw NotImplementedError("Getting location availability failed! ANd is also not implemented.")
-        } catch (ie: InterruptedException) {
-            Timber.w("Getting location availability was interrupted!")
-            // TODO: implement a proper handler here.
-            throw NotImplementedError("Failed to get location availability because it was interrupted - this is not yet handled.")
-        }
-    }
-
-    /**
-     * Run a blocking get current location call for a Location instance matching the settings given by the location request. This function will
-     * either return the desired location, or will throw an exception.
-     */
-    @SuppressLint("MissingPermission")
-    private suspend fun getCurrentLocation(currentLocationRequest: CurrentLocationRequest): Location {
-        val location: Location
-        try {
-            // Await the query for the current location.
-            location = Tasks.await(
-                fusedLocationClient.getCurrentLocation(
-                    currentLocationRequest,
-                    null
-                )
-            )
-            // Return the location.
-            return location
-        } catch (ee: ExecutionException) {
-            // TODO: exception occurred whilst running task.
-            // TODO: This is the same exception we'd get in the handler.
-            Timber.e(ee)
-            throw NotImplementedError("Getting current location failed! ANd is also not implemented.")
-        } catch (it: InterruptedException) {
-            Timber.w("Getting current location was interrupted!")
-            // TODO: implement a proper handler here.
-            throw NotImplementedError("Failed to get current location because it was interrupted - this is not yet handled.")
         }
     }
 
@@ -521,19 +598,37 @@ class WorldService: Service(), SensorEventListener {
             .setContentText("This is a cool text") // TODO: string for content text
             .setOngoing(true)
             .setPriority(NotificationManager.IMPORTANCE_HIGH)
-            .setSmallIcon(com.vljx.hawkspeed.R.mipmap.ic_launcher)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setWhen(System.currentTimeMillis())
         // Build and return the notification.
         return notificationBuilder.build()
     }
 
     companion object {
+        const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"
+        const val CHANNEL_NAME = "HawkSpeed"
+        const val ONGOING_NOTIFICATION_ID = 8011997
+        const val ARG_STARTED_FROM_NOTIFICATION = "com.vljx.hawkspeed.WorldService.ARG_STARTED_FROM_NOTIFICATION"
+        const val TRANSITIONS_RECEIVER_ACTION =
+            BuildConfig.APPLICATION_ID + "TRANSITIONS_RECEIVER_ACTION"
+
         /**
-         * Build a new location request, that will, at minimum, generate a location update every 5 seconds.
+         * Build a new location request, that will, at minimum, generate a location update every 10000 seconds by default with balanced power accuracy.
+         * But call this function again to overwrite those parameters for a new request.
          */
-        fun newLocationRequest(): LocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
-            .setMinUpdateIntervalMillis(5000)
-            .build()
+        fun newLocationRequest(
+            locationPriority: Int = Priority.PRIORITY_HIGH_ACCURACY,
+            desiredIntervalMillis: Long = 10000,
+            minUpdateDistanceMeters: Float = 0f,
+            minUpdateDistanceIntervalMillis: Long = 3000L
+        ): LocationRequest =
+            LocationRequest.Builder(
+                locationPriority,
+                desiredIntervalMillis
+            )
+                .setMinUpdateDistanceMeters(minUpdateDistanceMeters)
+                .setMinUpdateIntervalMillis(minUpdateDistanceIntervalMillis)
+                .build()
 
         /**
          * Build a new network request that will require a network with internet capability and either mobile data or wifi transport.
@@ -546,9 +641,14 @@ class WorldService: Service(), SensorEventListener {
                 .addTransportType(TRANSPORT_CELLULAR)
                 .build()
 
-        const val CHANNEL_ID = "com.vljx.hawkspeed.WorldService.NOTIFICATION"
-        const val CHANNEL_NAME = "HawkSpeed"
-        const val ONGOING_NOTIFICATION_ID = 8011997
-        const val ARG_STARTED_FROM_NOTIFICATION = "com.vljx.hawkspeed.WorldService.ARG_STARTED_FROM_NOTIFICATION"
+        /**
+         * Return a list of activity transitions to keep track of and receive updates for.
+         */
+        fun getActivityTransitionList(): List<ActivityTransition> =
+            mutableListOf<ActivityTransition>()
+                .addDetectedActivity(STILL)
+                .addDetectedActivity(ON_FOOT)
+                .addDetectedActivity(ON_BICYCLE)
+                .addDetectedActivity(IN_VEHICLE)
     }
 }

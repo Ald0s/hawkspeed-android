@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
@@ -43,19 +44,26 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.VisibleRegion
+import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.vljx.hawkspeed.Extension.TILT_DEFAULT
 import com.vljx.hawkspeed.Extension.noTilt
-import com.vljx.hawkspeed.Extension.toFollowCameraUpdate
+import com.vljx.hawkspeed.Extension.overlapsWith
+import com.vljx.hawkspeed.Extension.toBoundingBox
+import com.vljx.hawkspeed.Extension.toFollowCameraPosition
 import com.vljx.hawkspeed.Extension.toOverviewCameraUpdate
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.account.Account
@@ -63,25 +71,34 @@ import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
 import com.vljx.hawkspeed.domain.models.world.DeviceOrientation
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
+import com.vljx.hawkspeed.ui.component.mapoverlay.DrawCurrentPlayer
+import com.vljx.hawkspeed.ui.component.mapoverlay.MapOverlay
 import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewModalBottomSheetScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldObjectsUiState
-import com.vljx.hawkspeed.ui.screens.common.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
+import com.vljx.hawkspeed.ui.screens.common.RaceTrackDisplayMode
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+/**
+ * TODO: things still to fix/work on with respect to map overlays.
+ * 1. Currently, we rotate the (already rotated) player overlay to ensure rotating the camera does not interfere with the bearing of that player; but we should instead mediate between the player's
+ * rotation and the camera's rotation to find the correct angle such that irrespective of whether the player rotates or the camera rotates, we're viewing the correct angle of the player.
+ * 2. We must draw tracks & track paths via overlay as well, since we want the enhanced abilities
+ */
 @Composable
 fun WorldMapStandardMode(
     standardMode: WorldMapUiState.WorldMapLoadedStandardMode,
     worldObjectsUi: WorldObjectsUiState,
-    currentLocationWithOrientation: PlayerPositionWithOrientation?,
+    locationWithOrientation: PlayerPositionWithOrientation,
 
     onViewCurrentProfileClicked: ((String) -> Unit)? = null,
     onViewVehiclesClicked: ((String) -> Unit)? = null,
@@ -95,7 +112,7 @@ fun WorldMapStandardMode(
     onViewRaceLeaderboardDetail: ((RaceLeaderboard) -> Unit)? = null,
 
     onBoundingBoxChanged: ((VisibleRegion, Float) -> Unit)? = null,
-    onTrackMarkerClicked: ((Marker, Track) -> Unit)? = null,
+    onTrackMarkerClicked: ((Track) -> Unit)? = null,
     onMapClicked: ((LatLng) -> Unit)? = null,
 
     componentActivity: ComponentActivity? = null
@@ -106,17 +123,58 @@ fun WorldMapStandardMode(
     val scope = rememberCoroutineScope()
     // Remember a state for controlling whether we must follow the Player. By default, this is true.
     var shouldFollowPlayer by remember { mutableStateOf<Boolean>(true) }
+    // If follow mode enabled, this camera position will be moved to.
+    var followCameraPosition by remember {
+        mutableStateOf<CameraPosition?>(null)
+    }
     // Remember a state for a boolean, this will indicate whether or not we are currently previewing an object.
     var isPreviewingWorldObject by remember { mutableStateOf<Boolean>(false) }
-    // Remember the last non-null location as a mutable state. The changing of which will cause recomposition.
-    var lastLocationWithOrientation: PlayerPositionWithOrientation by remember {
-        mutableStateOf<PlayerPositionWithOrientation>(currentLocationWithOrientation ?: standardMode.locationWithOrientation)
-    }
     // Remember a mutable state for the track UID of the track we wish to preview. Default null meaning nothing to preview.
     var previewingTrackUid: String? by remember { mutableStateOf(null) }
 
+    val uiSettings by remember {
+        mutableStateOf(MapUiSettings(
+            compassEnabled = false,
+            myLocationButtonEnabled = false,
+            indoorLevelPickerEnabled = false,
+            mapToolbarEnabled = false,
+            zoomControlsEnabled = false,
+            rotationGesturesEnabled = true,
+            tiltGesturesEnabled = false
+        ))
+    }
+
+    val mapProperties by remember {
+        mutableStateOf(MapProperties(
+            isBuildingEnabled = false,
+            isIndoorEnabled = false,
+            isMyLocationEnabled = false,
+            isTrafficEnabled = false,
+            mapStyleOptions = componentActivity?.let { activity ->
+                MapStyleOptions.loadRawResourceStyle(
+                    activity,
+                    R.raw.worldstyle
+                )
+            }
+        ))
+    }
+
+    val cameraPositionState = rememberCameraPositionState {
+        // Center the camera depending on whether we should be following the player or not.
+        position = when(shouldFollowPlayer) {
+            true -> locationWithOrientation.toFollowCameraPosition()
+            else ->
+                CameraPosition.builder()
+                    .target(LatLng(standardMode.locationWithOrientation.position.latitude, standardMode.locationWithOrientation.position.longitude))
+                    .zoom(15f)
+                    .tilt(TILT_DEFAULT)
+                    .build()
+        }
+    }
+
     // Setup a modal navigation drawer to surround the google map scaffold.
     ModalNavigationDrawer(
+        gesturesEnabled = drawerState.isOpen,
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
@@ -174,38 +232,9 @@ fun WorldMapStandardMode(
                 modifier = Modifier
                     .padding(paddingValues)
             ) {
-                val uiSettings by remember {
-                    mutableStateOf(MapUiSettings(
-                        compassEnabled = false,
-                        myLocationButtonEnabled = false,
-                        indoorLevelPickerEnabled = false,
-                        mapToolbarEnabled = false,
-                        zoomControlsEnabled = false
-                    ))
-                }
-                val mapProperties by remember {
-                    mutableStateOf(MapProperties(
-                        isBuildingEnabled = false,
-                        isIndoorEnabled = false,
-                        isMyLocationEnabled = false,
-                        mapStyleOptions = componentActivity?.let { activity ->
-                            MapStyleOptions.loadRawResourceStyle(
-                                activity,
-                                R.raw.worldstyle
-                            )
-                        }
-                    ))
-                }
-                val cameraPositionState = rememberCameraPositionState {
-                    // Center the camera initially over our first location, which is provided by the standard mode state.
-                    position = CameraPosition.fromLatLngZoom(
-                        LatLng(standardMode.locationWithOrientation.position.latitude, standardMode.locationWithOrientation.position.longitude),
-                        15f
-                    )
-                }
-
                 GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = mapProperties,
                     uiSettings = uiSettings,
@@ -213,98 +242,118 @@ fun WorldMapStandardMode(
                         onMapClicked?.invoke(latLng)
                     }
                 ) {
-                    // If camera is moving, determine the reason for the move and if this is a User gesture, set should follow player to false.
-                    if(cameraPositionState.isMoving && cameraPositionState.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE) {
-                        shouldFollowPlayer = false
-                    }
-                    // Now, get the visible region in viewport, and as soon as camera stops moving, submit a bounding box changed event.
-                    cameraPositionState.projection?.visibleRegion?.let { visibleRegion ->
-                        // If visible region is not null, and the camera is not moving, call bounding box changed.
-                        if(!cameraPositionState.isMoving) {
-                            onBoundingBoxChanged?.let { it(visibleRegion, cameraPositionState.position.zoom) }
-                        }
-                    }
-                    // Draw the current User to the map, we will use the last location here.
-                    if(currentLocationWithOrientation != null) {
-                        // Draw the current Player to the map.
-                        DrawCurrentPlayer(
-                            newPlayerPositionWithOrientation = currentLocationWithOrientation,
-                            oldPlayerPositionWithOrientation = lastLocationWithOrientation,
-                            isFollowing = shouldFollowPlayer
-                        )
-                        lastLocationWithOrientation = currentLocationWithOrientation
-                    }
-                    // Setup a launched effect that will restart on change of either following player or currently previewing world object. The point of this is to
-                    // animate the camera to follow the Player, and also to set the tilt for the camera to 0 if player is no longer being followed.
-                    LaunchedEffect(key1 = shouldFollowPlayer, key2 = isPreviewingWorldObject, block = {
-                        // If not previewing world object...
-                        if(!isPreviewingWorldObject) {
-                            // If should follow player, animate to following them.
-                            if(shouldFollowPlayer) {
-                                cameraPositionState.animate(
-                                    lastLocationWithOrientation.toFollowCameraUpdate(
-                                        zoom = 18f
-                                    ),
-                                    500
-                                )
-                            } else {
-                                // Otherwise, adjust camera to no longer be following; essentially camera is positioned exactly where it is, but with no tilt.
-                                cameraPositionState.move(cameraPositionState.position.noTilt())
+                    LaunchedEffect(
+                        key1 = cameraPositionState.isMoving,
+                        key2 = cameraPositionState.position.bearing,
+                        block = {
+                            if(cameraPositionState.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE) {
+                                shouldFollowPlayer = false
+
+                                if(!cameraPositionState.isMoving) {
+                                    cameraPositionState.projection?.visibleRegion?.let { visibleRegion ->
+                                        onBoundingBoxChanged?.invoke(visibleRegion, cameraPositionState.position.zoom)
+                                    }
+                                }
                             }
+                        }
+                    )
+
+                    LaunchedEffect(
+                        key1 = shouldFollowPlayer,
+                        key2 = isPreviewingWorldObject,
+                        block = {
+                            // If not previewing world object...
+                            if(!isPreviewingWorldObject) {
+                                // If should follow player, animate to following them.
+                                if(shouldFollowPlayer) {
+                                    cameraPositionState.animate(
+                                        CameraUpdateFactory.newCameraPosition(
+                                            locationWithOrientation.toFollowCameraPosition()
+                                        ),
+                                        500
+                                    )
+                                }
+                            }
+                        }
+                    )
+
+                    LaunchedEffect(key1 = followCameraPosition, block = {
+                        if(shouldFollowPlayer && followCameraPosition != null && !cameraPositionState.isMoving) {
+                            cameraPositionState.move(
+                                CameraUpdateFactory.newCameraPosition(
+                                    followCameraPosition!!
+                                )
+                            )
                         }
                     })
 
-                    // Now, move the camera to follow the Player, but only if we're currently not previewing anything.
-                    if(shouldFollowPlayer && !isPreviewingWorldObject) {
-                        cameraPositionState.move(
-                            lastLocationWithOrientation.toFollowCameraUpdate(
-                                zoom = 18f
-                            )
-                        )
-                    }
-                    // Now, draw world objects to the map based on world objects state.
-                    when(worldObjectsUi) {
-                        is WorldObjectsUiState.GotWorldObjects -> {
-                            // Draw world objects to the map. Start with tracks.
-                            worldObjectsUi.tracks.forEach { trackWithPath ->
-                                DrawRaceTrack(
-                                    track = trackWithPath.track,
-                                    trackPath = trackWithPath.path,
-                                    onTrackMarkerClicked = { marker, track ->
-                                        // When the track marker is clicked, set the previewing track UID to the desired track, to show the dialog.
-                                        previewingTrackUid = track.trackUid
-                                        // Set us as previewing something.
-                                        isPreviewingWorldObject = true
-                                        // Invoke the on track clicked callback to perform the download of the track's path.
-                                        onTrackMarkerClicked?.invoke(marker, track)
-                                    }
-                                )
+                    if(worldObjectsUi is WorldObjectsUiState.CurrentWorldObjects) {
+                        cameraPositionState.projection?.visibleRegion?.let { currentVisibleRegion ->
+                            // Determine latest display mode for tracks.
+                            val trackDisplayMode = when {
+                                cameraPositionState.position.zoom < 15f && cameraPositionState.position.zoom >= 12f ->
+                                    RaceTrackDisplayMode.Partial
+                                cameraPositionState.position.zoom < 12f ->
+                                    RaceTrackDisplayMode.None
+                                else -> RaceTrackDisplayMode.Full
                             }
-                            // After drawing everything to the map, check whether we are previewing anything,
-                            if(isPreviewingWorldObject) {
-                                // Now, decide which what we're previewing and call the appropriate composable.
-                                if(previewingTrackUid != null) {
-                                    // Otherwise, if we have a previewing track Uid, call the show track preview composable to handle everything else.
-                                    ShowPreviewTrack(
-                                        previewingTrackUid!!,
-                                        worldObjectsUi.tracks,
-                                        cameraPositionState,
-                                        onRaceModeClicked = onRaceModeClicked,
-                                        onViewTrackDetailClicked = onViewTrackDetail,
-                                        onViewUserDetail = onViewUserDetail,
-                                        onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
-                                        onDismiss = {
-                                            // Set the track being previewed to null.
-                                            previewingTrackUid = null
-                                            // Set us as no longer previewing anything.
-                                            isPreviewingWorldObject = false
+                            worldObjectsUi.tracks.forEach { trackWithPath ->
+                                if(currentVisibleRegion.latLngBounds.contains(LatLng(trackWithPath.track.startPoint.latitude, trackWithPath.track.startPoint.longitude))
+                                    || (trackWithPath.path?.getBoundingBox()?.let { currentVisibleRegion.toBoundingBox().overlapsWith(it) } == true)) {
+                                    DrawRaceTrack(
+                                        track = trackWithPath.track,
+                                        trackPath = trackWithPath.path,
+                                        displayMode = trackDisplayMode,
+                                        onTrackMarkerClicked = { track ->
+                                            // When the track marker is clicked, set the previewing track UID to the desired track, to show the dialog.
+                                            previewingTrackUid = track.trackUid
+                                            // Set us as previewing something.
+                                            isPreviewingWorldObject = true
+                                            // Invoke the on track clicked callback to perform the download of the track's path.
+                                            onTrackMarkerClicked?.invoke(track)
                                         }
                                     )
                                 }
                             }
                         }
-                        is WorldObjectsUiState.Loading -> {
-                            // TODO: loading world objects to map.
+                    }
+                }
+
+                // Here, we'll draw the overlay.
+                if(worldObjectsUi is WorldObjectsUiState.CurrentWorldObjects) {
+                    MapOverlay(
+                        cameraPositionState = cameraPositionState
+                    ) {
+                        DrawCurrentPlayer(
+                            currentPlayer = worldObjectsUi.currentPlayer,
+                            isBeingFollowed = shouldFollowPlayer,
+                            onNewCameraPosition = { latLng, rotation ->
+                                followCameraPosition = PlayerPosition(latLng.latitude, latLng.longitude, rotation, 0f, 0L)
+                                    .toFollowCameraPosition()
+                            }
+                        )
+                    }
+
+                    // After drawing everything to the map, check whether we are previewing anything,
+                    if(isPreviewingWorldObject) {
+                        // Now, decide which what we're previewing and call the appropriate composable.
+                        if(previewingTrackUid != null) {
+                            // Otherwise, if we have a previewing track Uid, call the show track preview composable to handle everything else.
+                            ShowPreviewTrack(
+                                previewingTrackUid!!,
+                                worldObjectsUi.tracks,
+                                cameraPositionState,
+                                onRaceModeClicked = onRaceModeClicked,
+                                onViewTrackDetailClicked = onViewTrackDetail,
+                                onViewUserDetail = onViewUserDetail,
+                                onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
+                                onDismiss = {
+                                    // Set the track being previewed to null.
+                                    previewingTrackUid = null
+                                    // Set us as no longer previewing anything.
+                                    isPreviewingWorldObject = false
+                                }
+                            )
                         }
                     }
                 }
@@ -374,7 +423,6 @@ fun DrawerContent(
                 .padding(16.dp),
             text = stringResource(R.string.subtitle_create)
         )
-        Timber.d("Can create tracks: ${account.canCreateTracks}")
         NavigationDrawerItem(
             label = { Text(text = stringResource(R.string.track_recorder)) },
             icon = {
@@ -458,22 +506,32 @@ fun PreviewStandardWorldMap(
     val tracks = remember {
         mutableStateListOf<TrackWithPath>()
     }
+    val players = remember {
+        mutableStateListOf<PlayerPosition>()
+    }
     HawkSpeedTheme {
-        WorldMapStandardMode(
-            standardMode = WorldMapUiState.WorldMapLoadedStandardMode(
-                playerUid = "USER01",
-                account = ExampleData.getExampleAccount(),
-                gameSettings = GameSettings(true, "", ""),
-                locationWithOrientation = PlayerPositionWithOrientation(
-                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
-                    DeviceOrientation(FloatArray(3))
-                ),
-                approximateOnly = false
+        val standardMode = WorldMapUiState.WorldMapLoadedStandardMode(
+            playerUid = "USER01",
+            account = ExampleData.getExampleAccount(),
+            gameSettings = GameSettings(true, "", ""),
+            locationWithOrientation = PlayerPositionWithOrientation(
+                PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0),
+                DeviceOrientation(FloatArray(3))
             ),
-            worldObjectsUi = WorldObjectsUiState.GotWorldObjects(
+            approximateOnly = false
+        )
+
+        WorldMapStandardMode(
+            standardMode = standardMode,
+            worldObjectsUi = WorldObjectsUiState.CurrentWorldObjects(
+                CurrentPlayer(
+                    ExampleData.getExampleAccount(),
+                    GameSettings(true, "", ""),
+                    PlayerPosition(0.0, 0.0, 0.0f, 0.0f, 0)
+                ),
                 tracks
             ),
-            currentLocationWithOrientation = null
+            locationWithOrientation = standardMode.locationWithOrientation
         )
     }
 }

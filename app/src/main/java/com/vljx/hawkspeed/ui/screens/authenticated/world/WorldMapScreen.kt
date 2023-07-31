@@ -2,17 +2,14 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world
 
 import android.content.Intent
 import android.hardware.Sensor
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -21,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.WorldService
 import com.vljx.hawkspeed.domain.ResourceError
@@ -35,7 +33,6 @@ import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.world.GameSettings
-import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.ui.MainCheckSensors
 import com.vljx.hawkspeed.ui.MainConfigurePermissions
@@ -64,8 +61,8 @@ fun WorldMapScreen(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
     // Create a new callback here to handle the outcomes of permissions.
-    val permissionSettingsCallback: PermissionSettingsCallback =
-        object : PermissionSettingsCallback {
+    val locationPermissionSettingsCallback: LocationPermissionSettingsCallback =
+        object : LocationPermissionSettingsCallback {
             override fun locationPermissionsUpdated(
                 coarseAccessGranted: Boolean,
                 fineAccessGranted: Boolean
@@ -74,24 +71,34 @@ fun WorldMapScreen(
             override fun locationSettingsAppropriate(appropriate: Boolean) =
                 worldMapViewModel.updateLocationSettings(appropriate)
         }
+    // Create a new callback here to handle outcome of activity recog permission.
+    val activityRecognitionPermissionCallback: ActivityRecognitionPermissionCallback =
+        object : ActivityRecognitionPermissionCallback {
+            override fun activityRecognitionPermissionGranted() =
+                worldMapViewModel.updateActivityRecognitionPermission(true)
+
+            override fun activityRecognitionPermissionRefused() =
+                worldMapViewModel.updateActivityRecognitionPermission(false)
+        }
     // Get the current activity we're associated with, and check that it is an instance of MainConfigurePermissions.
     // If so, call for location settings resolution.
     val activityContext = LocalContext.current.getActivity()
 
-    val worldMapUiState: WorldMapUiState by worldMapViewModel.worldMapUiState.collectAsState()
+    val worldMapUiState: WorldMapUiState by worldMapViewModel.worldMapUiState.collectAsStateWithLifecycle()
     when (worldMapUiState) {
         is WorldMapUiState.WorldMapLoadedStandardMode -> {
             // Also recompose when current location changes.
-            val currentLocationWithOrientation: PlayerPositionWithOrientation? by worldMapViewModel.currentLocationWithOrientation.collectAsState()
+            val currentLocationWithOrientation: PlayerPositionWithOrientation? by worldMapViewModel.currentLocationWithOrientation.collectAsStateWithLifecycle()
             // When map has been loaded call the world map composable.
             val standardMode = worldMapUiState as WorldMapUiState.WorldMapLoadedStandardMode
             // Collect world objects state here.
-            val worldObjectsUi by worldMapViewModel.worldObjectsUiState.collectAsState()
+            val worldObjectsUi by worldMapViewModel.worldObjectsUiState.collectAsStateWithLifecycle()
 
             WorldMapStandardMode(
                 standardMode = standardMode,
                 worldObjectsUi = worldObjectsUi,
-                currentLocationWithOrientation = currentLocationWithOrientation,
+                locationWithOrientation = currentLocationWithOrientation
+                    ?: standardMode.locationWithOrientation,
 
                 onViewCurrentProfileClicked = onViewCurrentProfileClicked,
                 onViewVehiclesClicked = onViewVehiclesClicked,
@@ -114,7 +121,7 @@ fun WorldMapScreen(
                 onViewRaceLeaderboardDetail = onViewRaceLeaderboardDetail,
 
                 onBoundingBoxChanged = worldMapViewModel::updateViewport,
-                onTrackMarkerClicked = { marker, track ->
+                onTrackMarkerClicked = { track ->
                     // When a track marker has been clicked, use the world map view model to download the desired track's full path.
                     worldMapViewModel.downloadTrack(track)
                 },
@@ -200,7 +207,7 @@ fun WorldMapScreen(
                 onShouldRetryPermissionAndSettings = {
                     if (activityContext is MainConfigurePermissions) {
                         // Retry will simply call the resolve function again for a retry of that flow.
-                        activityContext.resolveLocationPermission(permissionSettingsCallback)
+                        activityContext.resolveLocationPermission(locationPermissionSettingsCallback)
                     }
                 },
                 permissionState = worldMapUi.permissionState,
@@ -232,7 +239,11 @@ fun WorldMapScreen(
                 if (activityContext is MainConfigurePermissions) {
                     // Call for resolution, setting our callback above.
                     activityContext.resolveLocationPermission(
-                        permissionSettingsCallback
+                        locationPermissionSettingsCallback
+                    )
+                    // Call for resolution for activity recog API.
+                    activityContext.resolveActivityRecognitionPermission(
+                        activityRecognitionPermissionCallback
                     )
                 } else {
                     throw IllegalStateException("Activity WorldMapScreen is attached to is not a MainConfigurePermissions!")

@@ -4,19 +4,24 @@ import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 
 sealed class WorldMapRecordTrackUiState {
     /**
-     * The recording state. Use this when the track is being recorded. Options to stop the ongoing track recording, and to cancel the track recording should be present.
-     * This state will be updated with the latest track with points, after the latest point is inserted.
+     * A state that indicates a track type should be selected, then that type be passed to the new track function to trigger the creation of a new track.
      */
-    data class Recording(
-        val trackDraftWithPoints: TrackDraftWithPoints,
-        val totalLength: String
-    ): WorldMapRecordTrackUiState()
+    object MustCreateNewTrack: WorldMapRecordTrackUiState()
 
     /**
      * The new track state. Use this when a new track has been created. Options to start recording the new track, and to cancel the track recording should be present.
      */
     data class NewTrack(
         val trackDraftWithPoints: TrackDraftWithPoints
+    ): WorldMapRecordTrackUiState()
+
+    /**
+     * The recording state. Use this when the track is being recorded. Options to stop the ongoing track recording, and to cancel the track recording should be present.
+     * This state will be updated with the latest track with points, after the latest point is inserted.
+     */
+    data class Recording(
+        val trackDraftWithPoints: TrackDraftWithPoints,
+        val totalLength: String
     ): WorldMapRecordTrackUiState()
 
     /**

@@ -1,5 +1,6 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world
 
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,8 @@ import com.vljx.hawkspeed.domain.exc.socket.NetworkConnectivityException
 import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.domain.models.user.User
+import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
 import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
@@ -22,6 +25,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.world.RequestGetWorldObjects
 import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
+import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetNetworkConnectivityUseCase
@@ -55,14 +59,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class WorldMapViewModel @Inject constructor(
+    getCachedAccountUseCase: GetCachedAccountUseCase,
+    getSettingsUseCase: GetSettingsUseCase,
+    getCurrentLocationUseCase: GetCurrentLocationUseCase,
     getCurrentLocationAndOrientationUseCase: GetCurrentLocationAndOrientationUseCase,
     getWorldSocketStateUseCase: GetWorldSocketStateUseCase,
     getNetworkConnectivityUseCase: GetNetworkConnectivityUseCase,
 
-    private val getCachedAccountUseCase: GetCachedAccountUseCase,
     private val getWorldObjectsUseCase: GetWorldObjectsUseCase,
     private val getTrackWithPathUseCase: GetTrackWithPathUseCase,
-
     private val requestJoinWorldUseCase: RequestJoinWorldUseCase,
     private val requestLeaveWorldUseCase: RequestLeaveWorldUseCase,
     private val sendViewportUpdateUseCase: SendViewportUpdateUseCase,
@@ -77,7 +82,8 @@ class WorldMapViewModel @Inject constructor(
         val locationPermissionState: LocationPermissionState,
         val locationSettingsState: LocationSettingsState,
         val sensorState: SensorState,
-        val networkConnectivity: Boolean
+        val networkConnectivity: Boolean,
+        val activityRecognition: Boolean
     )
 
     /**
@@ -87,6 +93,49 @@ class WorldMapViewModel @Inject constructor(
         val locationWithOrientation: PlayerPositionWithOrientation?,
         val socketState: WorldSocketState
     )
+
+    /**
+     * A shared flow for the latest location permission state, we will replay a single value.
+     */
+    private val mutableLocationPermissionState: MutableSharedFlow<LocationPermissionState> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * A shared flow for the latest location settings state, we will replay a single value.
+     */
+    private val mutableLocationSettingsState: MutableSharedFlow<LocationSettingsState> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * A shared flow for the latest permission status for activity recognition.
+     */
+    private val mutableActivityRecognitionGranted: MutableSharedFlow<Boolean> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * A shared flow for the latest sensors state; replay 1 value.
+     */
+    private val mutableSensorsState: MutableSharedFlow<SensorState> = MutableSharedFlow(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * A mutable state flow for the current world action state.
+     */
+    private val mutableWorldActionState: MutableStateFlow<WorldActionState> = MutableStateFlow(WorldActionState.StandardMode)
+
+    /**
+     * The current request for world objects. Emitting to this state flow will cause a revision of world objects currently
+     * displayed on the map.
+     */
+    private val mutableCurrentRequestGetWorldObjects: MutableStateFlow<RequestGetWorldObjects> = MutableStateFlow(RequestGetWorldObjects())
 
     /**
      * Get the current account cached in storage. We'll configure this as a state flow.
@@ -101,6 +150,12 @@ class WorldMapViewModel @Inject constructor(
     private val innerCurrentLocationWithOrientation: StateFlow<PlayerPositionWithOrientation?> =
         getCurrentLocationAndOrientationUseCase(Unit)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Get the current Player's most recent position.
+     */
+    private val currentLocation: StateFlow<PlayerPosition?> =
+        getCurrentLocationUseCase(Unit)
 
     /**
      * Get the current world socket session's state.
@@ -138,48 +193,12 @@ class WorldMapViewModel @Inject constructor(
         getNetworkConnectivityUseCase(Unit)
 
     /**
-     * The current request for world objects. Emitting to this state flow will cause a revision of world objects currently
-     * displayed on the map.
-     */
-    private val mutableCurrentRequestGetWorldObjects: MutableStateFlow<RequestGetWorldObjects> = MutableStateFlow(RequestGetWorldObjects())
-
-    /**
      * A flow that will collect all game settings, this includes things like; whether the Player is allowing the game, the server's connection info and
      * any identity data we'll need to actually connect.
      */
-    // TODO: this should be retrieved from cache.
     private val gameSettings: StateFlow<GameSettings?> =
-        MutableStateFlow(
-            GameSettings(
-                true,
-                "ENTRY TOKEN",
-                "http://192.168.0.44:5000"
-            )
-        )
-
-    /**
-     * A shared flow for the latest location permission state, we will replay a single value.
-     */
-    private val mutableLocationPermissionState: MutableSharedFlow<LocationPermissionState> = MutableSharedFlow(
-        replay = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-
-    /**
-     * A shared flow for the latest location settings state, we will replay a single value.
-     */
-    private val mutableLocationSettingsState: MutableSharedFlow<LocationSettingsState> = MutableSharedFlow(
-        replay = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-
-    /**
-     * A shared flow for the latest sensors state; replay 1 value.
-     */
-    private val mutableSensorsState: MutableSharedFlow<SensorState> = MutableSharedFlow(
-        replay = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
+        getSettingsUseCase(Unit)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Combine the location permission, settings state and sensors state into a single entity.
@@ -192,20 +211,39 @@ class WorldMapViewModel @Inject constructor(
                 .distinctUntilChanged(),
             mutableSensorsState
                 .distinctUntilChanged(),
-            networkConnectivity
-        ) { permissionState, settingsState, sensorState, network ->
+            networkConnectivity,
+            mutableActivityRecognitionGranted
+                .distinctUntilChanged()
+        ) { permissionState, settingsState, sensorState, network, activityRecognition ->
             DeviceAptitude(
                 permissionState,
                 settingsState,
                 sensorState,
-                network
+                network,
+                activityRecognition
             )
         }
 
     /**
-     * A mutable state flow for the current world action state.
+     * A state flow for the current player's complete state. This is where we'll package the User in use, their changing location (according to world socket state)
+     * and any other game settings relevant to drawing them.
      */
-    private val mutableWorldActionState: MutableStateFlow<WorldActionState> = MutableStateFlow(WorldActionState.StandardMode)
+    private val currentPlayer: StateFlow<CurrentPlayer?> =
+        combine(
+            currentCachedAccount,
+            gameSettings,
+            currentLocation
+        ) { account, settings, playerPosition ->
+            if(account != null && playerPosition != null && settings != null) {
+                CurrentPlayer(
+                    account,
+                    settings,
+                    playerPosition
+                )
+            } else {
+                null
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Flat map the latest desired world objects configuration to a new flow from cache to retrieve the desired world objects.
@@ -218,13 +256,22 @@ class WorldMapViewModel @Inject constructor(
 
     /**
      * Map each emission from cache to the relevant world objects UI state. Notice that where lists are used, each must be transformed into mutable state lists to
-     * ensure compose will recompose when the list contents changes.
+     * ensure compose will recompose when the list contents changes. This state flow will combine with the current player - as this is always required for any of
+     * the world screens.
      */
     val worldObjectsUiState: StateFlow<WorldObjectsUiState> =
-        worldObjectsFlow.map { worldObjects ->
-            WorldObjectsUiState.GotWorldObjects(
-                worldObjects.tracks.toMutableStateList()
-            )
+        combine(
+            currentPlayer,
+            worldObjectsFlow
+        ) { player, worldObjects ->
+            when {
+                player != null ->
+                    WorldObjectsUiState.CurrentWorldObjects(
+                        player,
+                        worldObjects.tracks.toMutableStateList()
+                    )
+                else -> WorldObjectsUiState.Loading
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WorldObjectsUiState.Loading)
 
     /**
@@ -449,6 +496,13 @@ class WorldMapViewModel @Inject constructor(
         } else {
             mutableSensorsState.tryEmit(SensorState.MissingSensors(missingSensorReports))
         }
+    }
+
+    /**
+     * Update the status of activity recognition permission.
+     */
+    fun updateActivityRecognitionPermission(granted: Boolean) {
+        mutableActivityRecognitionGranted.tryEmit(granted)
     }
 
     /**

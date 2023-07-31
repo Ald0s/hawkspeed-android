@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vljx.hawkspeed.domain.ResourceError
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.ui.screens.common.LoadingScreen
@@ -16,7 +17,7 @@ fun SplashScreen(
     splashViewModel: SplashViewModel = hiltViewModel()
 ) {
     // Collect the splash UI state flow as a state here, which means this screen will be recomposed each time that changes.
-    val splashUiState: SplashUiState by splashViewModel.splashUiState.collectAsState()
+    val splashUiState: SplashUiState by splashViewModel.splashUiState.collectAsStateWithLifecycle()
     // Now, open a when conditional here to check which state this is.
     when(splashUiState) {
         is SplashUiState.SuccessfulAuthentication -> {
