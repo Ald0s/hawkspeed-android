@@ -17,8 +17,8 @@ android {
         applicationId "com.vljx.hawkspeed"
         minSdk 28
         targetSdk 33
-        versionCode 19
-        versionName "1.10.16"
+        versionCode 20
+        versionName "1.10.17"
 
         testInstrumentationRunner = "com.vljx.hawkspeed.HawkSpeedJUnitRunner"
         vectorDrawables {
@@ -125,8 +125,8 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     implementation("androidx.room:room-paging:$roomVersion")
 
-    // Picasso.
-    implementation "com.squareup.picasso:picasso:$picassoVersion"
+    // Coil.
+    implementation("io.coil-kt:coil-compose:$coilVersion")
 
     // Gson.
     implementation "com.google.code.gson:gson:$gsonVersion"

@@ -63,7 +63,7 @@ object ExampleData {
         title: String = "1994 Toyota Supra",
         vehicleStock: VehicleStock = VehicleStock(
             "VEHICLESTOCK01",
-            VehicleMake("MAKE01", "Toyota"),
+            VehicleMake("MAKE01", "Toyota", "EXAMPLELOGO"),
             VehicleModel("MODEL01", "Supra", "MAKE01", VehicleType("CAR", "Car", "A vehicle.")),
             1994,
             "JZA80",
@@ -137,10 +137,12 @@ object ExampleData {
 
     fun getExampleTrackPath(
         trackPathUid: String = "YARRABOULEVARD",
+        hash: String = "EXMAPLEHASHFORBOULEVARD",
         points: List<TrackPoint> = listOf()
     ): TrackPath =
         TrackPath(
             trackPathUid = trackPathUid,
+            hash = hash,
             points = points
         )
 

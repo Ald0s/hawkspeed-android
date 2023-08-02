@@ -3,7 +3,6 @@ package com.vljx.hawkspeed.ui.screens.authenticated.world
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
-import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 
 sealed class WorldObjectsUiState {
     /**

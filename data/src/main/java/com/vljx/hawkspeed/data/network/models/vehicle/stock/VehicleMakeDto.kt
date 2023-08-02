@@ -10,5 +10,9 @@ data class VehicleMakeDto(
 
     @Expose
     @SerializedName("make_name")
-    val makeName: String
+    val makeName: String,
+
+    @Expose
+    @SerializedName("logo")
+    val logoUrl: String?
 )

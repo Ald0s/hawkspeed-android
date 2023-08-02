@@ -7,9 +7,9 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.Resource
-import com.vljx.hawkspeed.domain.models.track.TrackComment
 import com.vljx.hawkspeed.domain.models.race.RaceLeaderboard
 import com.vljx.hawkspeed.domain.models.track.Track
+import com.vljx.hawkspeed.domain.models.track.TrackComment
 import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestPageTrackComments
@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch

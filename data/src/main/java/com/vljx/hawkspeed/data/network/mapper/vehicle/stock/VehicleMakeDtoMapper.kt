@@ -11,7 +11,8 @@ class VehicleMakeDtoMapper @Inject constructor(
     override fun mapFromDto(dto: VehicleMakeDto): VehicleMakeModel {
         return VehicleMakeModel(
             dto.makeUid,
-            dto.makeName
+            dto.makeName,
+            dto.logoUrl
         )
     }
 }

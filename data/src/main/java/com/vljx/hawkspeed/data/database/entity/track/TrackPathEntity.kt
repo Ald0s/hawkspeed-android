@@ -6,5 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "track_path")
 data class TrackPathEntity(
     @PrimaryKey
-    val trackPathUid: String
+    val trackPathUid: String,
+    val hash: String
 )

@@ -19,7 +19,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,7 +34,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -98,6 +96,9 @@ class SetupAccountViewModel @Inject constructor(
     /**
      * Flat map the latest selected vehicle stock UID to to a query for that vehicle stock from cache. Configure this as a state flow with null
      * as the default value, so emissions begin immediately.
+     *
+     * TODO: code review on this flow, does not flat map selected vehicle stock UID on its own. In order for selected vehicle stock to be considered,
+     * TODO: another text input requires just a single movement. Perhaps this is a recomposition issue then?
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val selectedVehicleStock: StateFlow<VehicleStock?> =

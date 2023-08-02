@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -25,20 +25,13 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.SphericalUtil
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
-import com.vljx.hawkspeed.ui.component.mapoverlay.MapOverlayScope.Companion.MAX_DISTANCE_CHANGE_SNAP
 import com.vljx.hawkspeed.ui.component.mapoverlay.enums.CarType
 import com.vljx.hawkspeed.ui.component.mapoverlay.models.Car
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
-import timber.log.Timber
 
 /**
  * Draw the current player to the map overlay.
@@ -144,15 +137,23 @@ fun MapOverlayScope.DrawPlayer(
         }
     }
 
+    fun snapToPosition(
+        positionUpdate: AnimationQueue.PositionUpdate
+    ) {
+        // Now, update the current coordinate, rotation, the state that recomposes for them both and finally call the new camera position callback.
+        currentPositionRotation = Pair(positionUpdate.coordinate, positionUpdate.rotation)
+        onNewCameraPosition?.invoke(positionUpdate.coordinate, positionUpdate.rotation)
+    }
+
     // Remember an animation queue here.
     val animationQueue: AnimationQueue by remember {
-        mutableStateOf(AnimationQueue(scope, ::animateToPosition))
+        mutableStateOf(AnimationQueue(scope, ::animateToPosition, ::snapToPosition))
     }
 
     // Launched effect on player position that will determine when to enqueue a position update for animation.
     LaunchedEffect(key1 = playerPosition, block = {
         // Get the location from and the location to.
-        val fromLatLng = LatLng(currentPositionRotation.first.latitude, currentPositionRotation.first.longitude)
+        /*val fromLatLng = LatLng(currentPositionRotation.first.latitude, currentPositionRotation.first.longitude)
         val toLatLng = LatLng(playerPosition.latitude, playerPosition.longitude)
         // Calculate distance, in meters, from these two points. If they are greater than MAX_DISTANCE_CHANGE_SNAP, we will instead snap to this location.
         val distanceBetween = SphericalUtil.computeDistanceBetween(fromLatLng, toLatLng)
@@ -169,7 +170,14 @@ fun MapOverlayScope.DrawPlayer(
                 playerPosition.bearing,
                 playerPosition.loggedAt
             )
-        }
+        }*/
+
+        // Attempt to enqueue a new update for this object. Animation queue will handle filtering out both extreme cases of change.
+        animationQueue.enqueueNewPosition(
+            LatLng(playerPosition.latitude, playerPosition.longitude),
+            playerPosition.bearing,
+            playerPosition.loggedAt
+        )
     })
 
     worldObjectScale = getWorldObjectScale()

@@ -5,7 +5,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
@@ -35,10 +34,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,20 +44,15 @@ import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.VisibleRegion
-import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.vljx.hawkspeed.Extension.TILT_DEFAULT
-import com.vljx.hawkspeed.Extension.noTilt
 import com.vljx.hawkspeed.Extension.overlapsWith
 import com.vljx.hawkspeed.Extension.toBoundingBox
 import com.vljx.hawkspeed.Extension.toFollowCameraPosition
@@ -78,15 +70,14 @@ import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.ui.component.mapoverlay.DrawCurrentPlayer
 import com.vljx.hawkspeed.ui.component.mapoverlay.MapOverlay
-import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewModalBottomSheetScreen
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldMapUiState
 import com.vljx.hawkspeed.ui.screens.authenticated.world.WorldObjectsUiState
 import com.vljx.hawkspeed.ui.screens.common.DrawRaceTrack
 import com.vljx.hawkspeed.ui.screens.common.RaceTrackDisplayMode
+import com.vljx.hawkspeed.ui.screens.dialogs.trackpreview.TrackPreviewModalBottomSheetScreen
 import com.vljx.hawkspeed.ui.theme.HawkSpeedTheme
 import com.vljx.hawkspeed.util.ExampleData
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 /**
  * TODO: things still to fix/work on with respect to map overlays.

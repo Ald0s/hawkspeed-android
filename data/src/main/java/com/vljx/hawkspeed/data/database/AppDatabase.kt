@@ -21,7 +21,7 @@ import com.vljx.hawkspeed.data.database.entity.vehicle.stock.VehicleStockEntity
 
 @Database(
     entities = [AccountEntity::class, UserEntity::class, TrackEntity::class, TrackPathEntity::class, TrackPointEntity::class, RaceEntity::class, RaceLeaderboardEntity::class, TrackCommentEntity::class, TrackDraftEntity::class, TrackPointDraftEntity::class, VehicleEntity::class, GameSettingsEntity::class, VehicleStockEntity::class],
-    version = 56
+    version = 58
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {

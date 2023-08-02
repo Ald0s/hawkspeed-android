@@ -10,5 +10,7 @@ data class VehicleMakeEntity(
     @Expose
     val vehicleMakeUid: String,
     @Expose
-    val makeName: String
+    val makeName: String,
+    @Expose
+    val logoUrl: String?
 )

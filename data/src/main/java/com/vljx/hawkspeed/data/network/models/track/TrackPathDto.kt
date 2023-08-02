@@ -9,6 +9,10 @@ data class TrackPathDto(
     val trackUid: String,
 
     @Expose
+    @SerializedName("hash")
+    val hash: String,
+
+    @Expose
     @SerializedName("crs")
     val crs: Int,
 

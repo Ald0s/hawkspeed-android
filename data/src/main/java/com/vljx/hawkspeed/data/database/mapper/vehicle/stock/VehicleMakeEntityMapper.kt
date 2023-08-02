@@ -11,14 +11,16 @@ class VehicleMakeEntityMapper @Inject constructor(
     override fun mapFromEntity(entity: VehicleMakeEntity): VehicleMakeModel {
         return VehicleMakeModel(
             entity.vehicleMakeUid,
-            entity.makeName
+            entity.makeName,
+            entity.logoUrl
         )
     }
 
     override fun mapToEntity(model: VehicleMakeModel): VehicleMakeEntity {
         return VehicleMakeEntity(
             model.makeUid,
-            model.makeName
+            model.makeName,
+            model.logoUrl
         )
     }
 }

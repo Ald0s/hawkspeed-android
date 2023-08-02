@@ -11,14 +11,16 @@ class VehicleMakeMapper @Inject constructor(
     override fun mapFromData(model: VehicleMakeModel): VehicleMake {
         return VehicleMake(
             model.makeUid,
-            model.makeName
+            model.makeName,
+            model.logoUrl
         )
     }
 
     override fun mapToData(domain: VehicleMake): VehicleMakeModel {
         return VehicleMakeModel(
             domain.makeUid,
-            domain.makeName
+            domain.makeName,
+            domain.logoUrl
         )
     }
 }

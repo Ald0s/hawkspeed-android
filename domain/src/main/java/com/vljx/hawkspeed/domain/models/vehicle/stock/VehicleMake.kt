@@ -6,5 +6,6 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class VehicleMake(
     val makeUid: String,
-    val makeName: String
+    val makeName: String,
+    val logoUrl: String? = null
 ): Parcelable

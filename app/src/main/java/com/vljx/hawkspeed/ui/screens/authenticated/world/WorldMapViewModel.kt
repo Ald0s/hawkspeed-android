@@ -1,6 +1,5 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world
 
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,9 +11,7 @@ import com.vljx.hawkspeed.domain.exc.socket.NetworkConnectivityException
 import com.vljx.hawkspeed.domain.exc.socket.NotConnectedException
 import com.vljx.hawkspeed.domain.models.account.Account
 import com.vljx.hawkspeed.domain.models.track.Track
-import com.vljx.hawkspeed.domain.models.user.User
 import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
-import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
@@ -24,6 +21,7 @@ import com.vljx.hawkspeed.domain.requestmodels.socket.RequestLeaveWorld
 import com.vljx.hawkspeed.domain.requestmodels.socket.RequestViewportUpdate
 import com.vljx.hawkspeed.domain.requestmodels.track.RequestGetTrackWithPath
 import com.vljx.hawkspeed.domain.requestmodels.world.RequestGetWorldObjects
+import com.vljx.hawkspeed.domain.states.socket.WorldSocketState
 import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
 import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
@@ -52,7 +50,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject

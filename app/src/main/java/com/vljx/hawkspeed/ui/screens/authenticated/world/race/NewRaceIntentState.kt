@@ -1,7 +1,6 @@
 package com.vljx.hawkspeed.ui.screens.authenticated.world.race
 
 import com.vljx.hawkspeed.domain.ResourceError
-import com.vljx.hawkspeed.domain.models.world.PlayerPosition
 import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 
 sealed class NewRaceIntentState {

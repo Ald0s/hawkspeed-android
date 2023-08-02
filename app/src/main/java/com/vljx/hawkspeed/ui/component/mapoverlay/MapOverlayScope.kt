@@ -101,9 +101,6 @@ class MapOverlayScope(
         )
 
     companion object {
-        // In meters.
-        const val MAX_DISTANCE_CHANGE_SNAP = 500
-
         const val DEFAULT_REFERENCE_ZOOM = 11f
 
         const val FULL_ANGLE = 360

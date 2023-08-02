@@ -10,6 +10,7 @@ import java.lang.IndexOutOfBoundsException
 @Parcelize
 data class TrackPath(
     val trackPathUid: String,
+    val hash: String,
     val points: List<TrackPoint>
 ): Parcelable {
     /**

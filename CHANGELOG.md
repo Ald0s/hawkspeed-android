@@ -105,3 +105,10 @@
 * Added use of activity recognition to better keep track of when User is potentially driving or walking etc for purposes of scaling update frequency,
 * Implemented system to scale rate of location updates to world service by current activity, described above also,
 * Changed SetupTrackDetail* to SetupSprintTrackDetail* to allow Circuit types at some stage, too.
+
+## Version 1.10.17
+* Added vehicle make logos to the vehicle make portion of the vehicle selector,
+* Using Coil for image loading now,
+* Added password visual transformations to login & register screens,
+* Added track path hash,
+* Cleaned up some imports.

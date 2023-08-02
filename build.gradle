@@ -46,7 +46,7 @@ ext {
 
     dataStorePreferencesVersion = "1.0.0"
 
-    picassoVersion = "2.8"
+    coilVersion = "2.4.0"
 
     kotlinXCoroutinesVersion = "1.7.1"
 

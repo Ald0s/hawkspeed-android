@@ -1,24 +1,20 @@
 package com.vljx.hawkspeed.ui.screens.common
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
 import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberMarkerState
 import com.vljx.hawkspeed.R
 import com.vljx.hawkspeed.domain.models.track.Track
 import com.vljx.hawkspeed.domain.models.track.TrackPath
-import com.vljx.hawkspeed.domain.models.track.TrackWithPath
 import com.vljx.hawkspeed.util.ThirdParty
 
 const val DEFAULT_RACE_TRACK_WIDTH = 25f
@@ -53,13 +49,20 @@ fun DrawRaceTrack(
             track.startPoint.longitude
         )
     )
-    val trackPathLatLng by remember {
-        derivedStateOf {
-            trackPath?.points?.map { trackPoint ->
-                LatLng(trackPoint.latitude, trackPoint.longitude)
-            } ?: listOf()
-        }
+    var trackPathLatLng by remember {
+        mutableStateOf<List<LatLng>>(listOf())
     }
+
+    LaunchedEffect(
+        key1 = trackPath?.hash,
+        block = {
+            trackPath?.points?.let { trackPoints ->
+                trackPathLatLng = trackPoints.map { trackPoint ->
+                    LatLng(trackPoint.latitude, trackPoint.longitude)
+                }
+            }
+        }
+    )
 
     // If display mode full or partial, draw the marker.
     if(displayMode is RaceTrackDisplayMode.Full || displayMode is RaceTrackDisplayMode.Partial) {

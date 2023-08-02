@@ -11,6 +11,7 @@ class TrackPathWithPointsMapper @Inject constructor(
     override fun mapFromData(model: TrackPathWithPointsModel): TrackPath {
         return TrackPath(
             model.trackPathUid,
+            model.hash,
             trackPointMapper.mapFromDataList(model.points)
         )
     }
@@ -18,6 +19,7 @@ class TrackPathWithPointsMapper @Inject constructor(
     override fun mapToData(domain: TrackPath): TrackPathWithPointsModel {
         return TrackPathWithPointsModel(
             domain.trackPathUid,
+            domain.hash,
             trackPointMapper.mapToDataList(domain.points)
         )
     }

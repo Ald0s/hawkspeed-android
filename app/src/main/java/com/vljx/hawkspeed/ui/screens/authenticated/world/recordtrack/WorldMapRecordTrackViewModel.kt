@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.SphericalUtil
 import com.vljx.hawkspeed.Extension.prettyLength
 import com.vljx.hawkspeed.data.di.qualifier.IODispatcher
 import com.vljx.hawkspeed.domain.enums.TrackType
@@ -13,25 +12,22 @@ import com.vljx.hawkspeed.domain.models.track.TrackDraftWithPoints
 import com.vljx.hawkspeed.domain.models.world.CurrentPlayer
 import com.vljx.hawkspeed.domain.models.world.GameSettings
 import com.vljx.hawkspeed.domain.models.world.PlayerPosition
-import com.vljx.hawkspeed.domain.models.world.PlayerPositionWithOrientation
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestAddTrackPointDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestNewTrackDraft
 import com.vljx.hawkspeed.domain.requestmodels.track.draft.RequestTrackPointDraft
 import com.vljx.hawkspeed.domain.usecase.account.GetCachedAccountUseCase
 import com.vljx.hawkspeed.domain.usecase.account.GetSettingsUseCase
-import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationAndOrientationUseCase
 import com.vljx.hawkspeed.domain.usecase.socket.GetCurrentLocationUseCase
+import com.vljx.hawkspeed.domain.usecase.track.draft.AddTrackPointDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.DeleteTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.GetTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.NewTrackDraftUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.ResetTrackDraftPointsUseCase
 import com.vljx.hawkspeed.domain.usecase.track.draft.SaveTrackDraftUseCase
-import com.vljx.hawkspeed.domain.usecase.track.draft.AddTrackPointDraftUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,12 +36,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.combineTransform
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
@@ -53,7 +45,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.math.roundToInt
 
 /**
  * TODO: allow editing at some stage.
